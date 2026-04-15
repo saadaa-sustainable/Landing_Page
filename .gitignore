@@ -1,0 +1,25 @@
+# Dependencies
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Environment — NEVER commit credentials
+.env
+.env.local
+.env.production
+
+# Large data files
+*.csv
+*.xlsx
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Vercel
+.vercel/
