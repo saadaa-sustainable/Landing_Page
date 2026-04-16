@@ -193,22 +193,27 @@
 
     .scroll {
       overflow-y: auto;
+      overflow-x: hidden;
       padding: 20px 24px;
       flex: 1;
     }
 
     ::-webkit-scrollbar {
-      width: 4px;
-      height: 4px;
+      width: 8px;
+      height: 8px;
     }
 
     ::-webkit-scrollbar-track {
-      background: transparent;
+      background: rgba(255, 255, 255, .03);
     }
 
     ::-webkit-scrollbar-thumb {
       background: var(--bd2);
-      border-radius: 2px;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(212, 180, 131, .35);
     }
 
     /* ── HOME HERO ── */
@@ -428,10 +433,12 @@
       border: 1px solid var(--bd);
       border-radius: var(--r);
       overflow: hidden;
+      width: 100%;
     }
 
     .tbl-scr {
       overflow-x: auto;
+      width: 100%;
     }
 
     /* ── TOOLBAR ── */
@@ -2159,50 +2166,56 @@
       <div class="ab-chips" id="alertChips"></div>
       <button class="ibtn" onclick="document.getElementById('alertBar').classList.add('hidden')">✕</button>
     </div>
-    <div class="home-hero" id="homeHero"></div>
-    <div class="scroll">
-      <div class="sec-hdr">
-        <div class="sec-title">Product Overview</div>
-        <div style="display:flex;align-items:center;gap:10px;">
-          <span class="sec-meta" id="homeCount">— products</span>
-          <div class="nav-btns">
-            <button class="nav-btn" onclick="goPage('inv')">▦ Inventory →</button>
-            <button class="nav-btn" onclick="goPage('traf')">↗ Traffic →</button>
-            <button class="nav-btn" onclick="goPage('ads')">◎ Ad Intel →</button>
+    <!-- SINGLE scroll zone: hero + sticky header + table -->
+    <div class="scroll" id="homeScroll" style="padding:0;">
+      <div class="home-hero" id="homeHero"></div>
+      <!-- Sticky bar: title + filters (pins when hero scrolls away) -->
+      <div id="homeSticky"
+        style="position:sticky;top:0;z-index:20;background:var(--bg);padding:10px 14px 6px;border-bottom:1px solid var(--bd);">
+        <div class="sec-hdr" style="margin-bottom:6px;">
+          <div class="sec-title">Product Overview</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span class="sec-meta" id="homeCount">— products</span>
+            <div class="nav-btns">
+              <button class="nav-btn" onclick="goPage('inv')">▦ Inventory →</button>
+              <button class="nav-btn" onclick="goPage('traf')">↗ Traffic →</button>
+              <button class="nav-btn" onclick="goPage('ads')">◎ Ad Intel →</button>
+            </div>
           </div>
         </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+          <div class="tg"><span class="tb-lbl">Lifecycle</span>
+            <select class="filter-select" id="hlcSelect" onchange="setHLC(this.value)">
+              <option value="all">All</option>
+              <option value="npd">🌱 NPD</option>
+              <option value="active">Active</option>
+              <option value="discontinued">Discontinued</option>
+            </select>
+          </div>
+          <div class="tg"><span class="tb-lbl">Stock</span>
+            <select class="filter-select" id="hfSelect" onchange="setHF(this.value)">
+              <option value="all">All</option>
+              <option value="in">In Stock</option>
+              <option value="low">Low Stock</option>
+              <option value="out">Out of Stock</option>
+              <option value="leak">⚠ Ad Leakage</option>
+            </select>
+          </div>
+          <div class="tg"><span class="tb-lbl">Category</span>
+            <select class="filter-select" id="hcatSelect" onchange="setHCat(this.value)">
+              <option value="all">All Categories</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:4px;margin-right:8px;">
+            <button class="pill on" id="hv-product" onclick="setHView('product')">Products</button>
+            <button class="pill" id="hv-collection" onclick="setHView('collection')">Collections</button>
+          </div>
+          <input class="srch" id="homeSrch" placeholder="Search product…" oninput="renderHome()"
+            style="margin-left:auto;">
+        </div>
       </div>
-      <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center;">
-        <div class="tg"><span class="tb-lbl">Lifecycle</span>
-          <select class="filter-select" id="hlcSelect" onchange="setHLC(this.value)">
-            <option value="all">All</option>
-            <option value="npd">🌱 NPD</option>
-            <option value="active">Active</option>
-            <option value="discontinued">Discontinued</option>
-          </select>
-        </div>
-        <div class="tg"><span class="tb-lbl">Stock</span>
-          <select class="filter-select" id="hfSelect" onchange="setHF(this.value)">
-            <option value="all">All</option>
-            <option value="in">In Stock</option>
-            <option value="low">Low Stock</option>
-            <option value="out">Out of Stock</option>
-            <option value="leak">⚠ Ad Leakage</option>
-          </select>
-        </div>
-        <div class="tg"><span class="tb-lbl">Category</span>
-          <select class="filter-select" id="hcatSelect" onchange="setHCat(this.value)">
-            <option value="all">All Categories</option>
-          </select>
-        </div>
-        <div style="display:flex;gap:4px;margin-right:8px;">
-          <button class="pill on" id="hv-product" onclick="setHView('product')">Products</button>
-          <button class="pill" id="hv-collection" onclick="setHView('collection')">Collections</button>
-        </div>
-        <input class="srch" id="homeSrch" placeholder="Search product…" oninput="renderHome()"
-          style="margin-left:auto;">
-      </div>
-      <div class="prod-tbl-wrap">
+      <!-- Table: full width edge-to-edge -->
+      <div class="prod-tbl-wrap" style="border-radius:0;border-left:none;border-right:none;">
         <div class="tbl-scr">
           <table class="dtbl">
             <thead>
@@ -2595,8 +2608,116 @@
       </div>
       <div style="flex:1;"></div>
       <button class="nav-btn" onclick="goPage('home')">← Overview</button>
+      <button class="ibtn" onclick="openAdDefinitionPopup()"
+        style="background:rgba(212,180,131,.10);border-color:var(--sand);color:var(--sand);">◈ Definitions</button>
       <button class="ibtn" onclick="toggleEl('metaAdsCpanel')">⚙ Upload Meta Data</button>
     </div>
+
+    <!-- Ad Intelligence Definition Popup -->
+    <div id="adDefOverlay"
+      style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);"
+      onclick="if(event.target===this)closeAdDefinitionPopup()">
+      <div
+        style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(580px,92vw);max-height:85vh;overflow-y:auto;background:var(--sf);border:1px solid var(--bd2);border-radius:10px;padding:28px 26px 22px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+          <div
+            style="font-family:'Cormorant Garamond',serif;font-size:1.15rem;font-weight:600;color:var(--sand);letter-spacing:.5px;">
+            ◈ Ad Intelligence — Definitions</div>
+          <button onclick="closeAdDefinitionPopup()"
+            style="background:none;border:none;color:var(--mu2);font-size:1.1rem;cursor:pointer;">✕</button>
+        </div>
+
+        <!-- Thresholds Section -->
+        <div
+          style="background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:16px 18px;margin-bottom:16px;">
+          <div
+            style="font-family:'JetBrains Mono',monospace;font-size:.7rem;font-weight:600;color:var(--tx);margin-bottom:10px;">
+            FILTER THRESHOLDS</div>
+          <div style="display:flex;gap:16px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:140px;">
+              <label
+                style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--mu2);display:block;margin-bottom:4px;">TARGET
+                IMPRESSIONS</label>
+              <input type="number" id="adDefTargetImp" value="50000"
+                style="width:100%;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--tx);background:var(--bg);border:1px solid var(--bd2);border-radius:5px;padding:6px 10px;" />
+              <div style="font-family:'JetBrains Mono',monospace;font-size:.48rem;color:var(--mu2);margin-top:3px;">Min
+                impressions for an ad to be evaluated</div>
+            </div>
+            <div style="flex:1;min-width:140px;">
+              <label
+                style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--mu2);display:block;margin-bottom:4px;">TARGET
+                ROAS</label>
+              <input type="number" id="adDefTargetRoas" value="3.0" step="0.1"
+                style="width:100%;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--tx);background:var(--bg);border:1px solid var(--bd2);border-radius:5px;padding:6px 10px;" />
+              <div style="font-family:'JetBrains Mono',monospace;font-size:.48rem;color:var(--mu2);margin-top:3px;">ROAS
+                ≥ this value = Winner (green)</div>
+            </div>
+          </div>
+          <button onclick="applyAdDefThresholds()" class="ibtn acc" style="margin-top:12px;font-size:.6rem;">Apply &
+            Refresh →</button>
+        </div>
+
+        <!-- Ad Matching Algorithm -->
+        <div
+          style="background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:16px 18px;margin-bottom:16px;">
+          <div
+            style="font-family:'JetBrains Mono',monospace;font-size:.7rem;font-weight:600;color:var(--tx);margin-bottom:8px;">
+            AD ↔ ORDER MATCHING ALGORITHM</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--mu);line-height:1.7;">
+            <span style="color:var(--sand);font-weight:600;">Step 1 — Build UTM Map from Orders:</span><br>
+            For each Shopify order, extract <code style="color:#4ade80;">utm_content</code> from customAttributes. Group
+            orders by utm_content to build a lookup of {utm_content → orders, revenue, products}.<br><br>
+            <span style="color:var(--sand);font-weight:600;">Step 2 — Match Meta Ad Name → utm_content:</span><br>
+            For each Meta ad, try to match its <code style="color:#4ade80;">Ad Name</code> against the utm_content map
+            using: ① Exact match, ② URL-decoded match, ③ Partial/substring match.<br><br>
+            <span style="color:var(--sand);font-weight:600;">Step 3 — Compute ROAS:</span><br>
+            <code style="color:#4ade80;">ROAS = Matched Revenue ÷ Ad Spend</code><br>
+            Revenue comes from the sum of order totals (net of refunds/discounts) where utm_content matched the ad name.
+          </div>
+        </div>
+
+        <!-- ROAS Classification -->
+        <div
+          style="background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:16px 18px;margin-bottom:16px;">
+          <div
+            style="font-family:'JetBrains Mono',monospace;font-size:.7rem;font-weight:600;color:var(--tx);margin-bottom:8px;">
+            ROAS COLOR CLASSIFICATION</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--mu);line-height:1.9;">
+            <span
+              style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#4ade80;vertical-align:middle;margin-right:6px;"></span>
+            <span style="color:#4ade80;font-weight:600;">Winner</span> — ROAS ≥ <span id="adDefRoasLabel1">3.0</span>x
+            (profitable, scale up)<br>
+            <span
+              style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--low);vertical-align:middle;margin-right:6px;"></span>
+            <span style="color:var(--low);font-weight:600;">Breakeven</span> — ROAS ≥ 1.0x but below target (covers
+            cost, needs optimization)<br>
+            <span
+              style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--out);vertical-align:middle;margin-right:6px;"></span>
+            <span style="color:var(--out);font-weight:600;">Losing</span> — ROAS < 1.0x (spending more than earning,
+              pause or rework)<br>
+              <span
+                style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--mu2);vertical-align:middle;margin-right:6px;"></span>
+              <span style="color:var(--mu2);font-weight:600;">No Data</span> — No matched orders yet (new ad or UTM
+              mismatch)
+          </div>
+        </div>
+
+        <!-- Product Matching -->
+        <div style="background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:16px 18px;">
+          <div
+            style="font-family:'JetBrains Mono',monospace;font-size:.7rem;font-weight:600;color:var(--tx);margin-bottom:8px;">
+            PRODUCT DETECTION</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--mu);line-height:1.7;">
+            <span style="color:var(--sand);font-weight:600;">Primary:</span> From matched orders → most purchased
+            product in those orders.<br>
+            <span style="color:var(--sand);font-weight:600;">Fallback:</span> If no order match, scan the Ad Name for
+            known product names or slugs from the catalog (~250 products).
+          </div>
+        </div>
+
+      </div>
+    </div>
+
     <div class="scroll" id="adsScroll">
       <div class="krow k6" id="adKpis"></div>
       <div id="adView"></div>
@@ -2902,10 +3023,28 @@
     }
 
     // ── COLOR EXTRACTION ──
+    // ── COLOR GROUP MAPPING ──
+    const COLOR_GROUPS = {
+      'Green': ['Olive Green', 'Mint Green', 'Sage Green', 'Forest Green', 'Jade', 'Teal', 'Turquoise'],
+      'Blue': ['Navy Blue', 'Sky Blue', 'English Blue', 'Royal Blue', 'Powder Blue', 'Peacock Blue', 'Navy', 'Light Blue'],
+      'Pink/Purple': ['Lilac', 'Mauve', 'Rose Taupe', 'Hot Pink', 'Blush Pink', 'Salmon Pink', 'Brinjal', 'Rose', 'Light Pink', 'Raspberry'],
+      'Red/Brown': ['Maroon', 'Wine', 'Coffee Brown', 'Cinnamon', 'Mocha Mousse', 'Mocha', 'Dark Brown'],
+      'Neutrals': ['White', 'Black', 'Grey', 'Beige', 'Ecru', 'Khakhi', 'Fawn', 'Cement Grey', 'Slate Grey', 'Ash', 'German Grey', 'Dark Grey', 'Taupe', 'Nude', 'Off White'],
+      'Yellow/Orange': ['Yellow', 'Peach', 'Lemon Yellow', 'Mango Yellow']
+    };
+
     function extractColor(name) {
       if (!name) return '';
-      const colors = ['White', 'Black', 'Beige', 'Grey', 'Navy Blue', 'Maroon', 'Olive Green', 'Rose Taupe', 'Yellow', 'English Blue', 'Coffee Brown', 'Wine', 'Mint Green', 'Lilac', 'Hot Pink', 'Ecru', 'Salmon Pink', 'Peach', 'Jade', 'Brinjal', 'Teal', 'Turquoise', 'Sky Blue', 'Mauve', 'German Grey', 'Cement Grey', 'Khakhi', 'Sage Green', 'Peacock Blue', 'Mocha', 'Fawn', 'Rose', 'Powder Blue', 'Dark Grey', 'Forest Green', 'Blush Pink', 'Taupe', 'Light Blue', 'Light Pink', 'Lemon Yellow', 'Slate Grey', 'Dark Brown', 'Mango Yellow', 'Navy', 'Raspberry', 'Cinnamon', 'Nude', 'Off White', 'Royal Blue', 'Ash'];
-      for (const c of colors) { if (name.toLowerCase().includes(c.toLowerCase())) return c; }
+      const nameLower = name.toLowerCase();
+
+      // Check each color group
+      for (const [group, colors] of Object.entries(COLOR_GROUPS)) {
+        for (const color of colors) {
+          if (nameLower.includes(color.toLowerCase())) {
+            return group;
+          }
+        }
+      }
       return '';
     }
 
@@ -3693,6 +3832,29 @@
       });
     }
 
+    // ── Ad Intelligence Definition Popup ──
+    let AD_TARGET_IMP = 50000;
+    let AD_TARGET_ROAS = 3.0;
+
+    function openAdDefinitionPopup() {
+      document.getElementById('adDefTargetImp').value = AD_TARGET_IMP;
+      document.getElementById('adDefTargetRoas').value = AD_TARGET_ROAS;
+      document.getElementById('adDefRoasLabel1').textContent = AD_TARGET_ROAS;
+      document.getElementById('adDefOverlay').style.display = 'block';
+    }
+    function closeAdDefinitionPopup() {
+      document.getElementById('adDefOverlay').style.display = 'none';
+    }
+    function applyAdDefThresholds() {
+      const imp = parseFloat(document.getElementById('adDefTargetImp').value) || 50000;
+      const roas = parseFloat(document.getElementById('adDefTargetRoas').value) || 3.0;
+      AD_TARGET_IMP = imp;
+      AD_TARGET_ROAS = roas;
+      document.getElementById('adDefRoasLabel1').textContent = roas;
+      closeAdDefinitionPopup();
+      renderAds();
+    }
+
     function renderAds() {
       const emptyEl = document.getElementById('adsEmpty');
       const viewEl = document.getElementById('adView');
@@ -3744,8 +3906,8 @@
         + '<th>Product</th><th>Ad Name</th><th>Campaign</th><th>Impressions</th><th>Spend (₹)</th><th>Clicks</th><th>Orders</th><th>Revenue (₹)</th><th>ROAS</th>'
         + '</tr></thead><tbody>';
       rows.slice(0, 200).forEach(r => {
-        const roasColor = r.roas >= 3 ? 'color:#4ade80' : r.roas >= 1 ? 'color:var(--low)' : r.roas > 0 ? 'color:var(--out)' : '';
-        const roasBadge = r.roas >= 3 ? 'sk-in' : r.roas >= 1 ? 'sk-low' : r.spend > 0 ? 'sk-out' : '';
+        const roasColor = r.roas >= AD_TARGET_ROAS ? 'color:#4ade80' : r.roas >= 1 ? 'color:var(--low)' : r.roas > 0 ? 'color:var(--out)' : '';
+        const roasBadge = r.roas >= AD_TARGET_ROAS ? 'sk-in' : r.roas >= 1 ? 'sk-low' : r.spend > 0 ? 'sk-out' : '';
         // Build product tooltip — show all matched products if multiple
         const prodTip = r._allProducts && r._allProducts.length > 1
           ? r._allProducts.map(([n, q]) => n + ' (' + q + ' units)').join('\n')
@@ -4209,7 +4371,7 @@
       if (!rows.length) { el.innerHTML = '<div class="empty">No products match the current filter.</div>'; return; }
       if (view === 'cards') { el.innerHTML = renderCards(rows, mode); return; }
       let th = '';
-      if (mode === 'inv') th = '<tr><th>Product</th><th>SKU</th><th>Lifecycle</th><th>Product Category</th><th>Stock</th><th>In-Stock Rate</th><th>Total Units</th><th>Sizes</th></tr>';
+      if (mode === 'inv') th = '<tr><th>Product</th><th>SKU</th><th>Lifecycle</th><th>Product Category</th><th>Stock</th><th>In-Stock Rate</th><th>Sell-Through Rate</th><th>Total Units</th><th>Sizes</th></tr>';
       else if (mode === 'traf') th = '<tr><th>Product</th><th>Visitors</th><th>Sessions</th><th>Bounce</th><th>Pg/Sess</th><th>Cart Adds</th><th>ATC%</th><th>Checkout</th><th>Top UTM</th><th>Stock</th></tr>';
       else th = '<tr><th>Product</th><th>Signal</th><th>Visitors</th><th>Cart Adds</th><th>Checkout</th><th>ATC%</th><th>Stock</th><th>Sizes</th></tr>';
       let html = '';
@@ -4240,6 +4402,15 @@
           const isr = r._inStockRate != null ? r._inStockRate : 0;
           const isrColor = isr >= 80 ? '#4ade80' : isr >= 50 ? 'var(--low)' : isr > 0 ? 'var(--out)' : 'var(--mu2)';
           const isrLabel = (r._sizesWithStockCount || 0) + '/' + (r._activeSizeCount || 0);
+
+          // Sell-Through Rate (STR)
+          const sale = getSalesForProduct(r);
+          const unitsSold = sale ? (sale.net_items_sold || 0) : 0;
+          const currentStock = r.totalStock >= 0 ? r.totalStock : 0;
+          const totalUnits = unitsSold + currentStock;
+          const str = totalUnits > 0 ? Math.round((unitsSold / totalUnits) * 100) : 0;
+          const strColor = str > 50 ? '#4ade80' : str >= 20 ? 'var(--low)' : str > 0 ? 'var(--out)' : 'var(--mu2)';
+
           html += '<tr onclick="onRow(' + gi + ')">'
             + '<td><div class="tn">' + sh(r.name) + '</div></td>'
             + '<td><div class="tm">' + r.colorSku + '</div></td>'
@@ -4247,6 +4418,7 @@
             + '<td><div class="tm">' + (r.category || '—') + '</div></td>'
             + '<td>' + spill(r.stockStatus) + '</td>'
             + '<td><div class="tnum" style="color:' + isrColor + '">' + isr + '%</div><div class="mbar-bg"><div class="mbar-f" style="width:' + isr + '%;background:' + isrColor + ';"></div></div><div class="tm" style="font-size:.55rem;">' + isrLabel + ' sizes</div></td>'
+            + '<td><div class="tnum" style="color:' + strColor + '">' + str + '%</div><div class="mbar-bg"><div class="mbar-f" style="width:' + str + '%;background:' + strColor + ';"></div></div><div class="tm" style="font-size:.55rem;">' + unitsSold + ' sold / ' + totalUnits + ' total</div></td>'
             + '<td><div class="tnum">' + (r.totalStock >= 0 ? r.totalStock.toLocaleString() : '—') + '</div></td>'
             + '<td><div class="szbadges">' + szbadges(r) + '</div></td></tr>';
         } else if (mode === 'traf') {
@@ -5621,6 +5793,15 @@
     populateHomeCats();
     DATA.forEach(r => { r._lifecycle = getLifecycleEx(r); extendDataModel(r); });
     renderHome();
+
+    // Forward wheel events from anywhere on page-home to the scroll container
+    document.getElementById('page-home').addEventListener('wheel', function (e) {
+      const scroller = document.getElementById('homeScroll');
+      if (scroller && !scroller.contains(e.target)) {
+        scroller.scrollTop += e.deltaY;
+        e.preventDefault();
+      }
+    }, { passive: false });
   </script>
 
   <!-- Product Detail Modal Overlay -->
