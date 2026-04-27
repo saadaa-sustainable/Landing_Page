@@ -529,6 +529,81 @@
       color: #ff6666;
     }
 
+    /* ── TAG FILTER CHIP ── */
+    .inv-tag-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .58rem;
+      font-weight: 500;
+      letter-spacing: .06em;
+      padding: 2px 10px;
+      border-radius: 20px;
+      background: var(--sand-d);
+      border: 1px solid var(--sand-b);
+      color: var(--sand);
+      white-space: nowrap;
+    }
+
+    /* ── STICKY PRODUCT INFO BAR ── */
+    .sticky-product-bar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--sf);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--bd);
+      padding: 10px 20px;
+      display: none;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .sticky-product-bar.visible {
+      display: flex;
+    }
+
+    .spb-name {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 0.95rem;
+      color: var(--txt);
+      flex: 1;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .spb-sku {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.55rem;
+      color: var(--mu2);
+      background: var(--sf2);
+      padding: 3px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--bd);
+    }
+
+    .spb-close {
+      background: none;
+      border: none;
+      color: var(--mu2);
+      font-size: 1rem;
+      cursor: pointer;
+      padding: 2px 7px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+
+    .spb-close:hover {
+      color: var(--txt);
+      background: var(--sf3);
+    }
+
+
     .pill.on.f-acq {
       background: rgba(107, 163, 214, .08);
       border-color: rgba(107, 163, 214, .2);
@@ -584,6 +659,7 @@
       background-position: right 8px center;
       min-width: 80px;
       white-space: nowrap;
+      color-scheme: dark;
     }
 
     .filter-select:hover,
@@ -640,7 +716,7 @@
     }
 
     .filter-select option {
-      background: var(--s1);
+      background: var(--bg);
       color: var(--txt);
     }
 
@@ -2101,8 +2177,6 @@
       gap: 8px;
     }
 
-    .pt-metric {}
-
     .pt-metric-val {
       font-family: 'Roboto', sans-serif;
       font-size: 1.1rem;
@@ -2161,11 +2235,7 @@
         style="height:28px;font-size:.7rem;padding:0 12px;">Fetch All →</button>
       <span class="shopify-status" id="masterFetchStatus" style="font-size:.6rem;">Not loaded</span>
     </div>
-    <div class="alert-bar hidden" id="alertBar">
-      <span class="abtxt" id="alertTxt"></span>
-      <div class="ab-chips" id="alertChips"></div>
-      <button class="ibtn" onclick="document.getElementById('alertBar').classList.add('hidden')">✕</button>
-    </div>
+
     <!-- SINGLE scroll zone: hero + sticky header + table -->
     <div class="scroll" id="homeScroll" style="padding:0;">
       <div class="home-hero" id="homeHero"></div>
@@ -2337,6 +2407,18 @@
             <option value="all">All Colors</option>
           </select>
         </div>
+        <div style="width:1px;height:20px;background:var(--bd2);margin:0 4px;"></div>
+        <div class="tg"><span class="tb-lbl">Tag</span>
+          <select class="filter-select" id="invTagSelect" onchange="setInvTag(this.value)">
+            <option value="all">All Tags</option>
+          </select>
+        </div>
+      </div>
+      <!-- Active tag chip row -->
+      <div id="invTagChipRow" style="display:none;align-items:center;gap:6px;padding:3px 20px 5px;flex-wrap:wrap;">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--mu2);text-transform:uppercase;letter-spacing:.1em;">Tag is</span>
+        <span id="invTagChip" class="inv-tag-chip"></span>
+        <button onclick="setInvTag('all')" style="background:none;border:none;color:var(--mu2);cursor:pointer;font-size:.75rem;padding:0 2px;line-height:1;" title="Clear tag filter">✕</button>
       </div>
       <!-- Row 2: Search, Mode, Nav, View -->
       <div style="display:flex;align-items:center;gap:8px;padding:6px 20px;flex-wrap:wrap;">
@@ -2360,6 +2442,12 @@
       </div>
     </div>
     <div class="scroll">
+      <!-- Sticky Product Info Bar -->
+      <div class="sticky-product-bar" id="stickyProductBar">
+        <div class="spb-name" id="spbName">—</div>
+        <div class="spb-sku" id="spbSku">—</div>
+        <button class="spb-close" onclick="closeStickyBar()">✕</button>
+      </div>
       <div id="invSummary"></div>
       <div class="krow k5" id="invKpis"></div>
       <div class="crow c3">
@@ -2514,10 +2602,6 @@
             <div class="cht">Stock Exposure — Visitor Distribution</div>
             <div id="stockExposureViz" style="padding:6px 0;"></div>
           </div>
-          <div class="ch">
-            <div class="cht">Sales Leakage Funnel</div>
-            <div id="leakFunnelViz" style="padding:8px 0;"></div>
-          </div>
         </div>
         <div class="crow c2">
           <div class="ch">
@@ -2529,12 +2613,7 @@
             <div class="chw h180"><canvas id="pageTypeVisitors"></canvas></div>
           </div>
         </div>
-        <div class="crow">
-          <div class="ch">
-            <div class="cht">🔴 Leakage — Cart → Zero Checkout</div>
-            <div class="chw h200"><canvas id="trafLeak"></canvas></div>
-          </div>
-        </div>
+
       </div><!-- /analyticsSection -->
 
       <!-- ── Collection Pages Section ── -->
@@ -2839,7 +2918,7 @@
     <div class="toolbar" style="flex-direction:column;align-items:stretch;gap:0;padding:0;">
       <div style="display:flex;align-items:center;gap:8px;padding:6px 20px;flex-wrap:wrap;">
         <div class="tg"><span class="tb-lbl">Status</span>
-          <select class="filter-select" id="ordStatusSelect" onchange="renderOrders()">
+          <select class="filter-select" id="ordStatusSelect" onchange="setOrdStatus(this.value)">
             <option value="all">All</option>
             <option value="PAID">Paid</option>
             <option value="PENDING">Pending</option>
@@ -2849,7 +2928,7 @@
           </select>
         </div>
         <div class="tg"><span class="tb-lbl">Fulfillment</span>
-          <select class="filter-select" id="ordFulfillSelect" onchange="renderOrders()">
+          <select class="filter-select" id="ordFulfillSelect" onchange="setOrdFulfill(this.value)">
             <option value="all">All</option>
             <option value="UNFULFILLED">Unfulfilled</option>
             <option value="FULFILLED">Fulfilled</option>
@@ -2903,8 +2982,18 @@
       return getLifecycleEx(r);
     }
     const LOW = 10;
+    // ── COLOR GROUP MAPPING ──
+    const COLOR_GROUPS = {
+      'Green': ['Olive Green', 'Mint Green', 'Sage Green', 'Forest Green', 'Jade', 'Teal', 'Turquoise'],
+      'Blue': ['Navy Blue', 'Sky Blue', 'English Blue', 'Royal Blue', 'Powder Blue', 'Peacock Blue', 'Navy', 'Light Blue'],
+      'Pink/Purple': ['Lilac', 'Mauve', 'Rose Taupe', 'Hot Pink', 'Blush Pink', 'Salmon Pink', 'Brinjal', 'Rose', 'Light Pink', 'Raspberry'],
+      'Red/Brown': ['Maroon', 'Wine', 'Coffee Brown', 'Cinnamon', 'Mocha Mousse', 'Mocha', 'Dark Brown'],
+      'Neutrals': ['White', 'Black', 'Grey', 'Beige', 'Ecru', 'Khakhi', 'Fawn', 'Cement Grey', 'Slate Grey', 'Ash', 'German Grey', 'Dark Grey', 'Taupe', 'Nude', 'Off White'],
+      'Yellow/Orange': ['Yellow', 'Peach', 'Lemon Yellow', 'Mango Yellow']
+    };
+
     // Ad intelligence state (META_ADS_DATA defined in render section)
-    let invF = 'all', invM = 'name', invV = 'table', invStockF = 'all', invColor = 'all', invGender = 'all';
+    let invF = 'all', invM = 'name', invV = 'table', invStockF = 'all', invColor = 'all', invGender = 'all', invTagF = 'all';
 
     // ── Combo detection helper ──
     function isCombo(r) {
@@ -2933,23 +3022,27 @@
       const el = document.getElementById(id);
       if (!el) return;
       el.value = val;
-      // Remove all fs-* classes
-      el.className = el.className.replace(/\bfs-\S+/g, '').trim();
-      if (val === 'all') { el.classList.add('filter-select'); return; }
+      // Strip all fs-* classes but keep filter-select
+      el.className = ('filter-select ' + el.className).replace(/\bfs-\S+/g, '').replace(/\s+/g, ' ').trim();
+      if (val === 'all') return;
       // Map values to visual style classes
       const map = {
         'in': 'fs-in', 'in_stock': 'fs-in', 'active': 'fs-in',
         'low': 'fs-low', 'broken_stock': 'fs-low', 'lowrisk': 'fs-low',
         'out': 'fs-out', 'out_of_stock': 'fs-out', 'leak': 'fs-leak', 'pause': 'fs-out', 'ret': 'fs-out',
         'npd': 'fs-npd',
-        'discontinued': 'fs-active', 'disc': 'fs-low',
+        'discontinued': 'fs-low', 'disc': 'fs-low',
         'htraffic': 'fs-traf', 'pdp': 'fs-traf', 'acq': 'fs-traf',
         'hatc': 'fs-cart', 'top': 'fs-in',
-        'collection': 'fs-active', 'home': 'fs-active',
+        'collection': 'fs-traf', 'home': 'fs-traf',
+        'PAID': 'fs-in', 'PENDING': 'fs-low', 'REFUNDED': 'fs-out',
+        'PARTIALLY_REFUNDED': 'fs-low', 'VOIDED': 'fs-out',
+        'UNFULFILLED': 'fs-low', 'FULFILLED': 'fs-in', 'PARTIALLY_FULFILLED': 'fs-traf',
+        'Women': 'fs-cart', 'Men': 'fs-traf', 'Unisex': 'fs-in',
       };
       const cls = map[val];
       if (cls) el.classList.add(cls);
-      else el.classList.add('fs-active');
+      else el.classList.add('fs-active'); // generic highlight for category/color values
     }
 
     // ── Populate category dropdown for Overview page ──
@@ -3023,15 +3116,7 @@
     }
 
     // ── COLOR EXTRACTION ──
-    // ── COLOR GROUP MAPPING ──
-    const COLOR_GROUPS = {
-      'Green': ['Olive Green', 'Mint Green', 'Sage Green', 'Forest Green', 'Jade', 'Teal', 'Turquoise'],
-      'Blue': ['Navy Blue', 'Sky Blue', 'English Blue', 'Royal Blue', 'Powder Blue', 'Peacock Blue', 'Navy', 'Light Blue'],
-      'Pink/Purple': ['Lilac', 'Mauve', 'Rose Taupe', 'Hot Pink', 'Blush Pink', 'Salmon Pink', 'Brinjal', 'Rose', 'Light Pink', 'Raspberry'],
-      'Red/Brown': ['Maroon', 'Wine', 'Coffee Brown', 'Cinnamon', 'Mocha Mousse', 'Mocha', 'Dark Brown'],
-      'Neutrals': ['White', 'Black', 'Grey', 'Beige', 'Ecru', 'Khakhi', 'Fawn', 'Cement Grey', 'Slate Grey', 'Ash', 'German Grey', 'Dark Grey', 'Taupe', 'Nude', 'Off White'],
-      'Yellow/Orange': ['Yellow', 'Peach', 'Lemon Yellow', 'Mango Yellow']
-    };
+
 
     function extractColor(name) {
       if (!name) return '';
@@ -3048,14 +3133,49 @@
       return '';
     }
 
+
     // ── POPULATE COLOR DROPDOWN ──
     function populateColorDropdown() {
       const sel = document.getElementById('invColorSelect');
       if (!sel) return;
-      const colors = Array.from(new Set(DATA.map(r => extractColor(r.name)).filter(Boolean))).sort();
+      // Use same data source as getINV
+      const src = INVLIVE.length ? INVLIVE : DATA.filter(r => r.hasInvData);
+      const colors = Array.from(new Set(src.map(r => extractColor(r.name)).filter(Boolean))).sort();
       sel.innerHTML = '<option value="all">All Colors</option>' + colors.map(c => '<option value="' + c + '">' + c + '</option>').join('');
     }
-    function setIColor(v) { invColor = v; renderInv(); }
+
+    // ── POPULATE TAG DROPDOWN (from colorSku prefix) ──
+    function populateInvTags() {
+      const sel = document.getElementById('invTagSelect');
+      if (!sel) return;
+      const src = INVLIVE.length ? INVLIVE : DATA.filter(r => r.hasInvData);
+      const tags = new Set();
+      src.forEach(r => {
+        const sku = (r.colorSku || '').replace(/[^A-Z0-9]/g, '');
+        if (sku.length > 2) tags.add(sku.slice(0, -2));
+      });
+      const sorted = [...tags].sort();
+      sel.innerHTML = '<option value="all">All Tags</option>' +
+        sorted.map(t => '<option value="' + t + '">' + t + '</option>').join('');
+    }
+
+    function setInvTag(v) {
+      invTagF = v;
+      styleDropdown('invTagSelect', v);
+      // Show/hide the active chip row
+      const chipRow = document.getElementById('invTagChipRow');
+      const chip = document.getElementById('invTagChip');
+      if (v !== 'all') {
+        chip.textContent = v;
+        chipRow.style.display = 'flex';
+      } else {
+        chipRow.style.display = 'none';
+        document.getElementById('invTagSelect').value = 'all';
+      }
+      renderInv();
+    }
+
+    function setIColor(v) { invColor = v; styleDropdown('invColorSelect', v); renderInv(); }
     function setIG(g) { invGender = g; styleDropdown('igSelect', g); renderInv(); }
 
     // ── NAV ──
@@ -3368,13 +3488,6 @@
         + '<div class="hero-panel hp-in"><div class="hp-label">Cart Adds / ATC%</div><div class="hp-value c-in">' + totalCartAdds + ' <span style="font-size:.6em;color:var(--mu2)">(' + avgAtc + '%)</span></div><div class="hp-sub">overall add-to-cart rate</div></div>'
         + '<div class="hero-panel hp-out" style="border-color:rgba(138,138,255,.2)"><div class="hp-label">Draft Products</div><div class="hp-value" style="color:#8a8aff">' + draftProds.length + '</div><div class="hp-sub">Hidden from storefront</div></div>';
 
-      const pauseL = all.filter(r => r.stockStatus === 'out_of_stock' && r.visitors > 0 && r.cartAdds > 0);
-      const ab = document.getElementById('alertBar');
-      if (pauseL.length > 0) {
-        ab.classList.remove('hidden');
-        document.getElementById('alertTxt').textContent = '⚠ ' + pauseL.length + ' product' + (pauseL.length > 1 ? 's' : '') + ' getting ad traffic while out of stock — pause immediately';
-        document.getElementById('alertChips').innerHTML = pauseL.slice(0, 5).map(r => '<span class="ab-chip">' + sh(r.name) + '</span>').join('');
-      } else { ab.classList.add('hidden'); }
 
       const q = (document.getElementById('homeSrch').value || '').toLowerCase();
       let rows = [...all];
@@ -3976,10 +4089,17 @@
       if (invColor !== 'all') {
         d = d.filter(r => (r._color || extractColor(r.name)) === invColor);
       }
+      // Tag filter: match colorSku prefix (e.g. SDCP, SDFLK, SDFSK)
+      if (invTagF !== 'all') {
+        d = d.filter(r => {
+          const sku = (r.colorSku || '').replace(/[^A-Z0-9]/g, '');
+          return sku.length > 2 && sku.slice(0, -2) === invTagF;
+        });
+      }
       if (q) d = d.filter(r => (r.name || '').toLowerCase().includes(q) || (r.colorSku || '').toLowerCase().includes(q));
       return d;
     }
-    function setIF(f) { invF = f; renderInv(); }
+    function setIF(f) { invF = f; styleDropdown('invCatSelect', f); renderInv(); }
     function setISF(f) { invStockF = f; styleDropdown('isfSelect', f); renderInv(); }
     function setIM(m) { invM = m;['name', 'sku', 'size'].forEach(k => document.getElementById('im-' + k).classList.toggle('on', k === m)); renderInv(); }
     function setIV(v) { invV = v;['table', 'cards'].forEach(k => document.getElementById('iv-' + k).classList.toggle('on', k === v)); renderInv(); }
@@ -4175,8 +4295,7 @@
         + kpi('ca', 'Total Sessions', fmt(totS), hasNonPdp ? 'PDP ' + fmt(pdpS) + ' · Coll ' + fmt(tm.collection.sessions) + ' · Home ' + fmt(tm.home.sessions) + coverageNote : '')
         + kpi('cc', 'Cart Adds', fmt(totC), '')
         + kpi('ca', 'Checkouts', fmt(totChk), '')
-        + kpi('ca', 'Avg ATC%', avgATC + '%', 'PDP added-to-cart rate')
-        + kpi('co', 'Sales Leakage', leaks.length, 'products leaking ad spend');
+        + kpi('ca', 'Avg ATC%', avgATC + '%', 'PDP added-to-cart rate');
 
       // ── Page Type Breakdown Cards (PDP / Collection / Home) ──
       const ptCardsEl = document.getElementById('pageTypeCards');
@@ -4217,8 +4336,7 @@
       ch('trafTop', 'bar', { labels: top10.map(r => sh(r.name)), datasets: [{ label: 'Visitors', data: top10.map(r => r.visitors), backgroundColor: 'rgba(107,163,214,.65)', borderRadius: 3 }] }, { indexAxis: 'y', plugins: { legend: { display: false } }, scales: hbar(false) });
       const top10atc = all.filter(r => r.visitors >= 30).sort((a, b) => b.atcPct - a.atcPct).slice(0, 10);
       ch('atcTop', 'bar', { labels: top10atc.map(r => sh(r.name)), datasets: [{ label: 'ATC%', data: top10atc.map(r => r.atcPct), backgroundColor: 'rgba(166,125,212,.65)', borderRadius: 3 }] }, { indexAxis: 'y', plugins: { legend: { display: false } }, scales: hbar(true) });
-      const leak10 = leaks.slice(0, 10);
-      ch('trafLeak', 'bar', { labels: leak10.map(r => sh(r.name)), datasets: [{ label: 'Cart Adds', data: leak10.map(r => r.cartAdds), backgroundColor: 'rgba(224,85,85,.65)', borderRadius: 3 }, { label: 'Checkouts', data: leak10.map(r => r.checkout), backgroundColor: 'rgba(94,203,143,.45)', borderRadius: 3 }] }, { indexAxis: 'y', plugins: { legend: { labels: { color: '#9a9cb0', font: { family: 'JetBrains Mono', size: 8 }, boxWidth: 8 } } }, scales: hbar(false) });
+
 
       // ── PDP vs Collection vs Home Comparison Charts ──
       const ptLabels = ['PDP', 'Collection', 'Home', 'Other'];
@@ -4255,42 +4373,6 @@
         ).join('');
       }
 
-      // ── Sales Leakage Funnel ──
-      const lfEl = document.getElementById('leakFunnelViz');
-      if (lfEl) {
-        const funnelSteps = [
-          { lbl: 'Sessions', val: totS, color: 'rgba(107,163,214,.75)' },
-          { lbl: 'Cart Adds', val: totC, color: 'rgba(166,125,212,.75)' },
-          { lbl: 'Checkouts', val: totChk, color: 'rgba(94,203,143,.75)' },
-        ];
-        const maxVal = totS || 1;
-        let lfHtml = '';
-        for (let i = 0; i < funnelSteps.length; i++) {
-          const step = funnelSteps[i];
-          const pct = Math.round(step.val / maxVal * 100);
-          const barW = Math.max(pct, 4);
-          const drop = i > 0 ? Math.round((1 - step.val / (funnelSteps[i - 1].val || 1)) * 100) : 0;
-          const dropHtml = i > 0 ? '<div class="lk-drop">↓ ' + drop + '%</div>' : '<div class="lk-drop"></div>';
-          lfHtml += '<div class="leak-step">'
-            + '<div class="lk-lbl">' + step.lbl + '</div>'
-            + '<div class="lk-bar"><div class="lk-fill" style="width:' + barW + '%;background:' + step.color + ';"><span class="lk-fill-txt">' + fmt(step.val) + '</span></div></div>'
-            + '<div class="lk-val">' + pct + '%</div>'
-            + dropHtml
-            + '</div>';
-        }
-        // Leaked row
-        const cartNoPurchase = totC - totChk;
-        const leakPct = totS > 0 ? Math.round(cartNoPurchase / maxVal * 100) : 0;
-        const leakBarW = Math.max(leakPct, 4);
-        const leakOfCarts = totC > 0 ? Math.round(cartNoPurchase / totC * 100) : 0;
-        lfHtml += '<div class="leak-step" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--bd);">'
-          + '<div class="lk-lbl" style="color:var(--out)">Leaked</div>'
-          + '<div class="lk-bar"><div class="lk-fill" style="width:' + leakBarW + '%;background:rgba(224,85,85,.7);"><span class="lk-fill-txt">' + fmt(cartNoPurchase) + '</span></div></div>'
-          + '<div class="lk-val" style="color:var(--out)">' + leakPct + '%</div>'
-          + '<div class="lk-drop">' + leakOfCarts + '% carts</div>'
-          + '</div>';
-        lfEl.innerHTML = lfHtml;
-      }
 
       // ── Render PDP table ──
       const trafRows = getTRAF();
@@ -4599,6 +4681,26 @@
       document.getElementById('detailPanel').classList.add('open');
     }
     function openInvDetail(r) { openDetail(r); }
+
+    function showStickyBar(product) {
+      const bar = document.getElementById('stickyProductBar');
+      const nameEl = document.getElementById('spbName');
+      const skuEl = document.getElementById('spbSku');
+
+      if (bar && nameEl && skuEl) {
+        nameEl.textContent = product.name || product.slug || '—';
+        skuEl.textContent = product.colorSku || product.slug || '—';
+        bar.classList.add('visible');
+      }
+    }
+
+    function closeStickyBar() {
+      const bar = document.getElementById('stickyProductBar');
+      if (bar) {
+        bar.classList.remove('visible');
+      }
+    }
+
     function closeDetail() { document.getElementById('detailPanel').classList.remove('open'); }
 
     // ── CHART HELPERS ──
@@ -4769,6 +4871,8 @@
 
         // ── Convert to INVLIVE format ──
         const LOW = 10;
+
+
         INVLIVE = products.map(p => {
           const sz = {};
           SIZES.forEach(s => { sz[s] = (p.sizes && p.sizes[s] !== null && p.sizes[s] !== undefined) ? Math.round(Number(p.sizes[s])) : null; if (isNaN(sz[s])) sz[s] = null; });
@@ -5270,19 +5374,27 @@
         return;
       }
       const all = SALES_DATA;
-      const totSales = all.reduce((a, r) => a + (r.total_sales || 0), 0);
-      const totGross = all.reduce((a, r) => a + (r.gross_sales || 0), 0);
+      // Prefer Shopify WITH TOTALS row for accurate KPIs, fallback to summing rows
+      const st = window._salesTotals || null;
+      const totSales = st ? (st.total_sales || 0) : all.reduce((a, r) => a + (r.total_sales || 0), 0);
+      const totGross = st ? (st.gross_sales || 0) : all.reduce((a, r) => a + (r.gross_sales || 0), 0);
       const _units = r => r.orders || r.net_items_sold || 0;
-      const totUnits = all.reduce((a, r) => a + _units(r), 0);
-      const totDisc = all.reduce((a, r) => a + (r.discounts || 0), 0);
-      const totRet = all.reduce((a, r) => a + (r.returns || 0), 0);
+      const totUnits = st ? (st.net_items_sold || 0) : all.reduce((a, r) => a + _units(r), 0);
+      const totDisc = st ? (st.discounts || 0) : all.reduce((a, r) => a + (r.discounts || 0), 0);
+      const totRet = st ? (st.returns || 0) : all.reduce((a, r) => a + (r.returns || 0), 0);
+      const totNet = st ? (st.net_sales || 0) : all.reduce((a, r) => a + (r.net_sales || 0), 0);
+
+      const rangeLabel = document.getElementById('salesSince').value && document.getElementById('salesUntil').value
+        ? document.getElementById('salesSince').value + ' → ' + document.getElementById('salesUntil').value
+        : 'all time';
 
       document.getElementById('salesKpis').innerHTML =
-        kpi('ca', 'Total Sales', fmtRs(totSales), 'all time')
+        kpi('ca', 'Total Sales', fmtRs(totSales), rangeLabel)
         + kpi('ci', 'Gross Sales', fmtRs(totGross), 'before discounts & returns')
         + kpi('ca', 'Units Sold', totUnits.toLocaleString(), 'net items sold')
         + kpi('cl', 'Discounts', fmtRs(Math.abs(totDisc)), 'total discount value')
-        + kpi('co', 'Returns', fmtRs(Math.abs(totRet)), 'total return value');
+        + kpi('co', 'Returns', fmtRs(Math.abs(totRet)), 'total return value')
+        + kpi('ci', 'Net Sales', fmtRs(totNet), 'after discounts & returns');
 
       const top15 = [...all].sort((a, b) => b.total_sales - a.total_sales).slice(0, 15);
       ch('salesTotBar', 'bar', {
@@ -5336,6 +5448,20 @@
     }
 
     // ── SHOPIFY SALES FETCH ──
+    function buildSalesQuery(since, until) {
+      // Build the ShopifyQL query matching Shopify's expected format
+      // Fields: net_items_sold, gross_sales, discounts, returns, net_sales, taxes, total_sales
+      // GROUP BY product_title, product_vendor, product_type ensures per-product breakdown
+      // WITH TOTALS gives summary row, CURRENCY 'INR' ensures correct currency
+      return `FROM sales`
+        + ` SHOW net_items_sold, gross_sales, discounts, returns, net_sales, taxes, total_sales`
+        + ` WHERE product_title IS NOT NULL`
+        + ` GROUP BY product_title, product_vendor, product_type WITH TOTALS`
+        + ` SINCE '${since}' UNTIL '${until}'`
+        + ` ORDER BY total_sales DESC`
+        + ` LIMIT 1000`;
+    }
+
     async function fetchShopifySales() {
       const baseUrl = (document.getElementById('salesServerUrl').value || '').trim().replace(/\/$/, '');
       const since = document.getElementById('salesSince').value;
@@ -5346,17 +5472,79 @@
 
       _salesMsg('loading', '⏳ Fetching sales from Shopify…');
 
+      const query = buildSalesQuery(since, until);
+
       try {
-        const resp = await fetch(baseUrl + '/api/sales?since=' + since + '&until=' + until);
+        // Try POST with query body first (preferred — avoids URL length issues)
+        let resp;
+        try {
+          resp = await fetch(baseUrl + '/api/sales', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: query, since: since, until: until })
+          });
+        } catch (postErr) {
+          // Fallback to GET with query params
+          resp = await fetch(baseUrl + '/api/sales?since=' + encodeURIComponent(since) + '&until=' + encodeURIComponent(until) + '&query=' + encodeURIComponent(query));
+        }
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
         const raw = await resp.json();
         if (raw && raw.error) throw new Error(raw.error);
-        const rows = Array.isArray(raw) ? raw : [];
+
+        // Handle response: could be { data: [...], totals: {...} } or flat array
+        let rows = [];
+        let totalsRow = null;
+        if (raw && raw.data && Array.isArray(raw.data)) {
+          rows = raw.data;
+          if (raw.totals) totalsRow = raw.totals;
+        } else if (Array.isArray(raw)) {
+          rows = raw;
+        } else if (raw && raw.rows && Array.isArray(raw.rows)) {
+          rows = raw.rows;
+          if (raw.totals) totalsRow = raw.totals;
+        }
         if (!rows.length) throw new Error('No sales data for this period.');
 
-        // Normalize: Shopify returns numeric fields as strings
-        const numFields = ['orders', 'net_items_sold', 'gross_sales', 'discounts', 'returns', 'net_sales', 'taxes', 'total_sales'];
-        rows.forEach(r => { numFields.forEach(f => { if (r[f] != null) r[f] = parseFloat(r[f]) || 0; }); });
+        // Normalize: Shopify may return numeric fields as strings
+        const numFields = ['net_items_sold', 'gross_sales', 'discounts', 'returns', 'net_sales', 'taxes', 'total_sales'];
+        // Also handle Shopify column name variations (spaces/caps)
+        const fieldMap = {
+          'product_title': ['product_title', 'Product title', 'Product Title'],
+          'product_type': ['product_type', 'Product type', 'Product Type'],
+          'product_vendor': ['product_vendor', 'Product vendor', 'Product Vendor'],
+          'net_items_sold': ['net_items_sold', 'Net items sold'],
+          'gross_sales': ['gross_sales', 'Gross sales'],
+          'discounts': ['discounts', 'Discounts'],
+          'returns': ['returns', 'Returns'],
+          'net_sales': ['net_sales', 'Net sales'],
+          'taxes': ['taxes', 'Taxes'],
+          'total_sales': ['total_sales', 'Total sales']
+        };
+
+        rows = rows.map(r => {
+          const norm = {};
+          Object.entries(fieldMap).forEach(([key, aliases]) => {
+            for (const alias of aliases) {
+              if (r[alias] !== undefined) { norm[key] = r[alias]; break; }
+            }
+          });
+          // Parse numeric fields
+          numFields.forEach(f => { if (norm[f] != null) norm[f] = parseFloat(norm[f]) || 0; });
+          // Keep any extra fields
+          return { ...r, ...norm };
+        });
+
+        // Filter out totals/summary rows that might be inline (product_title is null/empty)
+        const salesTotalsRow = rows.find(r => !r.product_title || r.product_title === '' || r.product_title === 'Total' || r.product_title === 'TOTALS');
+        rows = rows.filter(r => r.product_title && r.product_title !== '' && r.product_title !== 'Total' && r.product_title !== 'TOTALS');
+
+        // Store totals if captured
+        if (totalsRow || salesTotalsRow) {
+          const t = totalsRow || salesTotalsRow;
+          numFields.forEach(f => { if (t[f] != null) t[f] = parseFloat(t[f]) || 0; });
+          // Make totals available for KPI display
+          window._salesTotals = t;
+        }
 
         SALES_DATA = rows;
         try { localStorage.setItem('ops_sales_url', baseUrl); } catch (e) { }
@@ -5393,7 +5581,7 @@
         html += '<div class="pd-grid">'
           + '<div class="pd-metric"><div class="pd-val" style="color:#4ade80">' + fmtRs(sale.total_sales) + '</div><div class="pd-lbl">Total Sales</div></div>'
           + '<div class="pd-metric"><div class="pd-val">' + fmtRs(sale.gross_sales) + '</div><div class="pd-lbl">Gross Sales</div></div>'
-          + '<div class="pd-metric"><div class="pd-val">' + (sale.orders || sale.net_items_sold || 0) + '</div><div class="pd-lbl">Orders</div></div>'
+          + '<div class="pd-metric"><div class="pd-val">' + (sale.orders || sale.net_items_sold || 0) + '</div><div class="pd-lbl">Units Sold</div></div>'
           + '<div class="pd-metric"><div class="pd-val" style="color:var(--low)">' + fmtRs(Math.abs(sale.discounts || 0)) + '</div><div class="pd-lbl">Discounts</div></div>'
           + '<div class="pd-metric"><div class="pd-val" style="color:var(--out)">' + fmtRs(Math.abs(sale.returns || 0)) + '</div><div class="pd-lbl">Returns</div></div>'
           + '<div class="pd-metric"><div class="pd-val">' + fmtRs(sale.net_sales) + '</div><div class="pd-lbl">Net Sales</div></div>'
@@ -5461,25 +5649,29 @@
       document.getElementById('salesServerUrl').value = baseUrl;
       document.getElementById('ordersServerUrl').value = baseUrl;
       document.getElementById('shopifyFetchDate').value = dateVal;
+      document.getElementById('salesSince').value = dateVal;
+      document.getElementById('salesUntil').value = dateVal;
       document.getElementById('ordersSince').value = dateVal;
       document.getElementById('ordersUntil').value = dateVal;
       try { localStorage.setItem('ops_master_url', baseUrl); } catch (e) { }
       btn.disabled = true;
       btn.textContent = 'Fetching…';
       let steps = 0, errors = [];
-      statusEl.textContent = '⏳ 1/4 Traffic…';
+      statusEl.textContent = '⏳ 1/5 Traffic…';
       try { await fetchShopifyTraffic(); steps++; } catch (e) { errors.push('Traffic: ' + e.message); }
-      statusEl.textContent = '⏳ 2/4 Inventory…';
+      statusEl.textContent = '⏳ 2/5 Inventory…';
       try { await fetchShopifyInventory(); steps++; } catch (e) { errors.push('Inventory: ' + e.message); }
-      statusEl.textContent = '⏳ 3/4 Orders…';
+      statusEl.textContent = '⏳ 3/5 Orders…';
       try { await fetchShopifyOrders(); steps++; } catch (e) { errors.push('Orders: ' + e.message); }
-      statusEl.textContent = '⏳ 4/4 Rendering…';
+      statusEl.textContent = '⏳ 4/5 Sales…';
+      try { await fetchShopifySales(); steps++; } catch (e) { errors.push('Sales: ' + e.message); }
+      statusEl.textContent = '⏳ 5/5 Rendering…';
       computeProductAttribution();
       renderHome();
       btn.disabled = false;
       btn.textContent = 'Fetch All →';
       if (errors.length) {
-        statusEl.textContent = '⚠ ' + steps + '/3 OK · ' + errors.length + ' failed';
+        statusEl.textContent = '⚠ ' + steps + '/4 OK · ' + errors.length + ' failed';
         console.warn('[FetchAll] Errors:', errors);
       } else {
         statusEl.textContent = '✓ All data loaded · ' + dateVal;
@@ -5545,6 +5737,9 @@
       }, 60 * 60 * 1000); // 60 minutes
       document.getElementById('ordersAutoLabel').textContent = '⟳ Auto-refresh: 60 min';
     }
+
+    function setOrdStatus(v) { styleDropdown('ordStatusSelect', v); renderOrders(); }
+    function setOrdFulfill(v) { styleDropdown('ordFulfillSelect', v); renderOrders(); }
 
     function renderOrders() {
       const emptyEl = document.getElementById('ordersEmpty');
@@ -5790,6 +5985,7 @@
     } catch (e) { }
     populateCatDropdown();
     populateColorDropdown();
+    populateInvTags();
     populateHomeCats();
     DATA.forEach(r => { r._lifecycle = getLifecycleEx(r); extendDataModel(r); });
     renderHome();

@@ -15,10 +15,17 @@ Then in the dashboard:
 import json
 import re
 import os
+import sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse, parse_qs
 import requests
 from dotenv import load_dotenv
+
+# Force UTF-8 output so Hindi/emoji chars don't crash on Windows cp1252 terminals
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+if hasattr(sys.stderr, 'reconfigure'):
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
 # ── Load credentials from .env ──
 load_dotenv()
@@ -367,13 +374,14 @@ def fetch_inventory() -> list:
 def fetch_sales(since: str, until: str) -> list:
     """
     Fetch product-level sales data from Shopify using ShopifyQL.
-    Returns: [{product_title, product_type, net_items_sold, gross_sales, discounts, returns, net_sales, taxes, total_sales}]
+    Returns: [{product_title, product_vendor, product_type, net_items_sold, gross_sales, discounts, returns, net_sales, taxes, total_sales}]
     """
 
     ql = (
         "FROM sales "
-        "SHOW orders, gross_sales, discounts, returns, net_sales, taxes, total_sales "
-        "GROUP BY product_title "
+        "SHOW net_items_sold, gross_sales, discounts, returns, net_sales, taxes, total_sales "
+        "WHERE product_title IS NOT NULL "
+        "GROUP BY product_title, product_vendor, product_type WITH TOTALS "
         f"SINCE {since} UNTIL {until} "
         "ORDER BY total_sales DESC "
         "LIMIT 1000"
@@ -596,12 +604,23 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(payload)
 
+    def _read_json_body(self) -> dict:
+        """Read and parse the request body as JSON. Returns {} on failure."""
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            if length > 0:
+                raw = self.rfile.read(length)
+                return json.loads(raw.decode("utf-8"))
+        except Exception:
+            pass
+        return {}
+
     def do_OPTIONS(self):
         # Pre-flight CORS
         self.send_response(200)
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, *")
         self.end_headers()
 
     def do_GET(self):
@@ -700,6 +719,86 @@ class Handler(BaseHTTPRequestHandler):
 
         self.send_json(404, {"error": "Not found"})
 
+    def do_POST(self):
+        parsed = urlparse(self.path)
+        params = parse_qs(parsed.query)
+        body = self._read_json_body()
+
+        def get_param(key):
+            # Body takes priority, fall back to query string
+            if key in body:
+                return str(body[key])
+            lst = params.get(key)
+            return lst[0] if lst else None
+
+        # ── POST /api/sales ──
+        if parsed.path == "/api/sales":
+            since = get_param("since")
+            until = get_param("until")
+            if not since or not until:
+                self.send_json(400, {"error": "Missing since/until"})
+                return
+            try:
+                rows = fetch_sales(since, until)
+                self.send_json(200, rows)
+            except requests.HTTPError as e:
+                self.send_json(502, {"error": f"Shopify HTTP error: {e}"})
+            except ValueError as e:
+                self.send_json(400, {"error": str(e)})
+            except Exception as e:
+                self.send_json(500, {"error": str(e)})
+            return
+
+        # ── POST /api/traffic ──
+        if parsed.path == "/api/traffic":
+            date_param = get_param("date")
+            if not date_param or not re.match(r"^\d{4}-\d{2}-\d{2}$", date_param):
+                self.send_json(400, {"error": "Missing or invalid date. Use ?date=YYYY-MM-DD"})
+                return
+            try:
+                rows = fetch_traffic(date_param)
+                self.send_json(200, rows)
+            except requests.HTTPError as e:
+                self.send_json(502, {"error": f"Shopify HTTP error: {e}"})
+            except ValueError as e:
+                self.send_json(400, {"error": str(e)})
+            except Exception as e:
+                self.send_json(500, {"error": str(e)})
+            return
+
+        # ── POST /api/inventory ──
+        if parsed.path == "/api/inventory":
+            try:
+                products = fetch_inventory()
+                self.send_json(200, products)
+            except requests.HTTPError as e:
+                self.send_json(502, {"error": f"Shopify HTTP error: {e}"})
+            except ValueError as e:
+                self.send_json(400, {"error": str(e)})
+            except Exception as e:
+                self.send_json(500, {"error": str(e)})
+            return
+
+        # ── POST /api/orders ──
+        if parsed.path == "/api/orders":
+            since = get_param("since")
+            until = get_param("until")
+            if not since or not until:
+                self.send_json(400, {"error": "Missing since/until"})
+                return
+            try:
+                orders = fetch_orders(since, until)
+                self.send_json(200, orders)
+            except requests.HTTPError as e:
+                self.send_json(502, {"error": f"Shopify HTTP error: {e}"})
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                self.send_json(500, {"error": str(e)})
+            return
+
+        self.send_json(404, {"error": "Not found"})
+
     def log_message(self, fmt, *args):
         # Clean log output
         print(f"  {args[0]}  {args[1]}")
@@ -708,15 +807,17 @@ class Handler(BaseHTTPRequestHandler):
 # ── Entry point ────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
+    import sys
+    sys.stdout.reconfigure(encoding='utf-8')
     PORT = 5000
     server = HTTPServer(("localhost", PORT), Handler)
-    print(f"\n  सादा Traffic Server")
-    print(f"  ───────────────────")
-    print(f"  Running on  →  http://localhost:{PORT}")
-    print(f"  Shop        →  {SHOP_DOMAIN}")
+    print(f"\n  Saadaa Ops Server")
+    print(f"  -----------------")
+    print(f"  Running on  ->  http://localhost:{PORT}")
+    print(f"  Shop        ->  {SHOP_DOMAIN}")
     print(f"\n  In the dashboard:")
-    print(f"  Traffic → ⚙ Data Source → URL: http://localhost:{PORT}")
-    print(f"  Pick a date → Fetch →\n")
+    print(f"  Traffic -> Data Source -> URL: http://localhost:{PORT}")
+    print(f"  Pick a date -> Fetch ->\n")
     print(f"  Press Ctrl+C to stop.\n")
     try:
         server.serve_forever()
