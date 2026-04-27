@@ -47,12 +47,13 @@ def fetch_traffic(date: str) -> list:
 
     ql = (
         "FROM sessions "
-        "SHOW online_store_visitors, sessions, bounce_rate, average_session_duration, "
-        "pageviews_per_session, added_to_cart_rate, sessions_with_cart_additions, "
-        "sessions_that_reached_checkout "
+        "SHOW online_store_visitors, sessions, sessions_with_cart_additions, "
+        "added_to_cart_rate, bounces, average_session_duration, "
+        "pageviews_per_session, sessions_that_reached_checkout "
         "WHERE landing_page_path IS NOT NULL "
+        "AND human_or_bot_session IN ('human', 'bot') "
         "GROUP BY landing_page_type, landing_page_path, "
-        "utm_source, utm_medium, utm_campaign "
+        "utm_source, utm_medium, utm_campaign, day "
         "WITH TOTALS "
         f"SINCE {date} UNTIL {date} "
         "ORDER BY sessions DESC "
@@ -117,6 +118,12 @@ def fetch_traffic(date: str) -> list:
                 if i < len(col_names):
                     entry[col_names[i]] = val
             result.append(entry)
+
+    # Compute bounce_rate from bounces / sessions instead of using Shopify's value
+    for row in result:
+        bounces = float(row.get('bounces') or 0)
+        sessions = float(row.get('sessions') or 0)
+        row['bounce_rate'] = round(bounces / sessions * 100, 2) if sessions > 0 else 0
 
     return result
 

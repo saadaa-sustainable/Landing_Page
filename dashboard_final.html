@@ -5174,7 +5174,7 @@
               sessions: +(rv(r, 'sessions', 'Sessions')) || 0,
               cartAdds: +(rv(r, 'sessions_with_cart_additions', 'Sessions with cart additions', 'Added to cart')) || 0,
               checkout: +(rv(r, 'sessions_that_reached_checkout', 'Sessions that reached checkout')) || 0,
-              bounceRate: +(rv(r, 'bounce_rate', 'Bounce rate')) || 0,
+              bounceRate: +(rv(r, 'bounce_rate', 'Bounce rate')) || 0,  // server already computed
               avgDuration: +(rv(r, 'average_session_duration', 'Average session duration')) || 0,
             };
             return;
@@ -5183,7 +5183,9 @@
           const s = +(rv(r, 'sessions', 'Sessions')) || 0;
           const c = +(rv(r, 'sessions_with_cart_additions', 'Sessions with cart additions', 'Added to cart')) || 0;
           const ck = +(rv(r, 'sessions_that_reached_checkout', 'Sessions that reached checkout')) || 0;
-          const bounceRate = +(rv(r, 'bounce_rate', 'Bounce rate')) || 0;
+          // bounceRate: computed server-side as bounces/sessions*100
+          const _bounces = +(rv(r, 'bounces', 'Bounces')) || 0;
+          const bounceRate = s > 0 ? Math.round(_bounces / s * 10000) / 100 : (+(rv(r, 'bounce_rate', 'Bounce rate')) || 0);
           const avgDuration = +(rv(r, 'average_session_duration', 'Average session duration')) || 0;
           const ppSession = +(rv(r, 'pageviews_per_session', 'Pageviews per session')) || 0;
           const utmSource = rv(r, 'utm_source', 'UTM source') || '';
