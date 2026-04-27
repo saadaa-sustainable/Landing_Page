@@ -162,12 +162,13 @@ def rows_to_dicts(columns: list, raw_rows: list) -> list:
 def fetch_traffic(date: str) -> list:
     ql = (
         "FROM sessions "
-        "SHOW online_store_visitors, sessions, bounce_rate, average_session_duration, "
-        "pageviews_per_session, added_to_cart_rate, sessions_with_cart_additions, "
-        "sessions_that_reached_checkout "
+        "SHOW online_store_visitors, sessions, sessions_with_cart_additions, "
+        "added_to_cart_rate, bounces, average_session_duration, "
+        "pageviews_per_session, sessions_that_reached_checkout "
         "WHERE landing_page_path IS NOT NULL "
+        "AND human_or_bot_session IN ('human', 'bot') "
         "GROUP BY landing_page_type, landing_page_path, "
-        "utm_source, utm_medium, utm_campaign "
+        "utm_source, utm_medium, utm_campaign, day "
         "WITH TOTALS "
         f"SINCE {date} UNTIL {date} "
         "ORDER BY sessions DESC "
@@ -186,7 +187,15 @@ def fetch_traffic(date: str) -> list:
     if sqr.get("parseErrors"):
         raise ValueError(f"ShopifyQL parse error: {sqr['parseErrors']}")
     table = sqr.get("tableData", {})
-    return rows_to_dicts(table.get("columns", []), table.get("rows", []))
+    result = rows_to_dicts(table.get("columns", []), table.get("rows", []))
+
+    # Compute bounce_rate from bounces / sessions (do not use Shopify's value directly)
+    for row in result:
+        bounces = float(row.get('bounces') or 0)
+        sessions = float(row.get('sessions') or 0)
+        row['bounce_rate'] = round(bounces / sessions * 100, 2) if sessions > 0 else 0
+
+    return result
 
 
 def fetch_inventory() -> list:
@@ -291,8 +300,9 @@ def fetch_inventory() -> list:
 def fetch_sales(since: str, until: str) -> list:
     ql = (
         "FROM sales "
-        "SHOW orders, gross_sales, discounts, returns, net_sales, taxes, total_sales "
-        "GROUP BY product_title "
+        "SHOW net_items_sold, gross_sales, discounts, returns, net_sales, taxes, total_sales "
+        "WHERE product_title IS NOT NULL "
+        "GROUP BY product_title, product_vendor, product_type WITH TOTALS "
         f"SINCE {since} UNTIL {until} "
         "ORDER BY total_sales DESC LIMIT 1000"
     )
