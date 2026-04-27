@@ -5476,18 +5476,7 @@
       const query = buildSalesQuery(since, until);
 
       try {
-        // Try POST with query body first (preferred — avoids URL length issues)
-        let resp;
-        try {
-          resp = await fetch(baseUrl + '/api/sales', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query: query, since: since, until: until })
-          });
-        } catch (postErr) {
-          // Fallback to GET with query params
-          resp = await fetch(baseUrl + '/api/sales?since=' + encodeURIComponent(since) + '&until=' + encodeURIComponent(until) + '&query=' + encodeURIComponent(query));
-        }
+        const resp = await fetch(baseUrl + '/api/sales?since=' + encodeURIComponent(since) + '&until=' + encodeURIComponent(until));
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
         const raw = await resp.json();
         if (raw && raw.error) throw new Error(raw.error);
