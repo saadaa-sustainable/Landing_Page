@@ -1129,8 +1129,12 @@
       padding: 9px 13px;
       border-bottom: 1px solid var(--bd);
       font-weight: 500;
-      background: rgba(35, 38, 48, 0.9);
+      background: rgba(35, 38, 48, 0.95);
+      backdrop-filter: blur(8px);
       white-space: nowrap;
+      position: sticky;
+      top: 0;
+      z-index: 10;
     }
 
     .dtbl td {
@@ -3542,7 +3546,7 @@
         } else if (hasOrders && orderRev > 0) {
           saleHtml = '<div class="tnum" style="color:#4ade80">' + fmtRs(orderRev) + '</div><div class="tm" style="font-size:.5rem;color:var(--mu2)">fetched period</div>';
         } else if (sale && sale.total_sales > 0) {
-          saleHtml = '<div class="tnum" style="color:#4ade80">' + fmtRs(sale.total_sales) + '</div><div class="tm" style="font-size:.5rem;color:var(--mu2)">lifetime</div>';
+          saleHtml = '<div class="tnum" style="color:#4ade80">' + fmtRs(sale.total_sales) + '</div><div class="tm" style="font-size:.5rem;color:var(--mu2)">aggregate</div>';
         } else { saleHtml = '<div class="tm">—</div>'; }
         // Last-click UTM from ORDERS_DATA
         const topUtm = hasOrders ? getTopUtmForProduct(r) : '<span style="color:var(--mu2);font-size:.55rem">—</span>';
@@ -3751,7 +3755,7 @@
         } else if (hasOrders && orderRev > 0) {
           saleHtml = '<div class="tnum" style="color:#4ade80">' + fmtRs(orderRev) + '</div>';
         } else if (sale && sale.total_sales > 0) {
-          saleHtml = '<div class="tnum" style="color:#4ade80">' + fmtRs(sale.total_sales) + '</div><div class="tm" style="font-size:.5rem;color:var(--mu2)">lifetime</div>';
+          saleHtml = '<div class="tnum" style="color:#4ade80">' + fmtRs(sale.total_sales) + '</div><div class="tm" style="font-size:.5rem;color:var(--mu2)">aggregate</div>';
         } else { saleHtml = '<div class="tm">—</div>'; }
         const topUtm = hasOrders ? getTopUtmForProduct(r) : '—';
         const gi = DATA.indexOf(r);
