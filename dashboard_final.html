@@ -2297,10 +2297,10 @@
                 <th>Product</th>
                 <th>Lifecycle</th>
                 <th>Stock</th>
-                <th>Sessions</th>
+                <th style="cursor:pointer;user-select:none;" onclick="sortHome('sessions')" id="thSort_sessions" title="Sort by Sessions">Sessions ↕</th>
                 <th>ATC%</th>
-                <th>Units Sold</th>
-                <th>Sales (₹)</th>
+                <th style="cursor:pointer;user-select:none;" onclick="sortHome('units')" id="thSort_units" title="Sort by Units Sold">Units Sold ↕</th>
+                <th style="cursor:pointer;user-select:none;" onclick="sortHome('sales')" id="thSort_sales" title="Sort by Sales">Sales (₹) ↕</th>
                 <th>Last Click UTM</th>
               </tr>
             </thead>
@@ -3442,6 +3442,26 @@
       _attributionCache = attr;
     }
 
+    let homeSortKey = 'sessions';
+    let homeSortDesc = true;
+    function sortHome(key) {
+      if (homeSortKey === key) {
+        homeSortDesc = !homeSortDesc;
+      } else {
+        homeSortKey = key;
+        homeSortDesc = true;
+      }
+      ['sessions','units','sales'].forEach(k => {
+        const el = document.getElementById('thSort_'+k);
+        if (el) {
+          const txt = k==='sessions' ? 'Sessions' : k==='units' ? 'Units Sold' : 'Sales (₹)';
+          if (k === homeSortKey) el.innerHTML = txt + (homeSortDesc ? ' ↓' : ' ↑');
+          else el.innerHTML = txt + ' ↕';
+        }
+      });
+      renderHome();
+    }
+
     function renderHome() {
       if (homView === 'collection') { renderCollectionView(); return; }
       // Use INVLIVE if available (Shopify fetch data), otherwise fall back to embedded DATA
@@ -3507,18 +3527,36 @@
       // Category filter
       if (homCat !== 'all') rows = rows.filter(r => (r.category || '').trim() === homCat);
       if (q) rows = rows.filter(r => (r.name || '').toLowerCase().includes(q) || (r.slug || '').toLowerCase().includes(q));
-      rows.sort((a, b) => b.visitors - a.visitors);
+      // Pre-build sales lookup and order caches for sorting
+      const salesMap = {};
+      (SALES_DATA || []).forEach(s => { salesMap[(s.product_title || '').toLowerCase().trim()] = s; });
+      const ordersUnitCache = {};
+      const ordersRevCache = {};
+      const hasOrders = ORDERS_DATA && ORDERS_DATA.length > 0;
+
+      rows.sort((a, b) => {
+        let valA = 0, valB = 0;
+        if (homeSortKey === 'sessions') {
+          valA = a.sessions || 0;
+          valB = b.sessions || 0;
+        } else if (homeSortKey === 'units') {
+          valA = hasOrders ? getUnitsSoldForProduct(a, ordersUnitCache) : 0;
+          valB = hasOrders ? getUnitsSoldForProduct(b, ordersUnitCache) : 0;
+        } else if (homeSortKey === 'sales') {
+          const attrRevA = hasOrders ? getOrderRevenueForProduct(a, ordersRevCache) : 0;
+          const attrRevB = hasOrders ? getOrderRevenueForProduct(b, ordersRevCache) : 0;
+          const saleA = salesMap[(a.name || '').toLowerCase().trim()];
+          const saleB = salesMap[(b.name || '').toLowerCase().trim()];
+          valA = attrRevA > 0 ? attrRevA : (saleA ? saleA.total_sales : 0);
+          valB = attrRevB > 0 ? attrRevB : (saleB ? saleB.total_sales : 0);
+        }
+        return homeSortDesc ? valB - valA : valA - valB;
+      });
+
       rows = rows.slice(0, 80);
       document.getElementById('homeCount').textContent = rows.length + ' products shown';
       const tbody = document.getElementById('homeTbody');
       if (!rows.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty">No products match</td></tr>'; return; }
-      // Pre-build sales lookup
-      const salesMap = {};
-      (SALES_DATA || []).forEach(s => { salesMap[(s.product_title || '').toLowerCase().trim()] = s; });
-      // Build order caches for units sold and revenue
-      const ordersUnitCache = {};
-      const ordersRevCache = {};
-      const hasOrders = ORDERS_DATA && ORDERS_DATA.length > 0;
       tbody.innerHTML = rows.map(r => {
         const ss = SS[r.stockStatus] || SS.unknown;
         const stockHtml = '<span class="stock-pill ' + ss.cls + '">' + ss.l + '</span>';
