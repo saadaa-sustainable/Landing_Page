@@ -102,22 +102,22 @@ def fetch_traffic(date: str) -> list:
 
     # If rows are already dicts (Shopify sometimes returns them this way), pass through
     if raw_rows and isinstance(raw_rows[0], dict):
-        return raw_rows
+        result = raw_rows
+    else:
+        # If rows are arrays, map column indices to names
+        if not columns:
+            return []
 
-    # If rows are arrays, map column indices to names
-    if not columns:
-        return []
+        col_names = [c.get("name", f"col_{i}") for i, c in enumerate(columns)]
 
-    col_names = [c.get("name", f"col_{i}") for i, c in enumerate(columns)]
-
-    result = []
-    for row in raw_rows:
-        if isinstance(row, list):
-            entry = {}
-            for i, val in enumerate(row):
-                if i < len(col_names):
-                    entry[col_names[i]] = val
-            result.append(entry)
+        result = []
+        for row in raw_rows:
+            if isinstance(row, list):
+                entry = {}
+                for i, val in enumerate(row):
+                    if i < len(col_names):
+                        entry[col_names[i]] = val
+                result.append(entry)
 
     # Compute bounce_rate from bounces / sessions instead of using Shopify's value
     for row in result:
