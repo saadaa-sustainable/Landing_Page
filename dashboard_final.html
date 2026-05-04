@@ -2297,10 +2297,13 @@
                 <th>Product</th>
                 <th>Lifecycle</th>
                 <th>Stock</th>
-                <th style="cursor:pointer;user-select:none;" onclick="sortHome('sessions')" id="thSort_sessions" title="Sort by Sessions">Sessions ↕</th>
+                <th style="cursor:pointer;user-select:none;" onclick="sortHome('sessions')" id="thSort_sessions"
+                  title="Sort by Sessions">Sessions ↕</th>
                 <th>ATC%</th>
-                <th style="cursor:pointer;user-select:none;" onclick="sortHome('units')" id="thSort_units" title="Sort by Units Sold">Units Sold ↕</th>
-                <th style="cursor:pointer;user-select:none;" onclick="sortHome('sales')" id="thSort_sales" title="Sort by Sales">Sales (₹) ↕</th>
+                <th style="cursor:pointer;user-select:none;" onclick="sortHome('units')" id="thSort_units"
+                  title="Sort by Units Sold">Units Sold ↕</th>
+                <th style="cursor:pointer;user-select:none;" onclick="sortHome('sales')" id="thSort_sales"
+                  title="Sort by Sales">Sales (₹) ↕</th>
                 <th>Last Click UTM</th>
               </tr>
             </thead>
@@ -2420,9 +2423,13 @@
       </div>
       <!-- Active tag chip row -->
       <div id="invTagChipRow" style="display:none;align-items:center;gap:6px;padding:3px 20px 5px;flex-wrap:wrap;">
-        <span style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--mu2);text-transform:uppercase;letter-spacing:.1em;">Tag is</span>
+        <span
+          style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--mu2);text-transform:uppercase;letter-spacing:.1em;">Tag
+          is</span>
         <span id="invTagChip" class="inv-tag-chip"></span>
-        <button onclick="setInvTag('all')" style="background:none;border:none;color:var(--mu2);cursor:pointer;font-size:.75rem;padding:0 2px;line-height:1;" title="Clear tag filter">✕</button>
+        <button onclick="setInvTag('all')"
+          style="background:none;border:none;color:var(--mu2);cursor:pointer;font-size:.75rem;padding:0 2px;line-height:1;"
+          title="Clear tag filter">✕</button>
       </div>
       <!-- Row 2: Search, Mode, Nav, View -->
       <div style="display:flex;align-items:center;gap:8px;padding:6px 20px;flex-wrap:wrap;">
@@ -2438,6 +2445,8 @@
         <div style="flex:1;"></div>
         <button class="nav-btn" onclick="goPage('home')">← Overview</button>
         <button class="nav-btn" onclick="goPage('traf')">↗ Traffic →</button>
+        <button class="ibtn" id="strToggleBtn" onclick="toggleSTRView()"
+          style="background:rgba(34,255,204,.08);border-color:var(--in);color:var(--in);">▦ Sell-Through Rate</button>
         <button class="ibtn" onclick="toggleEl('invCpanel')">⚙ Configure</button>
         <div class="vtog">
           <button class="vb on" id="iv-table" onclick="setIV('table')">Table</button>
@@ -2469,6 +2478,51 @@
         </div>
       </div>
       <div id="invView"></div>
+
+      <!-- ===== SELL-THROUGH RATE SECTION ===== -->
+      <div id="strSection" style="display:none;">
+        <!-- Supabase snapshot config -->
+        <div class="cpanel" id="strCpanel" style="margin:12px 0 0;">
+          <div class="cpanel-inner" style="display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;">
+            <div class="cp-hdr" style="flex-basis:100%;margin-bottom:2px;">▦ Sell-Through Rate — Supabase Daily Snapshot
+            </div>
+            <div class="cp-field" style="flex:2;min-width:200px;">
+              <div class="cp-lbl">Supabase URL</div>
+              <input class="cp-inp" id="strSbUrl" placeholder="https://xxxx.supabase.co" />
+            </div>
+            <div class="cp-field" style="flex:2;min-width:200px;">
+              <div class="cp-lbl">Anon Key</div>
+              <input class="cp-inp" id="strSbKey" type="password" placeholder="eyJ…" />
+            </div>
+            <div class="cp-field" style="flex:0 0 110px;">
+              <div class="cp-lbl">Snapshot Date</div>
+              <input class="cp-inp" type="date" id="strSnapshotDate" />
+            </div>
+            <button class="ibtn acc" onclick="fetchSTRSnapshot()" style="flex-shrink:0;">Fetch Snapshot →</button>
+            <button class="ibtn" onclick="useCurrentInvAsBaseline()" style="flex-shrink:0;"
+              title="Use today's live inventory fetch as baseline">Use Live Inv →</button>
+            <span class="shopify-status" id="strStatus">No snapshot</span>
+          </div>
+          <div id="strMsg"
+            style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--mu2);min-height:14px;margin-top:4px;">
+          </div>
+          <div
+            style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--mu2);margin-top:4px;line-height:1.6;">
+            Snapshot table schema: <code style="color:var(--in);">inventory_snapshots</code> with columns:
+            <code>snapshot_date (date)</code>, <code>product_title (text)</code>, <code>color_sku (text)</code>,
+            <code>total_stock (int)</code>, <code>captured_at (timestamptz)</code> — captured daily after 12:10am.
+            STR = qty_sold / available_qty (snapshot). <a href="#" onclick="copySTRTableSQL(event)"
+              style="color:var(--sand);">Copy CREATE TABLE SQL →</a>
+          </div>
+        </div>
+        <!-- STR KPIs + table -->
+        <div class="krow k4" id="strKpis" style="margin-top:10px;"></div>
+        <div id="strView" style="margin-top:8px;"></div>
+        <div id="strEmpty"
+          style="text-align:center;color:var(--mu2);padding:40px;font-family:'JetBrains Mono',monospace;font-size:.7rem;">
+          Fetch a Supabase snapshot or use live inventory → then STR is computed vs SALES_DATA.
+        </div>
+      </div>
     </div>
   </div>
 
@@ -2584,7 +2638,7 @@
         <div style="flex:1;height:1px;background:var(--bd2);margin-left:4px;"></div>
       </div>
 
-      <div id="analyticsSection">
+      <div id="analyticsSection" style="display:block;">
         <div class="crow c3">
           <div class="ch">
             <div class="cht">Conversion Funnel</div>
@@ -2599,12 +2653,6 @@
           <div class="ch">
             <div class="cht">Top 10 ATC Rate</div>
             <div class="chw h180"><canvas id="atcTop"></canvas></div>
-          </div>
-        </div>
-        <div class="crow c2">
-          <div class="ch">
-            <div class="cht">Stock Exposure — Visitor Distribution</div>
-            <div id="stockExposureViz" style="padding:6px 0;"></div>
           </div>
         </div>
         <div class="crow c2">
@@ -2661,17 +2709,28 @@
 
   <!-- ===== AD INTELLIGENCE PAGE ===== -->
   <div class="page" id="page-ads">
-    <!-- Meta Ads Upload Panel -->
+    <!-- Supabase Connection Panel -->
     <div class="cpanel hidden" id="metaAdsCpanel">
       <div class="cpanel-inner" style="display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;">
-        <div class="cp-hdr" style="flex-basis:100%;margin-bottom:2px;">◎ Upload Meta Ads Spreadsheet (CSV/TSV with tabs:
-          Account 1, 2, 3)</div>
-        <div class="cp-field" style="flex:1;min-width:200px;">
-          <div class="cp-lbl">Meta Ads File (.csv)</div>
-          <input type="file" id="metaAdsFile" accept=".csv,.tsv,.txt" multiple
-            style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--tx);background:var(--sf2);border:1px solid var(--bd2);border-radius:4px;padding:4px 6px;width:100%;" />
+        <div class="cp-hdr" style="flex-basis:100%;margin-bottom:2px;">◎ Connect Supabase — Ads Intelligence Database
         </div>
-        <button class="ibtn acc" onclick="parseMetaAdsFiles()" style="flex-shrink:0;">Load Meta Data →</button>
+        <div class="cp-field" style="flex:2;min-width:240px;">
+          <div class="cp-lbl">Supabase Project URL</div>
+          <input class="cp-inp" id="sbUrl" placeholder="https://xxxx.supabase.co" />
+        </div>
+        <div class="cp-field" style="flex:2;min-width:240px;">
+          <div class="cp-lbl">Anon / Service Key</div>
+          <input class="cp-inp" id="sbKey" type="password" placeholder="eyJ…" />
+        </div>
+        <div class="cp-field" style="flex:0 0 130px;">
+          <div class="cp-lbl">Date From</div>
+          <input class="cp-inp" type="date" id="sbDateFrom" />
+        </div>
+        <div class="cp-field" style="flex:0 0 130px;">
+          <div class="cp-lbl">Date To</div>
+          <input class="cp-inp" type="date" id="sbDateTo" />
+        </div>
+        <button class="ibtn acc" onclick="fetchSupabaseAds()" style="flex-shrink:0;">Fetch Ads →</button>
         <span class="shopify-status" id="metaAdsStatus">Not loaded</span>
       </div>
       <div id="metaAdsMsg"
@@ -2684,16 +2743,16 @@
         <select class="filter-select" id="adSort" onchange="renderAds()">
           <option value="spend">Spend ↓</option>
           <option value="impressions">Impressions ↓</option>
-          <option value="sessions">Sessions ↓</option>
-          <option value="sales">Sales ↓</option>
           <option value="roas">ROAS ↓</option>
+          <option value="hook">Hook Rate ↓</option>
+          <option value="ctr">CTR ↓</option>
         </select>
       </div>
       <div style="flex:1;"></div>
       <button class="nav-btn" onclick="goPage('home')">← Overview</button>
       <button class="ibtn" onclick="openAdDefinitionPopup()"
         style="background:rgba(212,180,131,.10);border-color:var(--sand);color:var(--sand);">◈ Definitions</button>
-      <button class="ibtn" onclick="toggleEl('metaAdsCpanel')">⚙ Upload Meta Data</button>
+      <button class="ibtn" onclick="toggleEl('metaAdsCpanel')">⚙ Supabase Config</button>
     </div>
 
     <!-- Ad Intelligence Definition Popup -->
@@ -2807,7 +2866,7 @@
       <div
         style="text-align:center;color:var(--mu2);padding:40px;font-family:'JetBrains Mono',monospace;font-size:.7rem;"
         id="adsEmpty">
-        Click ⚙ Upload Meta Data → select your CSV files (one per account) → Load
+        Click ⚙ Supabase Config → enter your Supabase URL + key → Fetch Ads
       </div>
     </div>
   </div>
@@ -3199,8 +3258,9 @@
     function toggleAnalytics() {
       const sec = document.getElementById('analyticsSection');
       const icon = document.getElementById('analyticsIcon');
-      if (sec.style.display === 'none') { sec.style.display = 'block'; icon.classList.add('open'); }
-      else { sec.style.display = 'none'; icon.classList.remove('open'); }
+      const isHidden = sec.style.display === 'none';
+      sec.style.display = isHidden ? 'block' : 'none';
+      icon.classList.toggle('open', isHidden);
     }
 
     // ── HELPERS ──
@@ -3451,10 +3511,10 @@
         homeSortKey = key;
         homeSortDesc = true;
       }
-      ['sessions','units','sales'].forEach(k => {
-        const el = document.getElementById('thSort_'+k);
+      ['sessions', 'units', 'sales'].forEach(k => {
+        const el = document.getElementById('thSort_' + k);
         if (el) {
-          const txt = k==='sessions' ? 'Sessions' : k==='units' ? 'Units Sold' : 'Sales (₹)';
+          const txt = k === 'sessions' ? 'Sessions' : k === 'units' ? 'Units Sold' : 'Sales (₹)';
           if (k === homeSortKey) el.innerHTML = txt + (homeSortDesc ? ' ↓' : ' ↑');
           else el.innerHTML = txt + ' ↕';
         }
@@ -3813,106 +3873,213 @@
 
     // ── AD INTELLIGENCE ──
     // ── META ADS DATA & PROCESSING ──
-    let META_ADS_DATA = []; // unified ad rows from all Meta accounts
+    let META_ADS_DATA = []; // unified ad rows from Supabase results_table
 
-    function parseCSVRow(line) {
-      const result = []; let cur = '', inQ = false;
-      for (let i = 0; i < line.length; i++) {
-        const c = line[i];
-        if (c === '"') { inQ = !inQ; }
-        else if ((c === ',' || c === '\t') && !inQ) { result.push(cur.trim()); cur = ''; }
-        else { cur += c; }
-      }
-      result.push(cur.trim());
-      return result;
-    }
-
-    function parseMetaCSV(text, accountName) {
-      const lines = text.split(/\r?\n/).filter(l => l.trim());
-      if (lines.length < 2) return [];
-      const hdr = parseCSVRow(lines[0]);
-      const ci = (names) => { for (const n of names) { const i = hdr.findIndex(h => h.toLowerCase().replace(/[_ ()]/g, '').includes(n.toLowerCase().replace(/[_ ()]/g, ''))); if (i >= 0) return i; } return -1; };
-      const iAdName = ci(['Ad Name', 'Ad name', 'adname']);
-      const iCampaign = ci(['Campaign Name', 'Campaign name', 'campaignname']);
-      const iImpressions = ci(['Impressions', 'impressions']);
-      const iSpend = ci(['Amount spent', 'Amountspent', 'amount_spent', 'Spend']);
-      const iClicks = ci(['Outbound Clicks', 'OutboundClicks', 'Link Clicks', 'Clicks']);
-      const iPurchaseVal = ci(['Purchases Conversion Value', 'PurchasesConversionValue', 'Purchase ROAS', 'purchase_value', 'Website Purchase']);
-      if (iAdName < 0) { console.warn('[MetaAds] No Ad Name column found in', accountName, 'headers:', hdr); return []; }
-      const ads = [];
-      for (let i = 1; i < lines.length; i++) {
-        const cols = parseCSVRow(lines[i]);
-        const adName = (cols[iAdName] || '').trim();
-        if (!adName) continue;
-        ads.push({
-          adName: adName,
-          campaignName: iCampaign >= 0 ? (cols[iCampaign] || '').trim() : '',
-          impressions: iImpressions >= 0 ? +(cols[iImpressions] || '0').replace(/,/g, '') || 0 : 0,
-          spend: iSpend >= 0 ? +(cols[iSpend] || '0').replace(/,/g, '') || 0 : 0,
-          clicks: iClicks >= 0 ? +(cols[iClicks] || '0').replace(/,/g, '') || 0 : 0,
-          purchaseValue: iPurchaseVal >= 0 ? +(cols[iPurchaseVal] || '0').replace(/,/g, '') || 0 : 0,
-          account: accountName,
-        });
-      }
-      return ads;
-    }
-
-    async function parseMetaAdsFiles() {
-      const files = document.getElementById('metaAdsFile').files;
+    // ── SUPABASE ADS FETCH ──
+    async function fetchSupabaseAds() {
       const msgEl = document.getElementById('metaAdsMsg');
       const statusEl = document.getElementById('metaAdsStatus');
-      if (!files || !files.length) { msgEl.textContent = '⚠ Select CSV files'; msgEl.style.color = 'var(--out)'; return; }
-      META_ADS_DATA = [];
-      for (let i = 0; i < files.length; i++) {
-        const text = await files[i].text();
-        const accountName = files[i].name.replace(/\.(csv|tsv|txt)$/i, '').trim() || ('Account ' + (i + 1));
-        const ads = parseMetaCSV(text, accountName);
-        META_ADS_DATA.push(...ads);
-      }
-      if (!META_ADS_DATA.length) {
-        msgEl.textContent = '⚠ No ad rows found. Check your CSV format (needs Ad Name column).';
+      const sbUrl = (document.getElementById('sbUrl').value || '').trim().replace(/\/$/, '');
+      const sbKey = (document.getElementById('sbKey').value || '').trim();
+      const dateFrom = document.getElementById('sbDateFrom').value;
+      const dateTo = document.getElementById('sbDateTo').value;
+
+      if (!sbUrl || !sbKey) {
+        msgEl.textContent = '⚠ Enter Supabase URL and API key';
         msgEl.style.color = 'var(--out)';
-        statusEl.textContent = 'Error';
         return;
       }
-      // Deduplicate: merge rows with same Ad Name (across accounts, sum metrics)
-      const byAd = {};
-      META_ADS_DATA.forEach(a => {
-        const key = a.adName.toLowerCase();
-        if (!byAd[key]) byAd[key] = { ...a, _accounts: [a.account] };
-        else {
-          byAd[key].impressions += a.impressions;
-          byAd[key].spend += a.spend;
-          byAd[key].clicks += a.clicks;
-          byAd[key].purchaseValue += a.purchaseValue;
-          if (!byAd[key]._accounts.includes(a.account)) byAd[key]._accounts.push(a.account);
-          if (!byAd[key].campaignName && a.campaignName) byAd[key].campaignName = a.campaignName;
+
+      msgEl.textContent = '⏳ Fetching from Supabase…';
+      msgEl.style.color = 'var(--mu2)';
+      statusEl.textContent = 'Loading…';
+
+      try {
+        // Build query — date filters are optional; if set they filter on computed_at range
+        // We try with filters first; if 0 rows, retry without to diagnose
+        const buildEndpoint = (withDates) => {
+          let ep = sbUrl + '/rest/v1/results_table?select=*&order=total_spend.desc&limit=500';
+          if (withDates && dateFrom) ep += '&computed_at=gte.' + dateFrom + 'T00:00:00';
+          if (withDates && dateTo) ep += '&computed_at=lte.' + dateTo + 'T23:59:59';
+          return ep;
+        };
+
+        const headers = {
+          'apikey': sbKey,
+          'Authorization': 'Bearer ' + sbKey,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation',
+        };
+
+        // First attempt: with date filters (if provided)
+        let endpoint = buildEndpoint(true);
+        let resp = await fetch(endpoint, { headers });
+        if (!resp.ok) {
+          const errText = await resp.text();
+          throw new Error('HTTP ' + resp.status + ' — ' + errText.slice(0, 200));
         }
-      });
-      META_ADS_DATA = Object.values(byAd);
-      msgEl.textContent = '✓ ' + META_ADS_DATA.length + ' ads loaded from ' + files.length + ' file(s)';
-      msgEl.style.color = 'var(--in)';
-      statusEl.textContent = 'Live · ' + META_ADS_DATA.length + ' ads';
-      toggleEl('metaAdsCpanel');
-      renderAds();
+        let rows = await resp.json();
+
+        // If 0 rows and dates were set, retry without date filter to check connectivity
+        if ((!Array.isArray(rows) || !rows.length) && (dateFrom || dateTo)) {
+          msgEl.textContent = '⚠ No rows for date range — retrying without date filter…';
+          const resp2 = await fetch(buildEndpoint(false), { headers });
+          if (resp2.ok) {
+            const rows2 = await resp2.json();
+            if (Array.isArray(rows2) && rows2.length) {
+              rows = rows2;
+              msgEl.textContent = '⚠ Date filter returned 0 rows — showing all ' + rows.length + ' rows instead';
+            } else {
+              throw new Error('Table returned 0 rows (even without date filter). Check table name & RLS policies.');
+            }
+          }
+        }
+
+        if (!Array.isArray(rows) || !rows.length) throw new Error('No rows returned — check table name, RLS policies, and API key permissions');
+
+        console.log('[Supabase] fetched', rows.length, 'rows. First row keys:', Object.keys(rows[0]));
+
+        // Normalize rows: expand ads_json and product_breakdown into flat ad objects
+        META_ADS_DATA = [];
+        rows.forEach(row => {
+          // ads_json is a jsonb array of individual ad objects [{id, name, ...}, ...]
+          let ads = [];
+          if (row.ads_json) {
+            try { ads = Array.isArray(row.ads_json) ? row.ads_json : JSON.parse(row.ads_json); } catch (e) { ads = []; }
+          }
+
+          // product_breakdown: jsonb mapping product → { spend, revenue, impressions, ... }
+          let productBreakdown = {};
+          if (row.product_breakdown) {
+            try { productBreakdown = typeof row.product_breakdown === 'object' ? row.product_breakdown : JSON.parse(row.product_breakdown); } catch (e) { productBreakdown = {}; }
+          }
+
+          // ctype_breakdown: jsonb with creative type data
+          let ctypeBreakdown = {};
+          if (row.ctype_breakdown) {
+            try { ctypeBreakdown = typeof row.ctype_breakdown === 'object' ? row.ctype_breakdown : JSON.parse(row.ctype_breakdown); } catch (e) { ctypeBreakdown = {}; }
+          }
+
+          if (ads.length > 0) {
+            // Expand per-ad rows, inherit account-level metrics proportionally
+            ads.forEach(ad => {
+              const adSpend = parseFloat(ad.spend || ad.total_spend || 0);
+              const adImpr = parseInt(ad.impressions || ad.total_impr || 0);
+              const adConvValue = parseFloat(ad.conv_value || ad.purchase_value || ad.total_conv_value || 0);
+              const adClicks = parseInt(ad.outbound_clicks || ad.clicks || 0);
+              const adThruPlays = parseInt(ad.thru_plays || ad.total_thru_plays || 0);
+              const adVideoPlays = parseInt(ad.video_plays || ad.total_video_plays || 0);
+              const adReach = parseInt(ad.reach || ad.total_reach || 0);
+
+              // Derive product mapping: match ad id/name to product_breakdown keys
+              let productName = '—';
+              let productRevenue = 0;
+              if (Object.keys(productBreakdown).length > 0) {
+                // product_breakdown keys may be ad IDs or product names
+                const adId = String(ad.id || '');
+                const adName = String(ad.name || '');
+                if (productBreakdown[adId]) {
+                  const pb = productBreakdown[adId];
+                  productName = pb.product_title || pb.product || adName || '—';
+                  productRevenue = parseFloat(pb.revenue || pb.conv_value || 0);
+                } else if (productBreakdown[adName]) {
+                  const pb = productBreakdown[adName];
+                  productName = pb.product_title || pb.product || adName || '—';
+                  productRevenue = parseFloat(pb.revenue || pb.conv_value || 0);
+                } else {
+                  // Try partial match
+                  for (const [k, v] of Object.entries(productBreakdown)) {
+                    if (adId && k.includes(adId)) { productName = v.product_title || v.product || adName || k; productRevenue = parseFloat(v.revenue || v.conv_value || 0); break; }
+                  }
+                }
+              }
+
+              META_ADS_DATA.push({
+                adId: String(ad.id || ''),
+                adName: String(ad.name || ad.ad_name || ''),
+                account: row.account_name || '',
+                dateFrom: row.data_date_from || '',
+                dateTo: row.data_date_to || '',
+                impressions: adImpr,
+                spend: adSpend,
+                clicks: adClicks,
+                thruPlays: adThruPlays,
+                videoPlays: adVideoPlays,
+                reach: adReach,
+                convValue: adConvValue,
+                hookRate: adVideoPlays > 0 ? parseFloat(ad.hook_rate || (adThruPlays / adVideoPlays)) || 0 : 0,
+                holdRate: parseFloat(ad.hold_rate || row.hold_rate || 0),
+                thruplayRate: parseFloat(ad.thruplay_rate || row.thruplay_rate || 0),
+                outboundCtr: parseFloat(ad.outbound_ctr || row.outbound_ctr || 0),
+                engagementRate: parseFloat(ad.engagement_rate || row.engagement_rate || 0),
+                cfRoas: parseFloat(ad.cf_roas || row.cf_roas || 0),
+                productName: productName,
+                productRevenue: productRevenue,
+                _productBreakdown: productBreakdown,
+                _ctypeBreakdown: ctypeBreakdown,
+                _rowId: row.id,
+              });
+            });
+          } else {
+            // No per-ad breakdown — use the row-level aggregates as a single entry
+            const topProduct = Object.keys(productBreakdown).length > 0
+              ? (() => { let best = null, bestRev = 0; for (const [k, v] of Object.entries(productBreakdown)) { const r = parseFloat(v.revenue || v.conv_value || 0); if (r > bestRev) { bestRev = r; best = v.product_title || v.product || k; } } return best || '—'; })()
+              : '—';
+            META_ADS_DATA.push({
+              adId: String(row.id || ''),
+              adName: row.account_name || ('Row ' + row.id),
+              account: row.account_name || '',
+              dateFrom: row.data_date_from || '',
+              dateTo: row.data_date_to || '',
+              impressions: parseInt(row.total_impr || 0),
+              spend: parseFloat(row.total_spend || 0),
+              clicks: parseInt(row.total_out_clicks || 0),
+              thruPlays: parseInt(row.total_thru_plays || 0),
+              videoPlays: parseInt(row.total_video_plays || 0),
+              reach: parseInt(row.total_reach || 0),
+              convValue: parseFloat(row.total_conv_value || 0),
+              hookRate: parseFloat(row.hook_rate || 0),
+              holdRate: parseFloat(row.hold_rate || 0),
+              thruplayRate: parseFloat(row.thruplay_rate || 0),
+              outboundCtr: parseFloat(row.outbound_ctr || 0),
+              engagementRate: parseFloat(row.engagement_rate || 0),
+              cfRoas: parseFloat(row.cf_roas || 0),
+              productName: topProduct,
+              productRevenue: parseFloat(row.total_conv_value || 0),
+              _productBreakdown: productBreakdown,
+              _ctypeBreakdown: ctypeBreakdown,
+              _rowId: row.id,
+            });
+          }
+        });
+
+        if (!META_ADS_DATA.length) throw new Error('No ad records could be extracted from the data');
+
+        // Save credentials for convenience
+        try { localStorage.setItem('ops_sb_url', sbUrl); localStorage.setItem('ops_sb_key', sbKey); } catch (e) { }
+
+        msgEl.textContent = '✓ ' + META_ADS_DATA.length + ' ads from ' + rows.length + ' row(s) · ' + (dateFrom || 'all') + ' → ' + (dateTo || 'all');
+        msgEl.style.color = 'var(--in)';
+        statusEl.textContent = 'Live · ' + META_ADS_DATA.length + ' ads';
+        toggleEl('metaAdsCpanel');
+        renderAds();
+      } catch (err) {
+        msgEl.textContent = '✗ ' + err.message;
+        msgEl.style.color = 'var(--out)';
+        statusEl.textContent = 'Error';
+      }
     }
 
-    // ── MATCHING: Ad Name ↔ utm_content in Shopify data ──
+    // ── MATCHING: Ad ID/Name ↔ utm_content in Shopify orders + product_breakdown from Supabase ──
     function buildAdMatchData() {
-      // Step 1: Build a map of utm_content → order data from ORDERS_DATA
-      const utmMap = {}; // key: utm_content (lowered), value: { revenue, orderCount, products }
-
+      // Step 1: Build UTM map from Shopify orders (utm_content → revenue/products)
+      const utmMap = {};
       (ORDERS_DATA || []).forEach(o => {
         if (o.cancelled) return;
         const attrs = o.customAttributes || {};
-        // Extract utm_content from multiple possible sources
         let utmContent = (attrs['utm_content'] || '').trim();
-        // Also try extracting from full_url query param
         if (!utmContent && attrs['full_url']) {
-          try {
-            const url = new URL(attrs['full_url']);
-            utmContent = (url.searchParams.get('utm_content') || '').trim();
-          } catch (e) { }
+          try { const url = new URL(attrs['full_url']); utmContent = (url.searchParams.get('utm_content') || '').trim(); } catch (e) { }
         }
         if (!utmContent) return;
         const key = utmContent.toLowerCase();
@@ -3926,67 +4093,60 @@
         });
       });
 
-      // Step 2: Also build a reverse map: product name → DATA entry for fallback product matching
-      const productByName = {};
-      DATA.forEach(p => { productByName[(p.name || '').toLowerCase().trim()] = p; });
-
-      // Step 3: Match each Meta ad to its utm_content data
+      // Step 2: Match each ad to orders via utm_content (ad ID first, then name)
       return META_ADS_DATA.map(ad => {
-        const adKey = ad.adName.toLowerCase().trim();
-        const adKeyDecoded = decodeURIComponent(adKey);
+        const adIdKey = (ad.adId || '').toLowerCase().trim();
+        const adNameKey = (ad.adName || '').toLowerCase().trim();
 
-        // Try exact match, then decoded match, then partial match
-        let match = utmMap[adKey] || utmMap[adKeyDecoded] || null;
-
-        // Partial match: check if any utm_content contains or is contained by the ad name
+        // Try: exact adId match → exact adName match → decoded → partial
+        let match = utmMap[adIdKey] || utmMap[adNameKey] || utmMap[decodeURIComponent(adNameKey)] || null;
         if (!match) {
           for (const [k, v] of Object.entries(utmMap)) {
-            if (k.includes(adKey) || adKey.includes(k)) { match = v; break; }
+            if ((adIdKey && k.includes(adIdKey)) || k.includes(adNameKey) || adNameKey.includes(k)) { match = v; break; }
           }
         }
 
-        // Determine top product from matched orders
-        let productName = '—';
+        // Determine product from: 1) Supabase product_breakdown, 2) matched orders, 3) catalog name match
+        let productName = ad.productName || '—';
         let allProducts = [];
+
         if (match && Object.keys(match.products).length > 0) {
           allProducts = Object.entries(match.products).sort((a, b) => b[1] - a[1]);
-          productName = allProducts[0][0];
-          if (allProducts.length > 1) productName += ' +' + (allProducts.length - 1);
+          // Only override if Supabase didn't already provide a product
+          if (productName === '—') {
+            productName = allProducts[0][0];
+            if (allProducts.length > 1) productName += ' +' + (allProducts.length - 1);
+          }
         }
 
-        // Fallback: try to derive product from ad name itself
-        // Many ad names contain the product name or slug
+        // Fallback: scan ad name against catalog
         if (productName === '—') {
           const adLower = ad.adName.toLowerCase();
-          for (const [pName, p] of Object.entries(productByName)) {
-            if (pName.length > 5 && adLower.includes(pName)) {
-              productName = p.name;
-              break;
-            }
-          }
-          // Also try matching slug
-          if (productName === '—') {
-            for (const p of DATA) {
-              if (p.slug && p.slug.length > 5 && adLower.includes(p.slug.replace(/-/g, ' '))) {
-                productName = p.name;
-                break;
-              }
-            }
+          for (const p of DATA) {
+            const pName = (p.name || '').toLowerCase();
+            if (pName.length > 5 && adLower.includes(pName)) { productName = p.name; break; }
+            if (p.slug && p.slug.length > 5 && adLower.includes(p.slug.replace(/-/g, ' '))) { productName = p.name; break; }
           }
         }
 
-        const revenue = match ? match.revenue : 0;
+        // Revenue: prefer Supabase product_breakdown revenue, fallback to order matching, fallback to cfRoas-derived
+        const orderRevenue = match ? match.revenue : 0;
+        const sbRevenue = ad.productRevenue || ad.convValue || 0;
+        const finalRevenue = sbRevenue > 0 ? sbRevenue : orderRevenue;
+
+        // ROAS: prefer Supabase cf_roas if available, else compute
+        const roas = ad.cfRoas > 0 ? ad.cfRoas : (ad.spend > 0 ? Math.round(finalRevenue / ad.spend * 100) / 100 : 0);
+
         return {
           ...ad,
-          matchedRevenue: revenue,
+          matchedRevenue: finalRevenue,
           matchedOrders: match ? match.orderCount : 0,
           productName: productName,
           _allProducts: allProducts,
-          roas: ad.spend > 0 ? Math.round(revenue / ad.spend * 100) / 100 : 0,
+          roas: roas,
         };
       });
     }
-
     // ── Ad Intelligence Definition Popup ──
     let AD_TARGET_IMP = 50000;
     let AD_TARGET_ROAS = 3.0;
@@ -4029,52 +4189,77 @@
 
       let rows = [...matched];
       if (q) rows = rows.filter(r =>
-        r.adName.toLowerCase().includes(q) ||
-        r.productName.toLowerCase().includes(q) ||
-        (r.campaignName || '').toLowerCase().includes(q)
+        (r.adName || '').toLowerCase().includes(q) ||
+        (r.productName || '').toLowerCase().includes(q) ||
+        (r.account || '').toLowerCase().includes(q) ||
+        (r.adId || '').toLowerCase().includes(q)
       );
-      // Sort
       if (sortBy === 'spend') rows.sort((a, b) => b.spend - a.spend);
       else if (sortBy === 'impressions') rows.sort((a, b) => b.impressions - a.impressions);
-      else if (sortBy === 'sessions') rows.sort((a, b) => b.matchedSessions - a.matchedSessions);
-      else if (sortBy === 'sales') rows.sort((a, b) => b.matchedRevenue - a.matchedRevenue);
       else if (sortBy === 'roas') rows.sort((a, b) => b.roas - a.roas);
+      else if (sortBy === 'hook') rows.sort((a, b) => b.hookRate - a.hookRate);
+      else if (sortBy === 'ctr') rows.sort((a, b) => b.outboundCtr - a.outboundCtr);
 
       // KPIs
       const totSpend = rows.reduce((a, r) => a + r.spend, 0);
-      const totImpressions = rows.reduce((a, r) => a + r.impressions, 0);
+      const totImpr = rows.reduce((a, r) => a + r.impressions, 0);
       const totClicks = rows.reduce((a, r) => a + r.clicks, 0);
       const totRevenue = rows.reduce((a, r) => a + r.matchedRevenue, 0);
-      const totOrders = rows.reduce((a, r) => a + r.matchedOrders, 0);
-      const overallRoas = totSpend > 0 ? Math.round(totRevenue / totSpend * 100) / 100 : 0;
+      const avgRoas = rows.filter(r => r.roas > 0).length > 0
+        ? rows.filter(r => r.roas > 0).reduce((a, r) => a + r.roas, 0) / rows.filter(r => r.roas > 0).length : 0;
+      const avgHook = rows.filter(r => r.hookRate > 0).length > 0
+        ? rows.filter(r => r.hookRate > 0).reduce((a, r) => a + r.hookRate, 0) / rows.filter(r => r.hookRate > 0).length : 0;
+
       kpiEl.innerHTML =
         kpi('co', 'Ad Spend', fmtRs(totSpend), rows.length + ' ads')
-        + kpi('ct', 'Impressions', fmt(totImpressions), '')
-        + kpi('ca', 'Clicks', fmt(totClicks), totImpressions > 0 ? 'CTR ' + (totClicks / totImpressions * 100).toFixed(2) + '%' : '')
-        + kpi('in', 'Matched Revenue', fmtRs(totRevenue), totOrders + ' orders matched')
-        + kpi('ca', 'ROAS', overallRoas.toFixed(2) + 'x', totSpend > 0 ? 'revenue / spend' : '')
-        + kpi('cc', 'Matched Ads', rows.filter(r => r.matchedOrders > 0).length + '/' + rows.length, 'with Shopify orders');
+        + kpi('ct', 'Impressions', fmt(totImpr), totClicks > 0 ? 'Clicks ' + fmt(totClicks) : '')
+        + kpi('ca', 'Avg ROAS', avgRoas.toFixed(2) + 'x', 'from Supabase cf_roas')
+        + kpi('in', 'Total Revenue', fmtRs(totRevenue), 'conv value')
+        + kpi('ca', 'Avg Hook Rate', (avgHook * 100).toFixed(1) + '%', '3-sec / plays')
+        + kpi('cc', 'Outbound CTR', totImpr > 0 ? (totClicks / totImpr * 100).toFixed(2) + '%' : '—', 'clicks / impressions');
 
-      // Table
+      // Table — includes Supabase metrics: Hook, Hold, CTR, ThruPlay, ROAS
       const maxSpend = Math.max(...rows.map(r => r.spend), 1);
       let html = '<div class="tbl-wrap"><div class="tbl-hdr"><span class="tbl-title">' + rows.length + ' ads</span></div><div class="tbl-scr"><table class="dtbl"><thead><tr>'
-        + '<th>Product</th><th>Ad Name</th><th>Campaign</th><th>Impressions</th><th>Spend (₹)</th><th>Clicks</th><th>Orders</th><th>Revenue (₹)</th><th>ROAS</th>'
+        + '<th>Product</th>'
+        + '<th>Ad Name</th>'
+        + '<th>Account</th>'
+        + '<th>Impressions</th>'
+        + '<th>Spend (₹)</th>'
+        + '<th>Hook %</th>'
+        + '<th>Hold %</th>'
+        + '<th>ThruPlay %</th>'
+        + '<th>CTR %</th>'
+        + '<th>Revenue (₹)</th>'
+        + '<th>ROAS</th>'
         + '</tr></thead><tbody>';
-      rows.slice(0, 200).forEach(r => {
+
+      rows.slice(0, 300).forEach(r => {
         const roasColor = r.roas >= AD_TARGET_ROAS ? 'color:#4ade80' : r.roas >= 1 ? 'color:var(--low)' : r.roas > 0 ? 'color:var(--out)' : '';
         const roasBadge = r.roas >= AD_TARGET_ROAS ? 'sk-in' : r.roas >= 1 ? 'sk-low' : r.spend > 0 ? 'sk-out' : '';
-        // Build product tooltip — show all matched products if multiple
+
+        // Hook rate color: ≥15% green, ≥8% yellow, else red
+        const hookPct = r.hookRate * 100;
+        const hookColor = hookPct >= 15 ? 'color:#4ade80' : hookPct >= 8 ? 'color:var(--low)' : hookPct > 0 ? 'color:var(--out)' : '';
+
+        // Hold rate color: ≥25% green, ≥15% yellow
+        const holdPct = r.holdRate * 100;
+        const holdColor = holdPct >= 25 ? 'color:#4ade80' : holdPct >= 15 ? 'color:var(--low)' : holdPct > 0 ? 'color:var(--out)' : '';
+
         const prodTip = r._allProducts && r._allProducts.length > 1
           ? r._allProducts.map(([n, q]) => n + ' (' + q + ' units)').join('\n')
           : (r.productName || '—').replace(/"/g, '&quot;');
+
         html += '<tr>'
-          + '<td><div class="tn" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" data-tip="' + prodTip.replace(/"/g, '&quot;') + '">' + sh(r.productName) + '</div></td>'
-          + '<td><div class="tm" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" data-tip="' + (r.adName || '').replace(/"/g, '&quot;') + '">' + sh(r.adName) + '</div></td>'
-          + '<td><div class="tm" style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" data-tip="' + (r.campaignName || '—').replace(/"/g, '&quot;') + '">' + sh(r.campaignName || '—') + '</div></td>'
+          + '<td><div class="tn" style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" data-tip="' + prodTip.replace(/"/g, '&quot;') + '">' + sh(r.productName) + '</div></td>'
+          + '<td><div class="tm" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" data-tip="' + (r.adName || '').replace(/"/g, '&quot;') + ' · ID: ' + (r.adId || '') + '">' + sh(r.adName) + '</div></td>'
+          + '<td><div class="tm" style="max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + sh(r.account || '—') + '</div></td>'
           + '<td><div class="tnum">' + fmt(r.impressions) + '</div></td>'
           + '<td><div class="tnum">' + fmtRs(r.spend) + '</div><div class="mbar-bg"><div class="mbar-f" style="width:' + Math.min(100, Math.round(r.spend / maxSpend * 100)) + '%;background:var(--out);opacity:.5;"></div></div></td>'
-          + '<td><div class="tnum">' + fmt(r.clicks) + '</div></td>'
-          + '<td><div class="tnum">' + (r.matchedOrders || '—') + '</div></td>'
+          + '<td><div class="tnum ' + (hookPct >= 15 ? 'sk-in' : hookPct >= 8 ? 'sk-low' : hookPct > 0 ? 'sk-out' : '') + '" style="' + hookColor + ';">' + (r.hookRate > 0 ? hookPct.toFixed(1) + '%' : '—') + '</div></td>'
+          + '<td><div class="tnum" style="' + holdColor + ';">' + (r.holdRate > 0 ? holdPct.toFixed(1) + '%' : '—') + '</div></td>'
+          + '<td><div class="tnum">' + (r.thruplayRate > 0 ? (r.thruplayRate * 100).toFixed(1) + '%' : '—') + '</div></td>'
+          + '<td><div class="tnum">' + (r.outboundCtr > 0 ? (r.outboundCtr * 100).toFixed(2) + '%' : '—') + '</div></td>'
           + '<td><div class="tnum" style="color:#4ade80">' + (r.matchedRevenue > 0 ? fmtRs(r.matchedRevenue) : '—') + '</div></td>'
           + '<td><div class="tnum ' + roasBadge + '" style="' + roasColor + ';font-weight:600;">' + (r.roas > 0 ? r.roas.toFixed(2) + 'x' : '—') + '</div></td>'
           + '</tr>';
@@ -4141,6 +4326,188 @@
       if (q) d = d.filter(r => (r.name || '').toLowerCase().includes(q) || (r.colorSku || '').toLowerCase().includes(q));
       return d;
     }
+    // ── SELL-THROUGH RATE ──
+    let STR_SNAPSHOT = []; // [{product_title, color_sku, total_stock, snapshot_date}]
+    let _strViewActive = false;
+
+    function toggleSTRView() {
+      _strViewActive = !_strViewActive;
+      document.getElementById('strSection').style.display = _strViewActive ? 'block' : 'none';
+      document.getElementById('invSummary').style.display = _strViewActive ? 'none' : '';
+      document.getElementById('invKpis').style.display = _strViewActive ? 'none' : '';
+      document.querySelectorAll('.crow').forEach(el => { el.style.display = _strViewActive ? 'none' : ''; });
+      document.getElementById('invView').style.display = _strViewActive ? 'none' : '';
+      const btn = document.getElementById('strToggleBtn');
+      if (_strViewActive) {
+        btn.style.background = 'rgba(34,255,204,.22)';
+        btn.textContent = '← Back to Inventory';
+        renderSTR();
+      } else {
+        btn.style.background = 'rgba(34,255,204,.08)';
+        btn.textContent = '▦ Sell-Through Rate';
+      }
+    }
+
+    async function fetchSTRSnapshot() {
+      const msgEl = document.getElementById('strMsg');
+      const statusEl = document.getElementById('strStatus');
+      const sbUrl = (document.getElementById('strSbUrl').value || document.getElementById('sbUrl').value || '').trim().replace(/\/$/, '');
+      const sbKey = (document.getElementById('strSbKey').value || document.getElementById('sbKey').value || '').trim();
+      const snapDate = document.getElementById('strSnapshotDate').value;
+
+      if (!sbUrl || !sbKey) { msgEl.textContent = '⚠ Enter Supabase URL and key'; msgEl.style.color = 'var(--out)'; return; }
+
+      msgEl.textContent = '⏳ Fetching snapshot…'; msgEl.style.color = 'var(--mu2)';
+      statusEl.textContent = 'Loading…';
+
+      try {
+        let endpoint = sbUrl + '/rest/v1/inventory_snapshots?select=*&limit=5000';
+        if (snapDate) endpoint += '&snapshot_date=eq.' + snapDate;
+        else endpoint += '&order=captured_at.desc&limit=2000';
+
+        const resp = await fetch(endpoint, {
+          headers: { 'apikey': sbKey, 'Authorization': 'Bearer ' + sbKey, 'Content-Type': 'application/json' }
+        });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status + ': ' + (await resp.text()).slice(0, 120));
+        const rows = await resp.json();
+        if (!Array.isArray(rows) || !rows.length) throw new Error('No snapshot rows found for ' + (snapDate || 'latest'));
+
+        STR_SNAPSHOT = rows.map(r => ({
+          product_title: (r.product_title || '').toLowerCase().trim(),
+          color_sku: r.color_sku || '',
+          total_stock: parseInt(r.total_stock) || 0,
+          snapshot_date: r.snapshot_date || '',
+          captured_at: r.captured_at || '',
+        }));
+
+        // Save creds
+        try { localStorage.setItem('ops_sb_url', sbUrl); localStorage.setItem('ops_sb_key', sbKey); } catch (e) { }
+
+        const date = STR_SNAPSHOT[0].snapshot_date || STR_SNAPSHOT[0].captured_at?.slice(0, 10) || 'unknown';
+        msgEl.textContent = '✓ ' + STR_SNAPSHOT.length + ' snapshot rows · date: ' + date;
+        msgEl.style.color = 'var(--in)';
+        statusEl.textContent = 'Loaded · ' + date;
+        renderSTR();
+      } catch (err) {
+        msgEl.textContent = '✗ ' + err.message; msgEl.style.color = 'var(--out)';
+        statusEl.textContent = 'Error';
+      }
+    }
+
+    function useCurrentInvAsBaseline() {
+      const src = INVLIVE.length ? INVLIVE : DATA.filter(r => r.hasInvData);
+      if (!src.length) { document.getElementById('strMsg').textContent = '⚠ No live inventory loaded — fetch inventory first'; document.getElementById('strMsg').style.color = 'var(--out)'; return; }
+      STR_SNAPSHOT = src.map(r => ({
+        product_title: (r.name || '').toLowerCase().trim(),
+        color_sku: r.colorSku || '',
+        total_stock: r.totalStock >= 0 ? r.totalStock : 0,
+        snapshot_date: new Date().toISOString().slice(0, 10),
+        captured_at: new Date().toISOString(),
+      }));
+      document.getElementById('strMsg').textContent = '✓ Using live inventory (' + STR_SNAPSHOT.length + ' products) as baseline';
+      document.getElementById('strMsg').style.color = 'var(--in)';
+      document.getElementById('strStatus').textContent = 'Live baseline · ' + new Date().toISOString().slice(0, 10);
+      renderSTR();
+    }
+
+    function normalizeProductKey(value) {
+      return (value || '').toString().toLowerCase().trim().replace(/\s+/g, ' ');
+    }
+
+    function escapeJsString(value) {
+      return (value || '').toString().replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    }
+
+    function getSalesUnits(row) {
+      const value = row.net_items_sold ?? row.orders ?? row.quantity ?? 0;
+      return Math.max(0, parseFloat(value) || 0);
+    }
+
+    function renderSTR() {
+      const emptyEl = document.getElementById('strEmpty');
+      const viewEl = document.getElementById('strView');
+      const kpiEl = document.getElementById('strKpis');
+
+      if (!STR_SNAPSHOT.length) { emptyEl.style.display = 'block'; viewEl.innerHTML = ''; kpiEl.innerHTML = ''; return; }
+      emptyEl.style.display = 'none';
+
+      // Build snapshot map: product_title → available_qty
+      const snapMap = {};
+      STR_SNAPSHOT.forEach(s => {
+        const key = normalizeProductKey(s.product_title);
+        if (!key) return;
+        snapMap[key] = (snapMap[key] || 0) + s.total_stock;
+      });
+
+      // Build sales map from SALES_DATA
+      const salesMap = {};
+      (SALES_DATA || []).forEach(s => {
+        const key = normalizeProductKey(s.product_title);
+        if (!key) return;
+        salesMap[key] = (salesMap[key] || 0) + getSalesUnits(s);
+      });
+
+      // Search + sort controls
+      const q = (document.getElementById('invSrch').value || '').toLowerCase();
+
+      // Compute STR rows
+      let rows = Object.entries(snapMap).map(([title, availQty]) => {
+        const soldQty = salesMap[title] || 0;
+        const str = availQty > 0 ? Math.min(100, Math.round(soldQty / availQty * 100)) : (soldQty > 0 ? 100 : 0);
+        return { title, availQty, soldQty, str };
+      }).filter(r => r.availQty > 0 || r.soldQty > 0);
+
+      if (q) rows = rows.filter(r => r.title.includes(q));
+      rows.sort((a, b) => b.str - a.str);
+
+      // KPIs
+      const totalAvail = rows.reduce((s, r) => s + r.availQty, 0);
+      const totalSold = rows.reduce((s, r) => s + r.soldQty, 0);
+      const avgSTR = rows.length > 0 ? Math.round(rows.reduce((s, r) => s + r.str, 0) / rows.length) : 0;
+      const highSTR = rows.filter(r => r.str >= 50).length;
+      kpiEl.innerHTML =
+        kpi('ca', 'Products', rows.length, 'with snapshot data')
+        + kpi('in', 'Avg STR', avgSTR + '%', 'sold / available')
+        + kpi('ci', '≥50% STR', highSTR, 'moving well')
+        + kpi('co', 'Total Avail', fmt(totalAvail), 'from snapshot');
+
+      // Table
+      let html = '<div class="tbl-wrap"><div class="tbl-hdr"><span class="tbl-title">' + rows.length + ' products · STR = Units Sold ÷ Available Qty</span></div><div class="tbl-scr"><table class="dtbl"><thead><tr>'
+        + '<th>Product</th><th>Available Qty</th><th>Units Sold</th><th>Sell-Through Rate</th></tr></thead><tbody>';
+      rows.forEach(r => {
+        const strColor = r.str >= 70 ? '#4ade80' : r.str >= 40 ? 'var(--low)' : r.str > 0 ? 'var(--out)' : 'var(--mu2)';
+        html += '<tr style="cursor:pointer" title="Click to view product details" onclick="openProductDetailForTitle(\'' + escapeJsString(r.title) + '\')">'
+          + '<td><div class="tn" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + sh(r.title) + '</div></td>'
+          + '<td><div class="tnum">' + r.availQty.toLocaleString() + '</div></td>'
+          + '<td><div class="tnum">' + (r.soldQty > 0 ? r.soldQty.toLocaleString() : '—') + '</div></td>'
+          + '<td><div class="tnum" style="color:' + strColor + ';font-weight:600;">' + r.str + '%</div>'
+          + '<div class="mbar-bg"><div class="mbar-f" style="width:' + Math.min(100, r.str) + '%;background:' + strColor + ';opacity:.6;"></div></div>'
+          + '<div class="tm" style="font-size:.52rem;">' + r.soldQty + ' sold / ' + r.availQty + ' avail</div></td>'
+          + '</tr>';
+      });
+      html += '</tbody></table></div></div>';
+      viewEl.innerHTML = html;
+    }
+
+    function copySTRTableSQL(e) {
+      e.preventDefault();
+      const sql = `CREATE TABLE inventory_snapshots (
+  id bigserial PRIMARY KEY,
+  snapshot_date date NOT NULL,
+  product_title text NOT NULL,
+  color_sku text,
+  total_stock integer NOT NULL DEFAULT 0,
+  captured_at timestamptz DEFAULT now()
+);
+CREATE INDEX ON inventory_snapshots (snapshot_date);
+CREATE INDEX ON inventory_snapshots (product_title);`;
+      navigator.clipboard.writeText(sql).then(() => {
+        const el = document.getElementById('strMsg');
+        el.textContent = '✓ SQL copied to clipboard — run this in Supabase SQL editor';
+        el.style.color = 'var(--in)';
+      });
+    }
+
     function setIF(f) { invF = f; styleDropdown('invCatSelect', f); renderInv(); }
     function setISF(f) { invStockF = f; styleDropdown('isfSelect', f); renderInv(); }
     function setIM(m) { invM = m;['name', 'sku', 'size'].forEach(k => document.getElementById('im-' + k).classList.toggle('on', k === m)); renderInv(); }
@@ -4495,7 +4862,7 @@
       if (!rows.length) { el.innerHTML = '<div class="empty">No products match the current filter.</div>'; return; }
       if (view === 'cards') { el.innerHTML = renderCards(rows, mode); return; }
       let th = '';
-      if (mode === 'inv') th = '<tr><th>Product</th><th>SKU</th><th>Lifecycle</th><th>Product Category</th><th>Stock</th><th>In-Stock Rate</th><th>Sell-Through Rate</th><th>Total Units</th><th>Sizes</th></tr>';
+      if (mode === 'inv') th = '<tr><th>Product</th><th>SKU</th><th>Lifecycle</th><th>Product Category</th><th>Stock</th><th>In-Stock Rate</th><th>Total Units</th><th>Sizes</th></tr>';
       else if (mode === 'traf') th = '<tr><th>Product</th><th>Visitors</th><th>Sessions</th><th>Bounce</th><th>Pg/Sess</th><th>Cart Adds</th><th>ATC%</th><th>Checkout</th><th>Top UTM</th><th>Stock</th></tr>';
       else th = '<tr><th>Product</th><th>Signal</th><th>Visitors</th><th>Cart Adds</th><th>Checkout</th><th>ATC%</th><th>Stock</th><th>Sizes</th></tr>';
       let html = '';
@@ -4542,7 +4909,6 @@
             + '<td><div class="tm">' + (r.category || '—') + '</div></td>'
             + '<td>' + spill(r.stockStatus) + '</td>'
             + '<td><div class="tnum" style="color:' + isrColor + '">' + isr + '%</div><div class="mbar-bg"><div class="mbar-f" style="width:' + isr + '%;background:' + isrColor + ';"></div></div><div class="tm" style="font-size:.55rem;">' + isrLabel + ' sizes</div></td>'
-            + '<td><div class="tnum" style="color:' + strColor + '">' + str + '%</div><div class="mbar-bg"><div class="mbar-f" style="width:' + str + '%;background:' + strColor + ';"></div></div><div class="tm" style="font-size:.55rem;">' + unitsSold + ' sold / ' + totalUnits + ' total</div></td>'
             + '<td><div class="tnum">' + (r.totalStock >= 0 ? r.totalStock.toLocaleString() : '—') + '</div></td>'
             + '<td><div class="szbadges">' + szbadges(r) + '</div></td></tr>';
         } else if (mode === 'traf') {
@@ -5417,15 +5783,18 @@
         return;
       }
       const all = SALES_DATA;
-      // Prefer Shopify WITH TOTALS row for accurate KPIs, fallback to summing rows
+      // Prefer Shopify WITH TOTALS row for accurate KPIs, fallback to summing rows if totals are invalid or stale
       const st = window._salesTotals || null;
-      const totSales = st ? (st.total_sales || 0) : all.reduce((a, r) => a + (r.total_sales || 0), 0);
-      const totGross = st ? (st.gross_sales || 0) : all.reduce((a, r) => a + (r.gross_sales || 0), 0);
-      const _units = r => r.orders || r.net_items_sold || 0;
-      const totUnits = st ? (st.net_items_sold || 0) : all.reduce((a, r) => a + _units(r), 0);
-      const totDisc = st ? (st.discounts || 0) : all.reduce((a, r) => a + (r.discounts || 0), 0);
-      const totRet = st ? (st.returns || 0) : all.reduce((a, r) => a + (r.returns || 0), 0);
-      const totNet = st ? (st.net_sales || 0) : all.reduce((a, r) => a + (r.net_sales || 0), 0);
+      const safeNumber = v => typeof v === 'string' ? parseFloat(v.replace(/,/g, '')) || 0 : Number(v) || 0;
+      const hasTotalsRow = st && (st.total_sales != null || st.gross_sales != null || st.net_items_sold != null);
+      const totalsRowValid = hasTotalsRow && !(safeNumber(st.total_sales) === 0 && all.some(r => safeNumber(r.total_sales) !== 0));
+      const totSales = totalsRowValid ? safeNumber(st.total_sales) : all.reduce((a, r) => a + safeNumber(r.total_sales), 0);
+      const totGross = totalsRowValid ? safeNumber(st.gross_sales) : all.reduce((a, r) => a + safeNumber(r.gross_sales), 0);
+      const _units = r => getSalesUnits(r);
+      const totUnits = totalsRowValid ? safeNumber(st.net_items_sold) : all.reduce((a, r) => a + _units(r), 0);
+      const totDisc = totalsRowValid ? safeNumber(st.discounts) : all.reduce((a, r) => a + safeNumber(r.discounts), 0);
+      const totRet = totalsRowValid ? safeNumber(st.returns) : all.reduce((a, r) => a + safeNumber(r.returns), 0);
+      const totNet = totalsRowValid ? safeNumber(st.net_sales) : all.reduce((a, r) => a + safeNumber(r.net_sales), 0);
 
       const rangeLabel = document.getElementById('salesSince').value && document.getElementById('salesUntil').value
         ? document.getElementById('salesSince').value + ' → ' + document.getElementById('salesUntil').value
@@ -5486,6 +5855,7 @@
 
     function fetchSalesData() {
       SALES_DATA = [...EMBEDDED_SALES];
+      window._salesTotals = null;
       _salesMsg('live', '✓ ' + SALES_DATA.length + ' products from embedded data');
       renderSales();
     }
@@ -5592,8 +5962,41 @@
     function openProductDetail(idx) {
       const sale = _lastSalesRows[idx];
       if (!sale) return;
-      const productTitle = sale.product_title || '—';
-      const titleLower = productTitle.toLowerCase();
+      openProductDetailForTitle(sale.product_title || '—', sale);
+    }
+
+    function getSalesSummaryByTitle(productTitle) {
+      const key = normalizeProductKey(productTitle);
+      if (!key) return null;
+      const rows = (SALES_DATA || []).filter(r => normalizeProductKey(r.product_title) === key);
+      if (!rows.length) return null;
+      return rows.reduce((acc, r) => ({
+        product_title: acc.product_title || r.product_title || productTitle,
+        product_type: acc.product_type || r.product_type || '',
+        total_sales: acc.total_sales + (parseFloat(r.total_sales) || 0),
+        gross_sales: acc.gross_sales + (parseFloat(r.gross_sales) || 0),
+        discounts: acc.discounts + (parseFloat(r.discounts) || 0),
+        returns: acc.returns + (parseFloat(r.returns) || 0),
+        net_sales: acc.net_sales + (parseFloat(r.net_sales) || 0),
+        taxes: acc.taxes + (parseFloat(r.taxes) || 0),
+        net_items_sold: acc.net_items_sold + getSalesUnits(r)
+      }), {
+        product_title: productTitle,
+        product_type: '',
+        total_sales: 0,
+        gross_sales: 0,
+        discounts: 0,
+        returns: 0,
+        net_sales: 0,
+        taxes: 0,
+        net_items_sold: 0
+      });
+    }
+
+    function openProductDetailForTitle(productTitle, saleData) {
+      const title = productTitle || '—';
+      const titleLower = title.toLowerCase();
+      const sale = saleData || getSalesSummaryByTitle(title) || { product_title: title, total_sales: 0, gross_sales: 0, discounts: 0, returns: 0, net_sales: 0, taxes: 0, net_items_sold: 0 };
 
       // Traffic data (DATA array — PDP products)
       const traf = DATA.find(r => (r.name || '').toLowerCase() === titleLower);
@@ -6014,6 +6417,15 @@
       document.getElementById('masterDate').value = today.toISOString().slice(0, 10);
       const mUrl = localStorage.getItem('ops_master_url') || localStorage.getItem('ops_vercel_url') || '';
       if (mUrl) document.getElementById('masterServerUrl').value = mUrl;
+      // Restore Supabase credentials
+      const sbUrlSaved = localStorage.getItem('ops_sb_url');
+      const sbKeySaved = localStorage.getItem('ops_sb_key');
+      if (sbUrlSaved) document.getElementById('sbUrl').value = sbUrlSaved;
+      if (sbKeySaved) document.getElementById('sbKey').value = sbKeySaved;
+      if (sbUrlSaved && document.getElementById('strSbUrl')) document.getElementById('strSbUrl').value = sbUrlSaved;
+      if (sbKeySaved && document.getElementById('strSbKey')) document.getElementById('strSbKey').value = sbKeySaved;
+      // Default STR snapshot date to today
+      if (document.getElementById('strSnapshotDate')) document.getElementById('strSnapshotDate').value = new Date().toISOString().slice(0, 10);
     } catch (e) { }
     populateCatDropdown();
     populateColorDropdown();
