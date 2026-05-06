@@ -12,30 +12,61 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     :root {
-      --bg: #14161b;
-      --sf: rgba(28, 31, 38, 0.78);
-      --sf2: rgba(40, 44, 52, 0.82);
-      --sf3: rgba(55, 60, 70, 0.85);
-      --bd: rgba(255, 255, 255, 0.13);
-      --bd2: rgba(255, 255, 255, 0.18);
-      --sand: #f0deaa;
-      --sand-d: rgba(240, 222, 170, .14);
-      --sand-b: rgba(240, 222, 170, .28);
-      --txt: #f8f6f2;
-      --mu: #9a9cb0;
-      --mu2: #b0b2c3;
-      --in: #22ffcc;
-      --in-bg: rgba(34, 255, 204, .12);
-      --in-bd: rgba(34, 255, 204, .30);
-      --low: #ffba52;
-      --low-bg: rgba(255, 186, 82, .12);
-      --low-bd: rgba(255, 186, 82, .30);
-      --out: #ff4a5a;
-      --out-bg: rgba(255, 74, 90, .12);
-      --out-bd: rgba(255, 74, 90, .30);
-      --traf: #6ec0ff;
-      --cart: #d4adff;
-      --warn: #ffba52;
+      /* Backgrounds — warm ecru palette */
+      --bg: #FAF8F5;
+      --bg-surface: #F5F1EC;
+      --bg-ecru: #F0EAD6;
+      --bg-page-alt: #F6F3F1;
+      --bg-muted: #F0EDE6;
+      --bg-white: #FFFFFF;
+      /* Glass card formula (per brand spec) */
+      --sf: rgba(255, 252, 248, 0.72);
+      --sf2: #F5F1EC;
+      --sf3: #F0EAD6;
+      /* Borders */
+      --bd: #E7E2D2;
+      --bd2: #DDD8CC;
+      --bd-soft: #EFEAE0;
+      --bd-warm: #EDE8DC;
+      --bd-strong: #C9C2AE;
+      /* Brand accents */
+      --cta: #F0C61E;                             /* yellow — primary CTA only */
+      --cta-hover: #D9B01A;
+      --sand: #C9A882;                            /* secondary accent */
+      --sand-d: rgba(201, 168, 130, .14);
+      --sand-b: rgba(201, 168, 130, .35);
+      --amber: #E8C87A;
+      --warm-tint: #FAF1DC;
+      /* Text */
+      --txt: #161513;
+      --txt-hover: #1B1A17;
+      --txt-charcoal: #2C2420;
+      --txt-mid: #494640;
+      --mu: #9A9384;
+      --mu2: #6E695E;
+      /* Status — Success */
+      --in: #3D9E6B;
+      --in-bg: #ECF1E9;
+      --in-bd: rgba(79, 124, 77, .35);
+      --in-text: #4F7C4D;
+      /* Status — Warning */
+      --low: #D9922A;
+      --low-bg: #FAF1DC;
+      --low-bd: rgba(232, 200, 122, .55);
+      --low-text: #B57514;
+      /* Status — Error */
+      --out: #C94343;
+      --out-bg: #FDECEA;
+      --out-bd: rgba(192, 57, 43, .30);
+      --out-text: #C0392B;
+      /* Info / link */
+      --traf: #3B6FD4;
+      --info-bg: #D6E1F5;
+      --info-text: #355C7A;
+      /* Secondary accents (detail panels only) */
+      --cart: #7B4FBF;
+      --accent-pink: #B54F7A;
+      --warn: #D9922A;
       --r: 12px;
     }
 
@@ -67,23 +98,38 @@
       display: flex;
       align-items: stretch;
       height: 48px;
-      background: rgba(20, 22, 28, 0.9);
+      background: rgba(255, 252, 248, 0.85);
       backdrop-filter: blur(14px);
       border-bottom: 1px solid var(--bd);
+      box-shadow: 0 1px 12px rgba(44, 36, 32, .06);
     }
 
     .brand {
       font-family: 'Cormorant Garamond', serif;
       font-size: 1.15rem;
-      font-weight: 600;
-      color: var(--sand);
-      padding: 0 22px;
+      font-weight: 700;
+      color: var(--txt-charcoal);
+      padding: 0 22px 0 30px;
       display: flex;
       align-items: center;
       border-right: 1px solid var(--bd);
       letter-spacing: .02em;
       white-space: nowrap;
       gap: 6px;
+      position: relative;
+    }
+
+    /* Yellow brand accent strip (per spec: logo bg = yellow) */
+    .brand::before {
+      content: '';
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 4px;
+      height: 24px;
+      border-radius: 2px;
+      background: var(--cta);
     }
 
     .brand-sub {
@@ -124,8 +170,9 @@
     }
 
     .ntab.on {
-      color: var(--sand);
-      border-bottom-color: var(--sand);
+      color: var(--txt);
+      border-bottom-color: var(--cta);
+      font-weight: 500;
     }
 
     .ntab-icon {
@@ -143,13 +190,201 @@
     }
 
     .nav-r {
-      margin-left: auto;
       display: flex;
       align-items: center;
       gap: 10px;
       padding: 0 16px;
       border-left: 1px solid var(--bd);
     }
+
+    /* Date range trigger button (replaces the old Master Fetch Bar) */
+    .nav-date {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 14px;
+      border-left: 1px solid var(--bd);
+    }
+
+    .nav-date-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      height: 30px;
+      padding: 0 12px;
+      border-radius: 7px;
+      border: 1px solid var(--bd);
+      background: var(--bg-white);
+      color: var(--txt);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .68rem;
+      cursor: pointer;
+      transition: border-color .15s, background-color .15s;
+    }
+
+    .nav-date-btn:hover {
+      border-color: var(--bd-strong);
+      background: var(--bg-page-alt);
+    }
+
+    .nav-date-icon { font-size: .8rem; line-height: 1; }
+    .nav-date-caret { font-size: .55rem; color: var(--mu2); margin-left: 2px; }
+
+    .nav-date-status {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .55rem;
+      color: var(--mu2);
+      margin-left: 4px;
+      max-width: 220px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Date range popover */
+    .drp-backdrop {
+      position: fixed;
+      inset: 0;
+      background: transparent;
+      z-index: 8999;
+      display: none;
+    }
+    .drp-backdrop.open { display: block; }
+
+    .drp-popover {
+      position: fixed;
+      top: 56px;
+      right: 16px;
+      width: 720px;
+      max-width: calc(100vw - 32px);
+      background: var(--bg-white);
+      border: 1px solid var(--bd);
+      border-radius: 12px;
+      box-shadow: 0 16px 48px rgba(44, 36, 32, .18);
+      display: none;
+      grid-template-columns: 160px 1fr;
+      z-index: 9000;
+      overflow: hidden;
+    }
+    .drp-popover.open { display: grid; }
+
+    .drp-presets {
+      border-right: 1px solid var(--bd);
+      padding: 12px 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-surface);
+    }
+
+    .drp-preset {
+      padding: 9px 18px;
+      background: none;
+      border: none;
+      text-align: left;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .68rem;
+      color: var(--txt);
+      cursor: pointer;
+      transition: background-color .12s, color .12s;
+    }
+
+    .drp-preset:hover { background: var(--bg-ecru); }
+    .drp-preset.active { background: var(--cta); color: var(--txt); font-weight: 600; }
+
+    .drp-cal-wrap { display: flex; flex-direction: column; min-height: 380px; }
+
+    .drp-cal-grids {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 22px;
+      padding: 16px 18px 8px;
+      flex: 1;
+    }
+
+    .drp-cal-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+
+    .drp-cal-month-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--txt);
+      text-align: center;
+      flex: 1;
+    }
+
+    .drp-cal-nav-btn {
+      width: 24px; height: 24px;
+      background: none;
+      border: 1px solid transparent;
+      border-radius: 5px;
+      color: var(--mu2);
+      cursor: pointer;
+      font-size: 1rem; line-height: 1;
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: background-color .12s, color .12s;
+    }
+    .drp-cal-nav-btn:hover { background: var(--bg-ecru); color: var(--txt); }
+
+    .drp-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; }
+
+    .drp-day-name {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .52rem;
+      color: var(--mu2);
+      text-align: center;
+      padding: 4px 0 6px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    .drp-day {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .68rem;
+      color: var(--txt);
+      text-align: center;
+      padding: 6px 0;
+      cursor: pointer;
+      border-radius: 5px;
+      transition: background-color .12s, color .12s;
+      user-select: none;
+    }
+    .drp-day:hover { background: var(--bg-ecru); }
+    .drp-day.muted { color: var(--mu); opacity: .5; }
+    .drp-day.in-range { background: var(--warm-tint); border-radius: 0; }
+    .drp-day.range-start { background: var(--cta); color: var(--txt); font-weight: 700; border-radius: 5px 0 0 5px; }
+    .drp-day.range-end { background: var(--cta); color: var(--txt); font-weight: 700; border-radius: 0 5px 5px 0; }
+    .drp-day.range-start.range-end { border-radius: 5px; }
+
+    .drp-footer {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 18px;
+      border-top: 1px solid var(--bd);
+      background: var(--bg-surface);
+    }
+
+    .drp-range-display {
+      flex: 1;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .7rem;
+      color: var(--mu2);
+    }
+
+    .drp-btn {
+      padding: 6px 16px;
+      border-radius: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .65rem;
+      cursor: pointer;
+      border: 1px solid var(--bd);
+      transition: background-color .15s, border-color .15s;
+    }
+
+    .drp-btn-cancel { background: var(--bg-white); color: var(--txt); }
+    .drp-btn-cancel:hover { background: var(--bg-page-alt); }
+
+    .drp-btn-apply { background: var(--cta); border-color: var(--cta); color: var(--txt); font-weight: 600; }
+    .drp-btn-apply:hover { background: var(--cta-hover); border-color: var(--cta-hover); }
 
     .pip {
       width: 6px;
@@ -204,7 +439,7 @@
     }
 
     ::-webkit-scrollbar-track {
-      background: rgba(255, 255, 255, .03);
+      background: var(--bg-page-alt);
     }
 
     ::-webkit-scrollbar-thumb {
@@ -213,7 +448,147 @@
     }
 
     ::-webkit-scrollbar-thumb:hover {
-      background: rgba(212, 180, 131, .35);
+      background: var(--bd-strong);
+    }
+
+    /* Global Know More button in the navbar */
+    .nav-info-btn {
+      align-self: center;
+      margin: 0 12px;
+      padding: 6px 14px;
+      border: 1px solid var(--bd);
+      border-radius: 7px;
+      background: var(--bg-white);
+      color: var(--mu2);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .62rem;
+      letter-spacing: .04em;
+      cursor: pointer;
+      transition: border-color .15s, color .15s, background-color .15s;
+    }
+    .nav-info-btn:hover {
+      border-color: var(--cta);
+      color: var(--txt);
+      background: var(--warm-tint);
+    }
+
+    /* ── Know More button (per-tab info — kept for legacy markup but unused) ── */
+    .know-more-btn {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .55rem;
+      padding: 4px 10px;
+      border: 1px solid var(--bd2);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--mu2);
+      cursor: pointer;
+      transition: all .15s;
+      letter-spacing: .06em;
+    }
+
+    .know-more-btn:hover {
+      border-color: var(--sand);
+      color: var(--sand);
+    }
+
+    /* ── Tab info / generic info modal (solid bg per brand spec) ── */
+    .info-modal-card {
+      position: relative;
+      background: var(--bg-white);
+      border: 1px solid var(--bd);
+      border-radius: 12px;
+      padding: 22px 26px 20px;
+      width: min(440px, 92vw);
+      box-shadow: 0 16px 48px rgba(44, 36, 32, .15);
+    }
+
+    .info-modal-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--txt-charcoal);
+      margin-bottom: 10px;
+    }
+
+    .info-modal-body {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .68rem;
+      color: var(--mu2);
+      line-height: 1.7;
+    }
+
+    .info-modal-close {
+      position: absolute;
+      top: 10px;
+      right: 12px;
+      background: none;
+      border: none;
+      color: var(--mu2);
+      font-size: 1.2rem;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .info-modal-close:hover { color: var(--txt); }
+
+    /* ── Generic card grid (used by Overview / Sales / Orders card views) ── */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 12px;
+      padding: 14px 16px;
+    }
+
+    .p-card {
+      background: var(--bg-white);
+      border: 1px solid var(--bd);
+      border-left-width: 3px;
+      border-radius: 10px;
+      padding: 14px 16px;
+      cursor: pointer;
+      transition: transform .15s, border-color .15s, box-shadow .15s;
+    }
+
+    .p-card:hover {
+      border-color: var(--bd-strong);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(44, 36, 32, .08);
+    }
+
+    .pc-name {
+      font-size: .82rem;
+      font-weight: 600;
+      color: var(--txt);
+      margin-bottom: 4px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .pc-meta {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .58rem;
+      color: var(--mu2);
+      margin-bottom: 10px;
+      letter-spacing: .04em;
+    }
+
+    .pc-stats {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .65rem;
+      color: var(--txt);
+    }
+
+    .pc-stats > span { display: inline-flex; align-items: center; gap: 4px; }
+
+    .pc-stats .pc-lbl {
+      color: var(--mu2);
+      font-size: .55rem;
+      text-transform: uppercase;
+      letter-spacing: .06em;
     }
 
     /* ── HOME HERO ── */
@@ -227,19 +602,19 @@
     }
 
     .hero-panel {
-      background: var(--sf);
-      backdrop-filter: blur(12px);
+      background: var(--bg-white);
+      border: 1px solid var(--bd-soft);
       padding: 18px 22px;
       position: relative;
       overflow: hidden;
-      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: transform .2s, box-shadow .2s, border-color .2s;
     }
 
     .hero-panel:hover {
       transform: translateY(-3px);
-      background: rgba(32, 35, 41, 0.8);
+      border-color: var(--bd-strong);
       z-index: 10;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      box-shadow: 0 10px 24px rgba(44, 36, 32, .08);
     }
 
     .hero-panel::before {
@@ -429,15 +804,16 @@
 
     /* ── HOME TABLE ── */
     .prod-tbl-wrap {
-      background: var(--sf);
+      background: var(--bg-white);
       border: 1px solid var(--bd);
       border-radius: var(--r);
-      overflow: hidden;
+      overflow: clip;            /* clip — keeps rounded corners without creating a scroll container */
       width: 100%;
     }
 
     .tbl-scr {
       overflow-x: auto;
+      overflow-y: clip;          /* explicit clip prevents the implicit auto y-scroll that causes double scrollbars */
       width: 100%;
     }
 
@@ -448,7 +824,7 @@
       align-items: center;
       gap: 6px;
       padding: 8px 20px;
-      background: var(--sf);
+      background: var(--bg-surface);
       border-bottom: 1px solid var(--bd);
       flex-wrap: wrap;
     }
@@ -551,15 +927,14 @@
       position: sticky;
       top: 0;
       z-index: 100;
-      background: var(--sf);
-      backdrop-filter: blur(16px);
+      background: var(--bg-white);
       border-bottom: 1px solid var(--bd);
       padding: 10px 20px;
       display: none;
       align-items: center;
       gap: 12px;
       flex-shrink: 0;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+      box-shadow: 0 2px 8px rgba(44, 36, 32, .08);
     }
 
     .sticky-product-bar.visible {
@@ -644,9 +1019,9 @@
     .filter-select {
       appearance: none;
       -webkit-appearance: none;
-      background: var(--sf2);
-      border: 1px solid var(--bd2);
-      border-radius: 6px;
+      background: var(--bg-white);
+      border: 1px solid var(--bd);
+      border-radius: 8px;
       padding: 5px 28px 5px 10px;
       color: var(--txt);
       font-family: 'JetBrains Mono', monospace;
@@ -654,12 +1029,12 @@
       cursor: pointer;
       outline: none;
       transition: border-color .18s;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239a9cb0' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236E695E' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
       background-repeat: no-repeat;
       background-position: right 8px center;
       min-width: 80px;
       white-space: nowrap;
-      color-scheme: dark;
+      color-scheme: light;
     }
 
     .filter-select:hover,
@@ -721,8 +1096,8 @@
     }
 
     .srch {
-      background: var(--sf2);
-      border: 1px solid var(--bd2);
+      background: var(--bg-white);
+      border: 1px solid var(--bd);
       border-radius: 6px;
       padding: 5px 11px;
       color: var(--txt);
@@ -742,11 +1117,11 @@
     }
 
     .sel {
-      background: var(--sf2);
-      border: 1px solid var(--bd2);
+      background: var(--bg-white);
+      border: 1px solid var(--bd);
       border-radius: 6px;
       padding: 5px 8px;
-      color: var(--mu2);
+      color: var(--txt);
       font-family: 'JetBrains Mono', monospace;
       font-size: .58rem;
       outline: none;
@@ -759,9 +1134,9 @@
 
     .vtog {
       display: flex;
-      background: var(--sf2);
+      background: var(--bg-white);
       border-radius: 6px;
-      border: 1px solid var(--bd2);
+      border: 1px solid var(--bd);
       overflow: hidden;
     }
 
@@ -775,11 +1150,11 @@
       color: var(--mu2);
       text-transform: uppercase;
       letter-spacing: .06em;
-      transition: all .15s;
+      transition: background-color .15s, color .15s;
     }
 
     .vb.on {
-      background: var(--sf3);
+      background: var(--bg-ecru);
       color: var(--txt);
     }
 
@@ -801,14 +1176,15 @@
     }
 
     .ibtn.acc {
-      background: var(--sand);
-      color: #0a0a0b;
-      border-color: var(--sand);
+      background: var(--cta);
+      color: var(--txt);
+      border-color: var(--cta);
       font-weight: 600;
     }
 
     .ibtn.acc:hover {
-      background: #d4c5aa;
+      background: var(--cta-hover);
+      border-color: var(--cta-hover);
     }
 
     /* ── KPI ── */
@@ -831,19 +1207,19 @@
     }
 
     .kpi {
-      background: var(--sf);
-      backdrop-filter: blur(12px);
+      background: var(--bg-white);
       border: 1px solid var(--bd);
       border-radius: var(--r);
-      padding: 11px 13px;
+      padding: 18px 20px;
       position: relative;
       overflow: hidden;
-      transition: transform 0.2s, box-shadow 0.2s;
+      transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
     }
 
     .kpi:hover {
       transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+      border-color: var(--bd-strong);
+      box-shadow: 0 8px 20px rgba(44, 36, 32, .06);
     }
 
     .kpi::before {
@@ -933,17 +1309,17 @@
     }
 
     .ch {
-      background: var(--sf);
-      backdrop-filter: blur(12px);
+      background: var(--bg-white);
       border: 1px solid var(--bd);
       border-radius: var(--r);
       padding: 12px 14px;
-      transition: transform .2s;
+      transition: transform .2s, box-shadow .2s, border-color .2s;
     }
 
     .ch:hover {
       transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+      border-color: var(--bd-strong);
+      box-shadow: 0 8px 20px rgba(44, 36, 32, .06);
     }
 
     .cht {
@@ -1084,18 +1460,17 @@
 
     /* ── TABLE ── */
     .tbl-wrap {
-      background: rgba(24, 27, 34, 0.85);
-      backdrop-filter: blur(14px);
+      background: var(--bg-white);
       border: 1px solid var(--bd);
       border-radius: var(--r);
-      overflow: hidden;
+      overflow: clip;            /* clip — keeps rounded corners without creating a scroll container */
       margin-bottom: 14px;
       transition: box-shadow .2s;
     }
 
 
     .tbl-wrap:hover {
-      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 8px 24px rgba(44, 36, 32, .08);
     }
 
     .tbl-hdr {
@@ -1109,7 +1484,7 @@
     .tbl-title {
       font-family: 'JetBrains Mono', monospace;
       font-size: .56rem;
-      color: #c5c7d6;
+      color: var(--mu2);
       text-transform: uppercase;
       letter-spacing: .08em;
     }
@@ -1124,13 +1499,12 @@
       font-size: .52rem;
       letter-spacing: .1em;
       text-transform: uppercase;
-      color: #c5c7d6;
+      color: var(--mu2);
       text-align: left;
       padding: 9px 13px;
       border-bottom: 1px solid var(--bd);
       font-weight: 500;
-      background: rgba(35, 38, 48, 0.95);
-      backdrop-filter: blur(8px);
+      background: var(--bg-surface);
       white-space: nowrap;
       position: sticky;
       top: 0;
@@ -1138,8 +1512,8 @@
     }
 
     .dtbl td {
-      padding: 9px 13px;
-      border-bottom: 1px solid var(--bd);
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--bd-soft);
       font-size: .72rem;
       vertical-align: middle;
       color: var(--txt);
@@ -1150,7 +1524,7 @@
     }
 
     .dtbl tr:hover td {
-      background: rgba(255, 255, 255, .05);
+      background: var(--bg-page-alt);
       cursor: pointer;
     }
 
@@ -1206,7 +1580,7 @@
     .tm {
       font-family: 'JetBrains Mono', monospace;
       font-size: .58rem;
-      color: #b0b2c3;
+      color: var(--mu);
       margin-top: 1px;
     }
 
@@ -1456,26 +1830,28 @@
     /* ── CARDS VIEW ── */
     .cards {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-      gap: 8px;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 14px;
       margin-bottom: 14px;
+      padding: 4px 0;
     }
 
     .card {
-      background: var(--sf);
-      backdrop-filter: blur(12px);
+      background: var(--bg-white);
       border: 1px solid var(--bd);
       border-radius: var(--r);
-      padding: 11px 12px;
+      padding: 14px 16px;
       position: relative;
       overflow: hidden;
+      color: var(--txt);
       transition: transform .15s, box-shadow .15s, border-color .15s;
       cursor: pointer;
     }
 
     .card:hover {
       transform: translateY(-3px);
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+      border-color: var(--bd-strong);
+      box-shadow: 0 8px 20px rgba(44, 36, 32, .08);
     }
 
     .card.c-leak {
@@ -1651,8 +2027,7 @@
 
     /* ── CPANEL ── */
     .cpanel {
-      background: var(--sf);
-      backdrop-filter: blur(12px);
+      background: var(--bg-surface);
       border-bottom: 1px solid var(--bd);
       padding: 10px 20px;
       display: flex;
@@ -1688,8 +2063,8 @@
     }
 
     .cp-inp {
-      background: var(--sf2);
-      border: 1px solid var(--bd2);
+      background: var(--bg-white);
+      border: 1px solid var(--bd);
       border-radius: 6px;
       padding: 6px 10px;
       color: var(--txt);
@@ -1709,7 +2084,7 @@
     }
 
     input[type="date"].cp-inp::-webkit-calendar-picker-indicator {
-      filter: invert(.5);
+      filter: invert(.4);
       cursor: pointer;
     }
 
@@ -1719,7 +2094,7 @@
       color: var(--mu);
       line-height: 1.6;
       padding: 6px 10px;
-      background: var(--sf2);
+      background: var(--bg-page-alt);
       border-radius: 6px;
       border-left: 2px solid var(--sand);
     }
@@ -1832,7 +2207,7 @@
     }
 
     .inv-sum-card {
-      background: var(--sf);
+      background: var(--bg-white);
       border: 1px solid var(--bd);
       border-radius: var(--r);
       padding: 12px 14px;
@@ -1934,7 +2309,7 @@
     .bar-row .br-track {
       flex: 1;
       height: 26px;
-      background: rgba(255, 255, 255, .04);
+      background: var(--bg-page-alt);
       border-radius: 4px;
       overflow: hidden;
     }
@@ -2055,7 +2430,7 @@
     .leak-step .lk-bar {
       flex: 1;
       height: 26px;
-      background: rgba(255, 255, 255, .04);
+      background: var(--bg-page-alt);
       border-radius: 4px;
       overflow: hidden;
     }
@@ -2203,6 +2578,81 @@
         grid-template-columns: 1fr;
       }
     }
+
+    /* ── Global spacing & polish ── */
+    body { background-color: var(--bg); }
+
+    /* Tabs */
+    .ntab { font-size: .78rem; letter-spacing: .02em; padding: 0 22px; }
+
+    /* Filter inputs */
+    .filter-select { padding: 6px 12px; min-width: 100px; }
+    .srch { padding: 7px 13px; }
+
+    /* Toolbars (filter rows on each tab) — more breathing room */
+    .toolbar { padding: 12px 22px !important; gap: 10px !important; row-gap: 10px !important; }
+    .toolbar .tg { gap: 7px; }
+    .tb-lbl { letter-spacing: .12em; }
+
+    /* Section headers */
+    .sec-hdr { padding: 4px 0 6px; }
+
+    /* Sticky filter bar at top of Overview */
+    #homeSticky { padding: 14px 22px 10px !important; }
+
+    /* KPIs and hero panels */
+    .krow { gap: 12px !important; margin-bottom: 18px !important; }
+    .kpi { padding: 16px 18px !important; min-width: 0; }
+    .kpi .kv { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .home-hero { gap: 1px; }
+    .hero-panel { padding: 22px 24px !important; }
+
+    /* Orders KPI row (auto-fit) — wider min so cards don't stretch absurdly */
+    #ordersKpis {
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)) !important;
+      gap: 12px !important;
+      padding: 14px 22px !important;
+    }
+    #ordersKpis .kv { font-size: 1.5rem; }
+
+    /* Product-detail modal KPIs — modal width is constrained, scale text down so values
+       like "₹21.4k" don't get clipped at narrow column widths */
+    .dsec .krow .kpi { padding: 12px 14px !important; }
+    .dsec .krow .kv { font-size: 1.05rem; line-height: 1.15; }
+    .dsec .krow .kl { font-size: .48rem; margin-bottom: 3px; }
+    .dsec .krow .ks { font-size: .52rem; }
+    /* Allow modal KPI rows to wrap to 2 cols on narrow widths */
+    @media (max-width: 560px) {
+      .dsec .krow.k4, .dsec .krow.k5, .dsec .krow.k6 {
+        grid-template-columns: repeat(2, 1fr) !important;
+      }
+    }
+
+    /* Charts row */
+    .crow { gap: 14px !important; margin-bottom: 14px !important; }
+    .ch { padding: 14px 18px !important; }
+
+    /* Table cells */
+    #homeTbody td, .dtbl tbody td { padding: 12px 16px !important; }
+    .dtbl th { padding: 11px 16px !important; }
+
+    /* Config panels */
+    .cpanel { padding: 14px 22px !important; gap: 10px !important; }
+
+    /* Inventory summary */
+    .inv-summary { gap: 12px; padding: 12px 22px; }
+    .inv-sum-card { padding: 14px 18px; }
+
+    /* Card grid in card-view tabs */
+    .cards-grid { gap: 14px !important; padding: 18px 22px !important; }
+    .p-card { padding: 16px 18px; }
+
+    /* Scroll padding (page content) */
+    .scroll { padding: 22px 26px !important; }
+    #homeScroll { padding: 0 !important; }
+
+    /* Page-info (Know More) modal: slightly wider for breathing room */
+    .info-modal-card { padding: 26px 28px 22px; }
   </style>
 </head>
 
@@ -2219,26 +2669,64 @@
       <button class="ntab" id="nt-sales" onclick="goPage('sales')"><span class="ntab-icon">₹</span> Sales</button>
       <button class="ntab" id="nt-orders" onclick="goPage('orders')"><span class="ntab-icon">🛒</span> Orders</button>
     </div>
-    <div class="nav-r">
-      <div class="pip" id="livePip"></div>
-      <div class="nav-meta" id="navMeta">28 March 2026</div>
+    <button class="nav-info-btn" onclick="openTabInfo(_currentPage)" title="About this tab">ⓘ Know more</button>
+    <!-- Date range button (opens custom popover; auto-fetches on Apply) -->
+    <div class="nav-date">
+      <button id="dateRangeBtn" class="nav-date-btn" onclick="openDateRangePicker()" type="button">
+        <span class="nav-date-icon">📅</span>
+        <span id="dateRangeBtnLabel">Pick date range</span>
+        <span class="nav-date-caret">▾</span>
+      </button>
+      <input type="hidden" id="masterServerUrl" value="" />
+      <input type="hidden" id="masterDate" value="" />
+      <input type="hidden" id="masterSince" value="" />
+      <input type="hidden" id="masterUntil" value="" />
+      <span id="masterFetchStatus" class="nav-date-status">Not loaded</span>
+    </div>
+  </div>
+
+  <!-- ===== Date Range Picker Popover ===== -->
+  <div id="dateRangeBackdrop" class="drp-backdrop" onclick="if(event.target===this)closeDateRangePicker()"></div>
+  <div id="dateRangePopover" class="drp-popover" role="dialog" aria-label="Choose date range">
+    <div class="drp-presets">
+      <button class="drp-preset" data-preset="today" onclick="setDrpPreset('today')">Today</button>
+      <button class="drp-preset" data-preset="yesterday" onclick="setDrpPreset('yesterday')">Yesterday</button>
+      <button class="drp-preset" data-preset="7days" onclick="setDrpPreset('7days')">Last 7 Days</button>
+      <button class="drp-preset" data-preset="30days" onclick="setDrpPreset('30days')">Last 30 Days</button>
+      <button class="drp-preset" data-preset="thisMonth" onclick="setDrpPreset('thisMonth')">This Month</button>
+      <button class="drp-preset" data-preset="lastMonth" onclick="setDrpPreset('lastMonth')">Last Month</button>
+      <button class="drp-preset" data-preset="lifetime" onclick="setDrpPreset('lifetime')">Lifetime</button>
+      <button class="drp-preset" data-preset="custom" onclick="setDrpPreset('custom')">Custom Range</button>
+    </div>
+    <div class="drp-cal-wrap">
+      <div class="drp-cal-grids">
+        <div>
+          <div class="drp-cal-header">
+            <button class="drp-cal-nav-btn" onclick="_drpShiftMonth(-1)" type="button" aria-label="Previous month">‹</button>
+            <div class="drp-cal-month-title" id="drpMonthTitle1"></div>
+            <span style="width:24px;"></span>
+          </div>
+          <div class="drp-cal-grid" id="drpCal1"></div>
+        </div>
+        <div>
+          <div class="drp-cal-header">
+            <span style="width:24px;"></span>
+            <div class="drp-cal-month-title" id="drpMonthTitle2"></div>
+            <button class="drp-cal-nav-btn" onclick="_drpShiftMonth(1)" type="button" aria-label="Next month">›</button>
+          </div>
+          <div class="drp-cal-grid" id="drpCal2"></div>
+        </div>
+      </div>
+      <div class="drp-footer">
+        <span class="drp-range-display" id="drpRangeDisplay"></span>
+        <button class="drp-btn drp-btn-cancel" onclick="closeDateRangePicker()" type="button">Cancel</button>
+        <button class="drp-btn drp-btn-apply" onclick="applyDateRange()" type="button">Apply</button>
+      </div>
     </div>
   </div>
 
   <!-- ===== HOME PAGE ===== -->
   <div class="page on" id="page-home">
-    <!-- Master Fetch Bar -->
-    <div
-      style="display:flex;align-items:center;gap:8px;padding:8px 16px;background:var(--sf2);border-bottom:1px solid var(--bd2);flex-wrap:wrap;">
-      <div style="font-size:.7rem;color:var(--sand);font-family:'JetBrains Mono',monospace;font-weight:600;">⚡ FETCH ALL
-      </div>
-      <input class="cp-inp" id="masterServerUrl" placeholder="http://localhost:5000"
-        style="flex:1;min-width:160px;max-width:240px;height:28px;font-size:.7rem;" />
-      <input class="cp-inp" type="date" id="masterDate" style="width:130px;height:28px;font-size:.7rem;" />
-      <button class="ibtn acc" onclick="fetchAll()" id="masterFetchBtn"
-        style="height:28px;font-size:.7rem;padding:0 12px;">Fetch All →</button>
-      <span class="shopify-status" id="masterFetchStatus" style="font-size:.6rem;">Not loaded</span>
-    </div>
 
     <!-- SINGLE scroll zone: hero + sticky header + table -->
     <div class="scroll" id="homeScroll" style="padding:0;">
@@ -2250,11 +2738,7 @@
           <div class="sec-title">Product Overview</div>
           <div style="display:flex;align-items:center;gap:10px;">
             <span class="sec-meta" id="homeCount">— products</span>
-            <div class="nav-btns">
-              <button class="nav-btn" onclick="goPage('inv')">▦ Inventory →</button>
-              <button class="nav-btn" onclick="goPage('traf')">↗ Traffic →</button>
-              <button class="nav-btn" onclick="goPage('ads')">◎ Ad Intel →</button>
-            </div>
+            <div class="nav-btns"></div>
           </div>
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
@@ -2284,16 +2768,23 @@
             <button class="pill on" id="hv-product" onclick="setHView('product')">Products</button>
             <button class="pill" id="hv-collection" onclick="setHView('collection')">Collections</button>
           </div>
+          <div class="vtog" style="margin-right:8px;">
+            <button class="vb on" id="hv-table" onclick="setHomeView('table')">Table</button>
+            <button class="vb" id="hv-cards" onclick="setHomeView('cards')">Cards</button>
+          </div>
           <input class="srch" id="homeSrch" placeholder="Search product…" oninput="renderHome()"
             style="margin-left:auto;">
         </div>
       </div>
       <!-- Table: full width edge-to-edge -->
-      <div class="prod-tbl-wrap" style="border-radius:0;border-left:none;border-right:none;">
+      <!-- Cards view (shown when homeViewMode==='cards') -->
+      <div id="homeCardsView" class="cards-grid" style="display:none;"></div>
+      <!-- Table view -->
+      <div class="prod-tbl-wrap" id="homeTableView" style="border-radius:0;border-left:none;border-right:none;">
         <div class="tbl-scr">
           <table class="dtbl">
-            <thead>
-              <tr>
+            <thead id="homeThead">
+              <tr id="homeTheadRow">
                 <th>Product</th>
                 <th>Lifecycle</th>
                 <th>Stock</th>
@@ -2420,6 +2911,12 @@
             <option value="all">All Tags</option>
           </select>
         </div>
+        <div style="width:1px;height:20px;background:var(--bd2);margin:0 4px;"></div>
+        <div class="tg"><span class="tb-lbl">Type</span>
+          <select class="filter-select" id="invPTSelect" onchange="setIPT(this.value)">
+            <option value="all">All Types</option>
+          </select>
+        </div>
       </div>
       <!-- Active tag chip row -->
       <div id="invTagChipRow" style="display:none;align-items:center;gap:6px;padding:3px 20px 5px;flex-wrap:wrap;">
@@ -2443,11 +2940,8 @@
           </div>
         </div>
         <div style="flex:1;"></div>
-        <button class="nav-btn" onclick="goPage('home')">← Overview</button>
-        <button class="nav-btn" onclick="goPage('traf')">↗ Traffic →</button>
         <button class="ibtn" id="strToggleBtn" onclick="toggleSTRView()"
           style="background:rgba(34,255,204,.08);border-color:var(--in);color:var(--in);">▦ Sell-Through Rate</button>
-        <button class="ibtn" onclick="toggleEl('invCpanel')">⚙ Configure</button>
         <div class="vtog">
           <button class="vb on" id="iv-table" onclick="setIV('table')">Table</button>
           <button class="vb" id="iv-cards" onclick="setIV('cards')">Cards</button>
@@ -2618,9 +3112,6 @@
           </select>
         </div>
         <div style="flex:1;"></div>
-        <button class="nav-btn" onclick="goPage('home')">← Overview</button>
-        <button class="nav-btn" onclick="goPage('inv')">← Inventory</button>
-        <button class="ibtn" onclick="toggleEl('trafCpanel')">⚙ Data Source</button>
         <div class="vtog">
           <button class="vb on" id="tv-table" onclick="setTV('table')">Table</button>
           <button class="vb" id="tv-cards" onclick="setTV('cards')">Cards</button>
@@ -2633,12 +3124,12 @@
 
       <!-- Analytics toggle -->
       <div class="analytics-toggle" onclick="toggleAnalytics()">
-        <span class="at-icon open" id="analyticsIcon">▶</span>
-        <span class="at-label">Analytics &amp; Charts</span>
+        <span class="at-icon" id="analyticsIcon">▶</span>
+        <span class="at-label" id="analyticsLabel">✱ Show Analytics</span>
         <div style="flex:1;height:1px;background:var(--bd2);margin-left:4px;"></div>
       </div>
 
-      <div id="analyticsSection" style="display:block;">
+      <div id="analyticsSection" style="display:none;">
         <div class="crow c3">
           <div class="ch">
             <div class="cht">Conversion Funnel</div>
@@ -2653,6 +3144,12 @@
           <div class="ch">
             <div class="cht">Top 10 ATC Rate</div>
             <div class="chw h180"><canvas id="atcTop"></canvas></div>
+          </div>
+        </div>
+        <div class="crow c2">
+          <div class="ch">
+            <div class="cht">Stock Exposure — Visitor Distribution</div>
+            <div id="stockExposureViz" style="padding:6px 0;"></div>
           </div>
         </div>
         <div class="crow c2">
@@ -2749,10 +3246,8 @@
         </select>
       </div>
       <div style="flex:1;"></div>
-      <button class="nav-btn" onclick="goPage('home')">← Overview</button>
       <button class="ibtn" onclick="openAdDefinitionPopup()"
         style="background:rgba(212,180,131,.10);border-color:var(--sand);color:var(--sand);">◈ Definitions</button>
-      <button class="ibtn" onclick="toggleEl('metaAdsCpanel')">⚙ Supabase Config</button>
     </div>
 
     <!-- Ad Intelligence Definition Popup -->
@@ -2934,8 +3429,10 @@
           </select>
         </div>
         <div style="flex:1;"></div>
-        <button class="nav-btn" onclick="goPage('home')">← Overview</button>
-        <button class="ibtn" onclick="toggleEl('salesCpanel')">⚙ Data Source</button>
+        <div class="vtog">
+          <button class="vb on" id="sv-table" onclick="setSalesView('table')">Table</button>
+          <button class="vb" id="sv-cards" onclick="setSalesView('cards')">Cards</button>
+        </div>
       </div>
     </div>
     <div class="scroll" id="salesScroll">
@@ -2951,6 +3448,7 @@
         </div>
       </div>
       <div id="salesView"></div>
+      <div id="salesCardsView" class="cards-grid" style="display:none;"></div>
     </div>
   </div>
 
@@ -3006,14 +3504,17 @@
         </div>
         <div style="flex:1;"></div>
         <span class="sec-meta" id="ordersAutoLabel" style="font-size:.6rem;color:var(--mu2);"></span>
-        <button class="nav-btn" onclick="goPage('home')">← Overview</button>
-        <button class="ibtn" onclick="toggleEl('ordersCpanel')">⚙ Data Source</button>
+        <div class="vtog">
+          <button class="vb on" id="ov-table" onclick="setOrdersView('table')">Table</button>
+          <button class="vb" id="ov-cards" onclick="setOrdersView('cards')">Cards</button>
+        </div>
       </div>
     </div>
     <div class="scroll" id="ordersScroll">
       <div class="krow" id="ordersKpis"
         style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;padding:10px 16px;"></div>
       <div id="ordersView"></div>
+      <div id="ordersCardsView" class="cards-grid" style="display:none;"></div>
       <div
         style="text-align:center;color:var(--mu2);padding:40px;font-family:'JetBrains Mono',monospace;font-size:.7rem;"
         id="ordersEmpty">
@@ -3067,6 +3568,11 @@
 
     let trafF = 'all', trafV = 'table', trafLC = 'all', trafPT = 'all';
     let homF = 'all', homLC = 'all', homView = 'product', invLC = 'all', homCat = 'all';
+    // View-mode toggles (table/cards) for tabs that didn't have them
+    let homeViewMode = 'table', salesViewMode = 'table', ordersViewMode = 'table';
+    function setHomeView(v) { homeViewMode = v;['table', 'cards'].forEach(k => { const el = document.getElementById('hv-' + k); if (el) el.classList.toggle('on', k === v); }); renderHome(); }
+    function setSalesView(v) { salesViewMode = v;['table', 'cards'].forEach(k => { const el = document.getElementById('sv-' + k); if (el) el.classList.toggle('on', k === v); }); renderSales(); }
+    function setOrdersView(v) { ordersViewMode = v;['table', 'cards'].forEach(k => { const el = document.getElementById('ov-' + k); if (el) el.classList.toggle('on', k === v); }); renderOrders(); }
     let C = {};
     let INVLIVE = [];
 
@@ -3181,11 +3687,22 @@
     // ── COLOR EXTRACTION ──
 
 
-    function extractColor(name) {
+    function extractColor(name, variants) {
+      // Prefer variant option values (more reliable than parsing the title)
+      if (variants && variants.length) {
+        for (const v of variants) {
+          const opts = ((v.option1 || v.option2 || v.color || v.title || '') + '').toLowerCase();
+          if (!opts) continue;
+          for (const [group, colors] of Object.entries(COLOR_GROUPS)) {
+            for (const color of colors) {
+              if (opts.includes(color.toLowerCase())) return group;
+            }
+          }
+        }
+      }
+      // Fallback: parse from product name
       if (!name) return '';
       const nameLower = name.toLowerCase();
-
-      // Check each color group
       for (const [group, colors] of Object.entries(COLOR_GROUPS)) {
         for (const color of colors) {
           if (nameLower.includes(color.toLowerCase())) {
@@ -3201,25 +3718,45 @@
     function populateColorDropdown() {
       const sel = document.getElementById('invColorSelect');
       if (!sel) return;
-      // Use same data source as getINV
       const src = INVLIVE.length ? INVLIVE : DATA.filter(r => r.hasInvData);
-      const colors = Array.from(new Set(src.map(r => extractColor(r.name)).filter(Boolean))).sort();
+      const colors = Array.from(new Set(src.map(r => r._color || extractColor(r.name, r.variants)).filter(Boolean))).sort();
       sel.innerHTML = '<option value="all">All Colors</option>' + colors.map(c => '<option value="' + c + '">' + c + '</option>').join('');
     }
 
-    // ── POPULATE TAG DROPDOWN (from colorSku prefix) ──
+    // ── POPULATE TAG DROPDOWN (real Shopify product tags filtered by SD/SM/SU prefix) ──
     function populateInvTags() {
       const sel = document.getElementById('invTagSelect');
       if (!sel) return;
       const src = INVLIVE.length ? INVLIVE : DATA.filter(r => r.hasInvData);
       const tags = new Set();
+      // Primary: real Shopify product tags filtered by SD/SM/SU prefix
       src.forEach(r => {
-        const sku = (r.colorSku || '').replace(/[^A-Z0-9]/g, '');
-        if (sku.length > 2) tags.add(sku.slice(0, -2));
+        (r._tags || r.tags || []).forEach(t => {
+          if (typeof t === 'string' && /^(SD|SM|SU)/i.test(t.trim())) tags.add(t.trim());
+        });
       });
+      // Fallback: derive from colorSku prefix when no qualifying product tags
+      if (!tags.size) {
+        src.forEach(r => {
+          const sku = (r.colorSku || '').replace(/[^A-Z0-9]/g, '');
+          if (sku.length > 2) tags.add(sku.slice(0, -2));
+        });
+      }
       const sorted = [...tags].sort();
       sel.innerHTML = '<option value="all">All Tags</option>' +
         sorted.map(t => '<option value="' + t + '">' + t + '</option>').join('');
+    }
+
+    // Product Type filter (Batch D #15)
+    let invPT = 'all';
+    function setIPT(v) { invPT = v; styleDropdown('invPTSelect', v); renderInv(); }
+    function populateInvProductTypes() {
+      const sel = document.getElementById('invPTSelect');
+      if (!sel) return;
+      const src = INVLIVE.length ? INVLIVE : DATA.filter(r => r.hasInvData);
+      const types = [...new Set(src.map(r => r.product_type || r.category || '').filter(Boolean))].sort();
+      sel.innerHTML = '<option value="all">All Types</option>'
+        + types.map(t => '<option value="' + t + '">' + t + '</option>').join('');
     }
 
     function setInvTag(v) {
@@ -3242,7 +3779,9 @@
     function setIG(g) { invGender = g; styleDropdown('igSelect', g); renderInv(); }
 
     // ── NAV ──
+    let _currentPage = 'home';
     function goPage(p) {
+      _currentPage = p;
       ['home', 'inv', 'traf', 'ads', 'sales', 'orders'].forEach(k => {
         document.getElementById('page-' + k).classList.toggle('on', k === p);
         document.getElementById('nt-' + k).classList.toggle('on', k === p);
@@ -3258,9 +3797,11 @@
     function toggleAnalytics() {
       const sec = document.getElementById('analyticsSection');
       const icon = document.getElementById('analyticsIcon');
+      const label = document.getElementById('analyticsLabel');
       const isHidden = sec.style.display === 'none';
       sec.style.display = isHidden ? 'block' : 'none';
       icon.classList.toggle('open', isHidden);
+      if (label) label.textContent = isHidden ? '✱ Hide Analytics' : '✱ Show Analytics';
     }
 
     // ── HELPERS ──
@@ -3298,6 +3839,22 @@
     function setHF(f) { homF = f; styleDropdown('hfSelect', f); renderHome(); }
     function setHLC(lc) { homLC = lc; styleDropdown('hlcSelect', lc); renderHome(); }
     function setHCat(c) { homCat = c; styleDropdown('hcatSelect', c); renderHome(); }
+    // Reset all Overview filters at once (used by Total Products / Total Inventory hero cards)
+    function clearHomeFilters() {
+      homLC = 'all'; styleDropdown('hlcSelect', 'all');
+      homF = 'all'; styleDropdown('hfSelect', 'all');
+      homCat = 'all'; styleDropdown('hcatSelect', 'all');
+      const srch = document.getElementById('homeSrch'); if (srch) srch.value = '';
+      renderHome();
+    }
+    // Reset all Overview filters at once (used by the Total Products / Total Inventory hero cards)
+    function clearHomeFilters() {
+      homLC = 'all'; styleDropdown('hlcSelect', 'all');
+      homF = 'all'; styleDropdown('hfSelect', 'all');
+      homCat = 'all'; styleDropdown('hcatSelect', 'all');
+      const srch = document.getElementById('homeSrch'); if (srch) srch.value = '';
+      renderHome();
+    }
 
     // ── HELPER: match DATA product to SALES_DATA ──
     function getSalesForProduct(r) {
@@ -3431,9 +3988,19 @@
 
       // Use same tag-exclusion filter as the Orders tab
       const filteredOrders = getFilteredOrders();
+      // Dedupe orders by id (in case the source list ever has duplicates)
+      const seenOrderIds = new Set();
 
       filteredOrders.forEach(o => {
-        if (!(o.lineItems || []).length) return;
+        // Guard 1: dedupe by order id
+        const oid = o.id || o.name || '';
+        if (oid) {
+          if (seenOrderIds.has(oid)) return;
+          seenOrderIds.add(oid);
+        }
+        // Guard 2: only count line items with quantity > 0
+        const validItems = (o.lineItems || []).filter(li => (parseInt(li.quantity) || 0) > 0);
+        if (!validItems.length) return;
 
         // Step 1: Extract landing page slug from customAttributes
         let lpSlug = '';
@@ -3449,10 +4016,10 @@
         // Step 2: Check if landing page product is in lineItems
         const lpProduct = lpSlug ? slugMap[lpSlug] : null;
         const lpName = lpProduct ? lpProduct.name.toLowerCase().trim() : '';
-        const lineItemNames = o.lineItems.map(li => (li.title || '').toLowerCase().trim());
+        const lineItemNames = validItems.map(li => (li.title || '').toLowerCase().trim());
 
         // Compute net revenue per line item (proportionally deducting refunds + discounts)
-        const orderGross = o.lineItems.reduce((a, li) => a + (parseFloat(li.price) || 0) * (li.quantity || 0), 0);
+        const orderGross = validItems.reduce((a, li) => a + (parseFloat(li.price) || 0) * (li.quantity || 0), 0);
         const refund = parseFloat(o.refunded) || 0;
         const discount = parseFloat(o.discounts) || 0;
         const netRatio = orderGross > 0 ? Math.max(0, 1 - (refund + discount) / orderGross) : 0;
@@ -3460,7 +4027,7 @@
         // Helper: compute net revenue for a specific product's line items in this order
         function productNetRevenue(productName) {
           let rev = 0;
-          o.lineItems.forEach(li => {
+          validItems.forEach(li => {
             if ((li.title || '').toLowerCase().trim() === productName) {
               rev += (parseFloat(li.price) || 0) * (li.quantity || 0);
             }
@@ -3475,9 +4042,9 @@
             attr[lpName].revenue += productNetRevenue(lpName);
           }
         } else {
-          // Condition B: Mismatch — attribute to most expensive item
+          // Condition B: Mismatch — attribute to most expensive valid item
           let maxPrice = -1, maxName = '';
-          o.lineItems.forEach(li => {
+          validItems.forEach(li => {
             const p = parseFloat(li.price) || 0;
             if (p > maxPrice) { maxPrice = p; maxName = (li.title || '').toLowerCase().trim(); }
           });
@@ -3522,8 +4089,49 @@
       renderHome();
     }
 
+    // Restore the product-view <thead> (in case collection view swapped it)
+    function setProductThead() {
+      const row = document.getElementById('homeTheadRow');
+      if (!row) return;
+      row.innerHTML =
+        '<th>Product</th>'
+        + '<th>Lifecycle</th>'
+        + '<th>Stock</th>'
+        + '<th style="cursor:pointer;user-select:none;" onclick="sortHome(\'sessions\')" id="thSort_sessions" title="Sort by Sessions">Sessions ↕</th>'
+        + '<th>ATC%</th>'
+        + '<th style="cursor:pointer;user-select:none;" onclick="sortHome(\'units\')" id="thSort_units" title="Sort by Units Sold">Units Sold ↕</th>'
+        + '<th style="cursor:pointer;user-select:none;" onclick="sortHome(\'sales\')" id="thSort_sales" title="Sort by Sales">Sales (₹) ↕</th>'
+        + '<th>Last Click UTM</th>';
+    }
+
+    // Set the collection-view <thead>: 8 columns matching the data rows below.
+    function setCollectionThead() {
+      const row = document.getElementById('homeTheadRow');
+      if (!row) return;
+      row.innerHTML =
+        '<th>Collection</th>'
+        + '<th>Total Inventory</th>'
+        + '<th>Visitors</th>'
+        + '<th>Sessions</th>'
+        + '<th>Cart Adds</th>'
+        + '<th>ATC%</th>'
+        + '<th>Units Sold</th>'
+        + '<th>Net Sales</th>';
+    }
+
     function renderHome() {
-      if (homView === 'collection') { renderCollectionView(); return; }
+      const tableView = document.getElementById('homeTableView');
+      const cardsView = document.getElementById('homeCardsView');
+      if (homView === 'collection') {
+        if (tableView) tableView.style.display = '';
+        if (cardsView) cardsView.style.display = 'none';
+        renderCollectionView(); return;
+      }
+      if (tableView && cardsView) {
+        tableView.style.display = homeViewMode === 'cards' ? 'none' : '';
+        cardsView.style.display = homeViewMode === 'cards' ? 'grid' : 'none';
+      }
+      setProductThead();
       // Use INVLIVE if available (Shopify fetch data), otherwise fall back to embedded DATA
       const invSrc = INVLIVE.length ? INVLIVE : DATA.filter(r => r.hasInvData);
       const invFiltered = invSrc.filter(r => !r._excluded && r.stockStatus !== 'unknown' && !isCombo(r));
@@ -3559,18 +4167,18 @@
 
       document.getElementById('homeHero').innerHTML =
         // ── Row 1 ──
-        '<div class="hero-panel hp-all"><div class="hp-label">Total Products</div><div class="hp-value">' + invFiltered.length + '</div><div class="hp-sub">with inventory (excl. combos)</div>'
+        '<div class="hero-panel hp-all" style="cursor:pointer;" onclick="clearHomeFilters()" title="Show all products"><div class="hp-label">Total Products</div><div class="hp-value">' + invFiltered.length + '</div><div class="hp-sub">with inventory (excl. combos)</div>'
         + '<div class="hp-mini-bar"><div class="hp-seg" style="background:var(--in);width:' + Math.round(inStock.length / wi * 100) + '%;"></div><div class="hp-seg" style="background:var(--low);width:' + Math.round(lowStock.length / wi * 100) + '%;margin-left:2px;"></div><div class="hp-seg" style="background:var(--out);width:' + Math.round(outStock.length / wi * 100) + '%;margin-left:2px;"></div></div></div>'
         + '<div class="hero-panel hp-all" style="border-top:2px solid #4ade80;cursor:pointer;" onclick="setHLC(\'npd\')"><div class="hp-label">🌱 NPD</div><div class="hp-value" style="color:#4ade80">' + npdProds.length + '</div><div class="hp-sub">Products \u226445 days old</div></div>'
-        + '<div class="hero-panel hp-in"><div class="hp-label">In Stock</div><div class="hp-value c-in">' + inStock.length + '</div><div class="hp-sub">' + Math.round(inStock.length / wi * 100) + '% · ' + inStockPct + '% visitor exposure</div></div>'
-        + '<div class="hero-panel hp-low"><div class="hp-label">Low / Broken</div><div class="hp-value c-low">' + lowStock.length + '</div><div class="hp-sub">Restock attention needed</div></div>'
-        + '<div class="hero-panel hp-out"><div class="hp-label">Out of Stock</div><div class="hp-value c-out">' + outStock.length + '</div><div class="hp-sub">' + outStockPct + '% visitor exposure</div></div>'
+        + '<div class="hero-panel hp-in" style="cursor:pointer;" onclick="setHF(\'in\')" title="Filter to In Stock"><div class="hp-label">In Stock</div><div class="hp-value c-in">' + inStock.length + ' <span style="font-size:.6em;color:var(--mu2)">(' + Math.round(inStock.length / wi * 100) + '%)</span></div><div class="hp-sub">' + inStockPct + '% visitor exposure</div></div>'
+        + '<div class="hero-panel hp-low" style="cursor:pointer;" onclick="setHF(\'low\')" title="Filter to Low / Broken stock"><div class="hp-label">Low / Broken</div><div class="hp-value c-low">' + lowStock.length + ' <span style="font-size:.6em;color:var(--mu2)">(' + Math.round(lowStock.length / wi * 100) + '%)</span></div><div class="hp-sub">Restock attention needed</div></div>'
+        + '<div class="hero-panel hp-out" style="cursor:pointer;" onclick="setHF(\'out\')" title="Filter to Out of Stock"><div class="hp-label">Out of Stock</div><div class="hp-value c-out">' + outStock.length + ' <span style="font-size:.6em;color:var(--mu2)">(' + Math.round(outStock.length / wi * 100) + '%)</span></div><div class="hp-sub">' + outStockPct + '% visitor exposure</div></div>'
         // ── Row 2 ──
-        + '<div class="hero-panel hp-leak" style="display:none"><div class="hp-label">Ad Leakage</div><div class="hp-value c-cart">' + leakProds.length + '</div><div class="hp-sub">Cart adds → no checkout, bad stock</div></div>'
-        + '<div class="hero-panel hp-traf"><div class="hp-label">PDP Visitors</div><div class="hp-value c-traf">' + fmt(totV) + '</div><div class="hp-sub">Product page visitors (day-1)</div></div>'
-        + '<div class="hero-panel hp-all"><div class="hp-label">Total Inventory</div><div class="hp-value">' + totalUnits.toLocaleString() + '</div><div class="hp-sub">units (excl. combos)</div></div>'
-        + '<div class="hero-panel hp-in"><div class="hp-label">Cart Adds / ATC%</div><div class="hp-value c-in">' + totalCartAdds + ' <span style="font-size:.6em;color:var(--mu2)">(' + avgAtc + '%)</span></div><div class="hp-sub">overall add-to-cart rate</div></div>'
-        + '<div class="hero-panel hp-out" style="border-color:rgba(138,138,255,.2)"><div class="hp-label">Draft Products</div><div class="hp-value" style="color:#8a8aff">' + draftProds.length + '</div><div class="hp-sub">Hidden from storefront</div></div>';
+        + '<div class="hero-panel hp-leak" style="display:none;cursor:pointer;" onclick="setHF(\'leak\')" title="Filter to Ad Leakage"><div class="hp-label">Ad Leakage</div><div class="hp-value c-cart">' + leakProds.length + '</div><div class="hp-sub">Cart adds → no checkout, bad stock</div></div>'
+        + '<div class="hero-panel hp-traf" style="cursor:pointer;" onclick="goPage(\'traf\')" title="Open Traffic tab"><div class="hp-label">PDP Visitors</div><div class="hp-value c-traf">' + fmt(totV) + '</div><div class="hp-sub">Product page visitors (day-1)</div></div>'
+        + '<div class="hero-panel hp-all" style="cursor:pointer;" onclick="goPage(\'inv\')" title="Open Inventory tab"><div class="hp-label">Total Inventory</div><div class="hp-value">' + totalUnits.toLocaleString() + '</div><div class="hp-sub">units (excl. combos)</div></div>'
+        + '<div class="hero-panel hp-in" style="cursor:pointer;" onclick="goPage(\'traf\')" title="Open Traffic tab"><div class="hp-label">Cart Adds / ATC%</div><div class="hp-value c-in">' + totalCartAdds + ' <span style="font-size:.6em;color:var(--mu2)">(' + avgAtc + '%)</span></div><div class="hp-sub">overall add-to-cart rate</div></div>'
+        + '<div class="hero-panel hp-out" style="border-color:rgba(138,138,255,.2);cursor:pointer;" onclick="setHLC(\'discontinued\')" title="Filter to Discontinued"><div class="hp-label">Draft Products</div><div class="hp-value" style="color:#8a8aff">' + draftProds.length + '</div><div class="hp-sub">Hidden from storefront</div></div>';
 
 
       const q = (document.getElementById('homeSrch').value || '').toLowerCase();
@@ -3616,6 +4224,16 @@
       rows = rows.slice(0, 80);
       document.getElementById('homeCount').textContent = rows.length + ' products shown';
       const tbody = document.getElementById('homeTbody');
+      // Render cards alongside the table so the toggle is instant
+      if (cardsView) {
+        cardsView.innerHTML = rows.length ? rows.map(r => {
+          const sale = salesMap[(r.name || '').toLowerCase().trim()];
+          const unitsSold = hasOrders ? getUnitsSoldForProduct(r, ordersUnitCache) : (sale ? (sale.net_items_sold || 0) : null);
+          const orderRev = hasOrders ? getOrderRevenueForProduct(r, ordersRevCache) : 0;
+          const revenue = orderRev > 0 ? orderRev : (sale ? (sale.total_sales || 0) : 0);
+          return productCard(r, { idx: DATA.indexOf(r), units: unitsSold, revenue: revenue, sessions: r.sessions, atcPct: r.atcPct });
+        }).join('') : '<div class="empty" style="padding:32px;text-align:center;color:var(--mu2);">No products match</div>';
+      }
       if (!rows.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty">No products match</td></tr>'; return; }
       tbody.innerHTML = rows.map(r => {
         const ss = SS[r.stockStatus] || SS.unknown;
@@ -3665,8 +4283,13 @@
     function setHView(v) {
       homView = v;
       homCollExpanded = null;
-      document.querySelectorAll('[id^="hv-"]').forEach(b => b.classList.remove('on'));
-      document.getElementById('hv-' + v).classList.add('on');
+      // Only toggle the Products/Collections buttons, not the Table/Cards toggle next to them
+      ['hv-product', 'hv-collection'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('on');
+      });
+      const active = document.getElementById('hv-' + v);
+      if (active) active.classList.add('on');
       renderHome();
     }
 
@@ -3731,30 +4354,72 @@
     }
 
     function renderCollectionView() {
+      const tableView = document.getElementById('homeTableView');
+      const cardsView = document.getElementById('homeCardsView');
+
       if (COLLECTION_DATA.length === 0) {
+        setCollectionThead();
+        if (tableView) tableView.style.display = '';
+        if (cardsView) { cardsView.style.display = 'none'; cardsView.innerHTML = ''; }
         document.getElementById('homeHero').innerHTML = '<div class="hero-panel hp-all"><div class="hp-label">No Collection Data</div><div class="hp-value">—</div><div class="hp-sub">Fetch traffic data to see collections</div></div>';
         document.getElementById('homeCount').textContent = '0 collections';
         document.getElementById('homeTbody').innerHTML = '<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--mu2);">No collection data available. Fetch traffic first.</td></tr>';
         return;
       }
 
-      // If a collection is expanded, show its products
       if (homCollExpanded !== null) {
         renderCollectionProducts(homCollExpanded);
         return;
       }
 
+      setCollectionThead();
+      if (tableView && cardsView) {
+        tableView.style.display = homeViewMode === 'cards' ? 'none' : '';
+        cardsView.style.display = homeViewMode === 'cards' ? 'grid' : 'none';
+      }
+
+      // Sales-by-product lookup (live SALES_DATA, falls back to EMBEDDED_SALES)
+      const salesPool = (SALES_DATA && SALES_DATA.length) ? SALES_DATA : (typeof EMBEDDED_SALES !== 'undefined' ? EMBEDDED_SALES : []);
+      const salesByTitle = {};
+      salesPool.forEach(s => {
+        const k = (s.product_title || '').toLowerCase().trim();
+        if (!k) return;
+        salesByTitle[k] = salesByTitle[k] || { units: 0, revenue: 0 };
+        salesByTitle[k].units += parseFloat(s.net_items_sold) || 0;
+        salesByTitle[k].revenue += parseFloat(s.net_sales) || 0;
+      });
+
+      // Apply Lifecycle / Stock / Category filters at the per-product level
+      function passesFilters(r) {
+        if (homLC === 'npd' && r._lifecycle !== 'npd') return false;
+        if (homLC === 'active' && r._lifecycle !== 'active') return false;
+        if (homLC === 'discontinued' && r._lifecycle !== 'discontinued') return false;
+        if (homF === 'in' && r.stockStatus !== 'in_stock') return false;
+        if (homF === 'low' && r.stockStatus !== 'low_stock') return false;
+        if (homF === 'out' && r.stockStatus !== 'out_of_stock') return false;
+        if (homF === 'leak' && !r.isAdLeak) return false;
+        if (homCat !== 'all' && (r.category || '').trim() !== homCat) return false;
+        return true;
+      }
+      const filtersActive = homLC !== 'all' || homF !== 'all' || homCat !== 'all';
+
       const q = (document.getElementById('homeSrch').value || '').toLowerCase();
-      // Build collection rows with product + inventory data
       const rows = COLLECTION_DATA.map(coll => {
-        const prods = getCollectionProducts(coll.path);
+        const allProds = getCollectionProducts(coll.path);
+        const prods = allProds.filter(passesFilters);
         const invProds = prods.filter(r => r.hasInvData && r.stockStatus !== 'unknown');
-        const inStock = invProds.filter(r => r.stockStatus === 'in_stock').length;
-        const lowStock = invProds.filter(r => ['low_stock', 'broken_stock'].includes(r.stockStatus)).length;
-        const outStock = invProds.filter(r => r.stockStatus === 'out_of_stock').length;
         const totalUnits = invProds.reduce((a, r) => a + (r.totalStock > 0 ? r.totalStock : 0), 0);
-        return { ...coll, prods: prods.length, invProds: invProds.length, inStock, lowStock, outStock, totalUnits };
-      }).filter(c => !q || c.name.toLowerCase().includes(q) || (c.path || '').toLowerCase().includes(q));
+        let unitsSold = 0, netSales = 0;
+        prods.forEach(r => {
+          const s = salesByTitle[(r.name || '').toLowerCase().trim()];
+          if (s) { unitsSold += s.units; netSales += s.revenue; }
+        });
+        return { ...coll, prods: prods.length, invProds: invProds.length, totalUnits, unitsSold, netSales, _matchCount: prods.length, _allProds: allProds.length };
+      }).filter(c => {
+        if (q && !(c.name.toLowerCase().includes(q) || (c.path || '').toLowerCase().includes(q))) return false;
+        if (filtersActive && c._matchCount === 0) return false;
+        return true;
+      });
 
       const totColls = rows.length;
       const totV = rows.reduce((a, c) => a + c.visitors, 0);
@@ -3764,34 +4429,60 @@
       const avgAtc = totS > 0 ? (totCart / totS * 100).toFixed(1) : '0';
 
       document.getElementById('homeHero').innerHTML =
-        '<div class="hero-panel hp-all"><div class="hp-label">Collections</div><div class="hp-value">' + totColls + '</div><div class="hp-sub">Shopify product collections</div></div>'
-        + '<div class="hero-panel hp-traf"><div class="hp-label">Collection Visitors</div><div class="hp-value c-traf">' + fmt(totV) + '</div><div class="hp-sub">traffic to collection pages</div></div>'
-        + '<div class="hero-panel hp-all"><div class="hp-label">Total Inventory</div><div class="hp-value">' + totUnits.toLocaleString() + '</div><div class="hp-sub">units in matched products</div></div>'
-        + '<div class="hero-panel hp-in"><div class="hp-label">Cart Adds / ATC%</div><div class="hp-value c-in">' + totCart + ' <span style="font-size:.6em;color:var(--mu2)">(' + avgAtc + '%)</span></div><div class="hp-sub">on collection pages</div></div>';
+        '<div class="hero-panel hp-all" style="cursor:pointer;" onclick="setHView(\'product\')" title="Switch to product view"><div class="hp-label">Collections</div><div class="hp-value">' + totColls + '</div><div class="hp-sub">Shopify product collections</div></div>'
+        + '<div class="hero-panel hp-traf" style="cursor:pointer;" onclick="goPage(\'traf\')" title="Open Traffic tab"><div class="hp-label">Collection Visitors</div><div class="hp-value c-traf">' + fmt(totV) + '</div><div class="hp-sub">traffic to collection pages</div></div>'
+        + '<div class="hero-panel hp-all" style="cursor:pointer;" onclick="goPage(\'inv\')" title="Open Inventory tab"><div class="hp-label">Total Inventory</div><div class="hp-value">' + totUnits.toLocaleString() + '</div><div class="hp-sub">units in matched products</div></div>'
+        + '<div class="hero-panel hp-in" style="cursor:pointer;" onclick="goPage(\'traf\')" title="Open Traffic tab"><div class="hp-label">Cart Adds / ATC%</div><div class="hp-value c-in">' + totCart + ' <span style="font-size:.6em;color:var(--mu2)">(' + avgAtc + '%)</span></div><div class="hp-sub">on collection pages</div></div>';
 
       document.getElementById('homeCount').textContent = totColls + ' collections';
       const tbody = document.getElementById('homeTbody');
       const maxV = Math.max(...rows.map(c => c.visitors), 1);
+
+      if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--mu2);">No collections match the current filters.</td></tr>';
+        if (cardsView) cardsView.innerHTML = '<div class="empty" style="padding:32px;text-align:center;color:var(--mu2);">No collections match the current filters.</div>';
+        return;
+      }
+
       tbody.innerHTML = rows.map((c, i) => {
         const atc = c.sessions > 0 ? (c.cartAdds / c.sessions * 100).toFixed(1) : '0';
         const atcColor = parseFloat(atc) >= 10 ? 'color:#4ade80' : parseFloat(atc) >= 5 ? 'color:var(--low)' : parseFloat(atc) > 0 ? 'color:var(--out)' : '';
-        const tot = c.inStock + c.lowStock + c.outStock;
-        const stockBar = tot > 0 ? '<div style="display:inline-flex;width:60px;height:6px;border-radius:3px;overflow:hidden;background:var(--s2);">'
-          + '<div style="background:var(--in);width:' + Math.round(c.inStock / tot * 100) + '%;"></div>'
-          + '<div style="background:var(--low);width:' + Math.round(c.lowStock / tot * 100) + '%;"></div>'
-          + '<div style="background:var(--out);width:' + Math.round(c.outStock / tot * 100) + '%;"></div>'
-          + '</div>' : '<span style="color:var(--mu2);">—</span>';
+        const unitsHtml = c.unitsSold > 0 ? '<div class="tnum">' + Math.round(c.unitsSold).toLocaleString() + '</div>' : '<div class="tm">—</div>';
+        const salesHtml = c.netSales > 0 ? '<div class="tnum" style="color:#4ade80">' + fmtRs(c.netSales) + '</div>' : '<div class="tm">—</div>';
+        const prodSubtitle = filtersActive && c._matchCount !== c._allProds
+          ? c._matchCount + ' / ' + c._allProds + ' products match'
+          : c.prods + ' products';
         return '<tr onclick="expandHomeCollection(' + i + ')" style="cursor:pointer;" title="Click to see products">'
-          + '<td><div class="tn">' + sh(c.name) + '</div><div class="tm">' + (c.path || '') + ' · ' + c.prods + ' products</div></td>'
-          + '<td>' + stockBar + '</td>'
-          + '<td><div class="tnum">' + c.inStock + ' / ' + c.lowStock + ' / ' + c.outStock + '</div></td>'
+          + '<td><div class="tn">' + sh(c.name) + '</div><div class="tm">' + (c.path || '') + ' · ' + prodSubtitle + '</div></td>'
           + '<td><div class="tnum">' + c.totalUnits.toLocaleString() + '</div></td>'
           + '<td><div class="tnum">' + fmt(c.visitors) + '</div><div class="mbar-bg"><div class="mbar-f" style="width:' + Math.min(100, Math.round(c.visitors / maxV * 100)) + '%;background:var(--sand);"></div></div></td>'
           + '<td><div class="tnum">' + fmt(c.sessions) + '</div></td>'
           + '<td><div class="tnum">' + c.cartAdds + '</div></td>'
           + '<td><div class="tnum" style="' + atcColor + '">' + atc + '%</div></td>'
+          + '<td>' + unitsHtml + '</td>'
+          + '<td>' + salesHtml + '</td>'
           + '</tr>';
       }).join('');
+
+      // Card view for collections
+      if (cardsView) {
+        cardsView.innerHTML = rows.map((c, i) => {
+          const atc = c.sessions > 0 ? (c.cartAdds / c.sessions * 100).toFixed(1) : '0';
+          const stats = [
+            '<span><span class="pc-lbl">Products</span>' + c.prods + '</span>',
+            '<span><span class="pc-lbl">Inventory</span>' + c.totalUnits.toLocaleString() + '</span>',
+            '<span><span class="pc-lbl">Visitors</span>' + fmt(c.visitors) + '</span>',
+            '<span><span class="pc-lbl">ATC</span>' + atc + '%</span>',
+          ];
+          if (c.unitsSold > 0) stats.push('<span><span class="pc-lbl">Units</span>' + Math.round(c.unitsSold).toLocaleString() + '</span>');
+          if (c.netSales > 0) stats.push('<span><span class="pc-lbl">Sales</span>' + fmtRs(c.netSales) + '</span>');
+          return '<div class="p-card" onclick="expandHomeCollection(' + i + ')" style="border-left-color:var(--cta);">'
+            + '<div class="pc-name">' + sh(c.name) + '</div>'
+            + '<div class="pc-meta">' + (c.path || '') + '</div>'
+            + '<div class="pc-stats">' + stats.join('') + '</div>'
+            + '</div>';
+        }).join('');
+      }
     }
 
     function expandHomeCollection(idx) {
@@ -3802,6 +4493,7 @@
     function renderCollectionProducts(idx) {
       const coll = COLLECTION_DATA[idx];
       if (!coll) { homCollExpanded = null; renderHome(); return; }
+      setProductThead();
       const prods = getCollectionProducts(coll.path);
       const invProds = prods.filter(r => r.hasInvData && r.stockStatus !== 'unknown');
       const totV = prods.reduce((a, r) => a + (r.visitors || 0), 0);
@@ -3815,9 +4507,9 @@
         + '<div class="hp-label" style="display:flex;align-items:center;gap:6px;">← Back</div>'
         + '<div class="hp-value" style="font-size:1.1em;">' + sh(coll.name) + '</div>'
         + '<div class="hp-sub">' + (coll.path || '') + '</div></div>'
-        + '<div class="hero-panel hp-traf"><div class="hp-label">Products</div><div class="hp-value c-traf">' + prods.length + '</div><div class="hp-sub">' + invProds.length + ' with inventory</div></div>'
-        + '<div class="hero-panel hp-all"><div class="hp-label">Total Inventory</div><div class="hp-value">' + totUnits.toLocaleString() + '</div><div class="hp-sub">units in this collection</div></div>'
-        + '<div class="hero-panel hp-in"><div class="hp-label">ATC%</div><div class="hp-value c-in">' + avgAtc + '%</div><div class="hp-sub">' + totC + ' cart adds / ' + fmt(totS) + ' sessions</div></div>';
+        + '<div class="hero-panel hp-traf" style="cursor:pointer;" onclick="goPage(\'traf\')" title="Open Traffic tab"><div class="hp-label">Products</div><div class="hp-value c-traf">' + prods.length + '</div><div class="hp-sub">' + invProds.length + ' with inventory</div></div>'
+        + '<div class="hero-panel hp-all" style="cursor:pointer;" onclick="goPage(\'inv\')" title="Open Inventory tab"><div class="hp-label">Total Inventory</div><div class="hp-value">' + totUnits.toLocaleString() + '</div><div class="hp-sub">units in this collection</div></div>'
+        + '<div class="hero-panel hp-in" style="cursor:pointer;" onclick="goPage(\'traf\')" title="Open Traffic tab"><div class="hp-label">ATC%</div><div class="hp-value c-in">' + avgAtc + '%</div><div class="hp-sub">' + totC + ' cart adds / ' + fmt(totS) + ' sessions</div></div>';
 
       document.getElementById('homeCount').textContent = prods.length + ' products in ' + coll.name;
       const tbody = document.getElementById('homeTbody');
@@ -3875,67 +4567,32 @@
     // ── META ADS DATA & PROCESSING ──
     let META_ADS_DATA = []; // unified ad rows from Supabase results_table
 
-    // ── SUPABASE ADS FETCH ──
+    // ── SUPABASE ADS FETCH (via backend proxy) ──
     async function fetchSupabaseAds() {
       const msgEl = document.getElementById('metaAdsMsg');
       const statusEl = document.getElementById('metaAdsStatus');
-      const sbUrl = (document.getElementById('sbUrl').value || '').trim().replace(/\/$/, '');
-      const sbKey = (document.getElementById('sbKey').value || '').trim();
-      const dateFrom = document.getElementById('sbDateFrom').value;
-      const dateTo = document.getElementById('sbDateTo').value;
+      const dateFrom = document.getElementById('masterSince').value;
+      const dateTo = document.getElementById('masterUntil').value;
 
-      if (!sbUrl || !sbKey) {
-        msgEl.textContent = '⚠ Enter Supabase URL and API key';
-        msgEl.style.color = 'var(--out)';
-        return;
-      }
-
-      msgEl.textContent = '⏳ Fetching from Supabase…';
+      msgEl.textContent = '⏳ Fetching ads…';
       msgEl.style.color = 'var(--mu2)';
       statusEl.textContent = 'Loading…';
 
       try {
-        // Build query — date filters are optional; if set they filter on computed_at range
-        // We try with filters first; if 0 rows, retry without to diagnose
-        const buildEndpoint = (withDates) => {
-          let ep = sbUrl + '/rest/v1/results_table?select=*&order=total_spend.desc&limit=500';
-          if (withDates && dateFrom) ep += '&computed_at=gte.' + dateFrom + 'T00:00:00';
-          if (withDates && dateTo) ep += '&computed_at=lte.' + dateTo + 'T23:59:59';
-          return ep;
-        };
+        let endpoint = '/api/ads';
+        const qs = [];
+        if (dateFrom) qs.push('since=' + encodeURIComponent(dateFrom));
+        if (dateTo) qs.push('until=' + encodeURIComponent(dateTo));
+        if (qs.length) endpoint += '?' + qs.join('&');
 
-        const headers = {
-          'apikey': sbKey,
-          'Authorization': 'Bearer ' + sbKey,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=representation',
-        };
-
-        // First attempt: with date filters (if provided)
-        let endpoint = buildEndpoint(true);
-        let resp = await fetch(endpoint, { headers });
+        const resp = await fetch(endpoint);
         if (!resp.ok) {
-          const errText = await resp.text();
-          throw new Error('HTTP ' + resp.status + ' — ' + errText.slice(0, 200));
+          const errText = await resp.text().catch(() => '');
+          throw new Error('HTTP ' + resp.status + (errText ? ' — ' + errText.slice(0, 200) : ''));
         }
-        let rows = await resp.json();
-
-        // If 0 rows and dates were set, retry without date filter to check connectivity
-        if ((!Array.isArray(rows) || !rows.length) && (dateFrom || dateTo)) {
-          msgEl.textContent = '⚠ No rows for date range — retrying without date filter…';
-          const resp2 = await fetch(buildEndpoint(false), { headers });
-          if (resp2.ok) {
-            const rows2 = await resp2.json();
-            if (Array.isArray(rows2) && rows2.length) {
-              rows = rows2;
-              msgEl.textContent = '⚠ Date filter returned 0 rows — showing all ' + rows.length + ' rows instead';
-            } else {
-              throw new Error('Table returned 0 rows (even without date filter). Check table name & RLS policies.');
-            }
-          }
-        }
-
-        if (!Array.isArray(rows) || !rows.length) throw new Error('No rows returned — check table name, RLS policies, and API key permissions');
+        const rows = await resp.json();
+        if (rows && rows.error) throw new Error(rows.error);
+        if (!Array.isArray(rows) || !rows.length) throw new Error('No ad rows. Check Supabase env vars and results_table.');
 
         console.log('[Supabase] fetched', rows.length, 'rows. First row keys:', Object.keys(rows[0]));
 
@@ -4055,13 +4712,9 @@
 
         if (!META_ADS_DATA.length) throw new Error('No ad records could be extracted from the data');
 
-        // Save credentials for convenience
-        try { localStorage.setItem('ops_sb_url', sbUrl); localStorage.setItem('ops_sb_key', sbKey); } catch (e) { }
-
-        msgEl.textContent = '✓ ' + META_ADS_DATA.length + ' ads from ' + rows.length + ' row(s) · ' + (dateFrom || 'all') + ' → ' + (dateTo || 'all');
+        msgEl.textContent = '✓ ' + META_ADS_DATA.length + ' ads from ' + rows.length + ' row(s) · ' + (fmtDate(dateFrom) || 'all') + ' → ' + (fmtDate(dateTo) || 'all');
         msgEl.style.color = 'var(--in)';
         statusEl.textContent = 'Live · ' + META_ADS_DATA.length + ' ads';
-        toggleEl('metaAdsCpanel');
         renderAds();
       } catch (err) {
         msgEl.textContent = '✗ ' + err.message;
@@ -4314,16 +4967,28 @@
         d = d.filter(r => (r.category || '').toLowerCase().includes(cat));
       }
       if (invColor !== 'all') {
-        d = d.filter(r => (r._color || extractColor(r.name)) === invColor);
+        d = d.filter(r => (r._color || extractColor(r.name, r.variants)) === invColor);
       }
-      // Tag filter: match colorSku prefix (e.g. SDCP, SDFLK, SDFSK)
+      // Tag filter: match against real Shopify product tags (SD/SM/SU prefix), with colorSku-prefix fallback
       if (invTagF !== 'all') {
         d = d.filter(r => {
+          const tags = r._tags || r.tags || [];
+          if (tags.some(t => (t || '').trim() === invTagF)) return true;
           const sku = (r.colorSku || '').replace(/[^A-Z0-9]/g, '');
           return sku.length > 2 && sku.slice(0, -2) === invTagF;
         });
       }
-      if (q) d = d.filter(r => (r.name || '').toLowerCase().includes(q) || (r.colorSku || '').toLowerCase().includes(q));
+      // Product Type filter
+      if (invPT !== 'all') {
+        d = d.filter(r => (r.product_type || r.category || '') === invPT);
+      }
+      // Cross-field search: name OR SKU OR color (Mode toggle controls display, not filtering)
+      if (q) d = d.filter(r => {
+        const nm = (r.name || '').toLowerCase();
+        const sku = (r.colorSku || '').toLowerCase();
+        const color = (r._color || extractColor(r.name, r.variants) || '').toLowerCase();
+        return nm.includes(q) || sku.includes(q) || color.includes(q);
+      });
       return d;
     }
     // ── SELL-THROUGH RATE ──
@@ -4351,26 +5016,21 @@
     async function fetchSTRSnapshot() {
       const msgEl = document.getElementById('strMsg');
       const statusEl = document.getElementById('strStatus');
-      const sbUrl = (document.getElementById('strSbUrl').value || document.getElementById('sbUrl').value || '').trim().replace(/\/$/, '');
-      const sbKey = (document.getElementById('strSbKey').value || document.getElementById('sbKey').value || '').trim();
-      const snapDate = document.getElementById('strSnapshotDate').value;
+      // Snapshot follows the master "Until" date; explicit override via strSnapshotDate
+      const overrideDate = (document.getElementById('strSnapshotDate') || {}).value || '';
+      const snapDate = overrideDate || document.getElementById('masterUntil').value || '';
 
-      if (!sbUrl || !sbKey) { msgEl.textContent = '⚠ Enter Supabase URL and key'; msgEl.style.color = 'var(--out)'; return; }
-
-      msgEl.textContent = '⏳ Fetching snapshot…'; msgEl.style.color = 'var(--mu2)';
-      statusEl.textContent = 'Loading…';
+      if (msgEl) { msgEl.textContent = '⏳ Fetching snapshot…'; msgEl.style.color = 'var(--mu2)'; }
+      if (statusEl) statusEl.textContent = 'Loading…';
 
       try {
-        let endpoint = sbUrl + '/rest/v1/inventory_snapshots?select=*&limit=5000';
-        if (snapDate) endpoint += '&snapshot_date=eq.' + snapDate;
-        else endpoint += '&order=captured_at.desc&limit=2000';
-
-        const resp = await fetch(endpoint, {
-          headers: { 'apikey': sbKey, 'Authorization': 'Bearer ' + sbKey, 'Content-Type': 'application/json' }
-        });
+        const endpoint = '/api/inventory-snapshot' + (snapDate ? ('?date=' + encodeURIComponent(snapDate)) : '');
+        const resp = await fetch(endpoint);
         if (!resp.ok) throw new Error('HTTP ' + resp.status + ': ' + (await resp.text()).slice(0, 120));
-        const rows = await resp.json();
-        if (!Array.isArray(rows) || !rows.length) throw new Error('No snapshot rows found for ' + (snapDate || 'latest'));
+        const payload = await resp.json();
+        if (payload && payload.error) throw new Error(payload.error);
+        const rows = (payload && payload.rows) || [];
+        if (!rows.length) throw new Error('No snapshot rows available.');
 
         STR_SNAPSHOT = rows.map(r => ({
           product_title: (r.product_title || '').toLowerCase().trim(),
@@ -4380,17 +5040,20 @@
           captured_at: r.captured_at || '',
         }));
 
-        // Save creds
-        try { localStorage.setItem('ops_sb_url', sbUrl); localStorage.setItem('ops_sb_key', sbKey); } catch (e) { }
-
-        const date = STR_SNAPSHOT[0].snapshot_date || STR_SNAPSHOT[0].captured_at?.slice(0, 10) || 'unknown';
-        msgEl.textContent = '✓ ' + STR_SNAPSHOT.length + ' snapshot rows · date: ' + date;
-        msgEl.style.color = 'var(--in)';
-        statusEl.textContent = 'Loaded · ' + date;
-        renderSTR();
+        const actualDate = payload.date || (STR_SNAPSHOT[0].snapshot_date || '');
+        const actualDisplay = fmtDate(actualDate) || 'unknown';
+        const fallbackNote = payload.isFallback
+          ? ' ⚠ no snapshot for ' + (fmtDate(payload.requestedDate) || 'requested date') + ' — showing latest (' + actualDisplay + ')'
+          : '';
+        if (msgEl) {
+          msgEl.textContent = '✓ ' + STR_SNAPSHOT.length + ' snapshot rows · date: ' + actualDisplay + fallbackNote;
+          msgEl.style.color = payload.isFallback ? 'var(--low)' : 'var(--in)';
+        }
+        if (statusEl) statusEl.textContent = (payload.isFallback ? 'Fallback · ' : 'Loaded · ') + actualDisplay;
+        if (typeof renderSTR === 'function') renderSTR();
       } catch (err) {
-        msgEl.textContent = '✗ ' + err.message; msgEl.style.color = 'var(--out)';
-        statusEl.textContent = 'Error';
+        if (msgEl) { msgEl.textContent = '✗ ' + err.message; msgEl.style.color = 'var(--out)'; }
+        if (statusEl) statusEl.textContent = 'Error';
       }
     }
 
@@ -4410,19 +5073,6 @@
       renderSTR();
     }
 
-    function normalizeProductKey(value) {
-      return (value || '').toString().toLowerCase().trim().replace(/\s+/g, ' ');
-    }
-
-    function escapeJsString(value) {
-      return (value || '').toString().replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-    }
-
-    function getSalesUnits(row) {
-      const value = row.net_items_sold ?? row.orders ?? row.quantity ?? 0;
-      return Math.max(0, parseFloat(value) || 0);
-    }
-
     function renderSTR() {
       const emptyEl = document.getElementById('strEmpty');
       const viewEl = document.getElementById('strView');
@@ -4432,19 +5082,21 @@
       emptyEl.style.display = 'none';
 
       // Build snapshot map: product_title → available_qty
+      // Only use product-level rows (color_sku null/empty) to avoid double-counting
+      // since snapshot contains both product-level totals AND per-color rows
       const snapMap = {};
       STR_SNAPSHOT.forEach(s => {
-        const key = normalizeProductKey(s.product_title);
-        if (!key) return;
-        snapMap[key] = (snapMap[key] || 0) + s.total_stock;
+        const sku = s.color_sku || '';
+        if (sku !== '') return; // skip color-level rows, only use product-level totals
+        const key = (s.product_title || '').toLowerCase().trim();
+        if (key) snapMap[key] = (snapMap[key] || 0) + s.total_stock;
       });
 
       // Build sales map from SALES_DATA
       const salesMap = {};
       (SALES_DATA || []).forEach(s => {
-        const key = normalizeProductKey(s.product_title);
-        if (!key) return;
-        salesMap[key] = (salesMap[key] || 0) + getSalesUnits(s);
+        const key = (s.product_title || '').toLowerCase().trim();
+        salesMap[key] = (salesMap[key] || 0) + (s.net_items_sold || 0);
       });
 
       // Search + sort controls
@@ -4476,7 +5128,7 @@
         + '<th>Product</th><th>Available Qty</th><th>Units Sold</th><th>Sell-Through Rate</th></tr></thead><tbody>';
       rows.forEach(r => {
         const strColor = r.str >= 70 ? '#4ade80' : r.str >= 40 ? 'var(--low)' : r.str > 0 ? 'var(--out)' : 'var(--mu2)';
-        html += '<tr style="cursor:pointer" title="Click to view product details" onclick="openProductDetailForTitle(\'' + escapeJsString(r.title) + '\')">'
+        html += '<tr>'
           + '<td><div class="tn" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + sh(r.title) + '</div></td>'
           + '<td><div class="tnum">' + r.availQty.toLocaleString() + '</div></td>'
           + '<td><div class="tnum">' + (r.soldQty > 0 ? r.soldQty.toLocaleString() : '—') + '</div></td>'
@@ -4955,12 +5607,41 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
         const cls = r.stockStatus === 'out_of_stock' && r.cartAdds > 0 ? 'c-leak' : r.isAdLeak ? 'c-warn' : r.acqSignal && r.stockStatus === 'in_stock' ? 'c-acq' : 'c-ok';
         const flagTxt = r.stockStatus === 'out_of_stock' && r.cartAdds > 0 ? 'PAUSE' : r.isAdLeak ? 'LEAK' : r.acqSignal && r.stockStatus === 'in_stock' ? 'SCALE' : '';
         const flagCls = r.stockStatus === 'out_of_stock' && r.cartAdds > 0 ? 'cf-pause' : r.isAdLeak ? 'cf-warn' : r.acqSignal && r.stockStatus === 'in_stock' ? 'cf-acq' : 'cf-ok';
+
+        // Mode-aware stat grid
+        let statsHtml = '';
+        if (mode === 'traf') {
+          const atc = r.atcPct != null ? r.atcPct + '%' : (r.sessions > 0 ? Math.round(r.cartAdds / r.sessions * 1000) / 10 + '%' : '0%');
+          const bounce = r.bounceRate != null ? r.bounceRate + '%' : '—';
+          statsHtml =
+            '<div class="cgrid" style="grid-template-columns:1fr 1fr;">'
+            + '<div><div class="csv">' + fmt(r.visitors || 0) + '</div><div class="csl">Visitors</div></div>'
+            + '<div><div class="csv">' + fmt(r.sessions || 0) + '</div><div class="csl">Sessions</div></div>'
+            + '<div><div class="csv">' + (r.cartAdds || 0) + '</div><div class="csl">Cart Adds</div></div>'
+            + '<div><div class="csv" style="color:var(--in);">' + atc + '</div><div class="csl">ATC%</div></div>'
+            + '<div><div class="csv">' + (r.checkout || 0) + '</div><div class="csl">Checkout</div></div>'
+            + '<div><div class="csv">' + bounce + '</div><div class="csl">Bounce</div></div>'
+            + '</div>';
+        } else if (mode === 'inv') {
+          const status = (SS[r.stockStatus] || SS.unknown).l;
+          const total = r.totalStock >= 0 ? r.totalStock : '—';
+          statsHtml =
+            '<div class="cgrid" style="grid-template-columns:1fr 1fr;">'
+            + '<div><div class="csv">' + total + '</div><div class="csl">Total Units</div></div>'
+            + '<div><div class="csv">' + status + '</div><div class="csl">Status</div></div>'
+            + '</div>'
+            + '<div class="szbadges">' + szbadges(r) + '</div>';
+        } else {
+          statsHtml =
+            '<div class="cgrid"><div><div class="csv">' + fmt(r.visitors || 0) + '</div><div class="csl">Visitors</div></div><div><div class="csv">' + (r.cartAdds || 0) + '</div><div class="csl">Cart Adds</div></div></div>'
+            + '<div class="szbadges">' + szbadges(r) + '</div>';
+        }
+
         return '<div class="card ' + cls + '" onclick="onRow(' + gi + ')">'
           + (flagTxt ? '<span class="cflag ' + flagCls + '">' + flagTxt + '</span>' : '')
-          + '<div class="cname">' + r.name + '</div>'
-          + '<div class="csub">' + r.colorSku + '</div>'
-          + '<div class="cgrid"><div><div class="csv">' + fmt(r.visitors) + '</div><div class="csl">Visitors</div></div><div><div class="csv">' + r.cartAdds + '</div><div class="csl">Cart Adds</div></div></div>'
-          + '<div class="szbadges">' + szbadges(r) + '</div>'
+          + '<div class="cname">' + (r.name || '—') + '</div>'
+          + '<div class="csub">' + (r.colorSku || '') + '</div>'
+          + statsHtml
           + '</div>';
       }).join('') + '</div>';
     }
@@ -5013,7 +5694,10 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
         if (r._attrTotal > 0) {
           const directPct = Math.round(r._attrDirect / r._attrTotal * 100);
           const mismatchPct = 100 - directPct;
-          html += '<div style="margin-bottom:10px;"><div style="font-size:.65rem;color:var(--mu2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">Conversion Attribution</div>';
+          html += '<div style="margin-bottom:10px;"><div style="font-size:.65rem;color:var(--mu2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;display:flex;align-items:center;gap:6px;">Cross-sell Attribution'
+            + '<button onclick="event.stopPropagation();showInfoModal(\'Cross-sell Attribution Logic\', \'Counts orders where 2+ products were purchased together. For each landing-page product A, we look at orders that contain A and count co-purchased products. Direct = the user landed on a PDP and the same product appears in the order. Cross-sell = a different product in the order. Excludes orders tagged return_prime, inf, or cancelled. Skips line items with quantity ≤ 0.\');"'
+            + ' style="background:none;border:none;color:var(--mu2);cursor:pointer;font-size:.85rem;line-height:1;padding:0;" title="How is this calculated?">ⓘ</button>'
+            + '</div>';
           html += '<div style="display:flex;height:8px;border-radius:4px;overflow:hidden;margin-bottom:6px;">'
             + '<div style="width:' + directPct + '%;background:#4ade80;min-width:2px;" title="Direct: ' + directPct + '%"></div>'
             + '<div style="width:' + mismatchPct + '%;background:#a67dd4;min-width:2px;" title="Cross-sell: ' + mismatchPct + '%"></div>'
@@ -5242,9 +5926,11 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
       const discCount = DATA.filter(r => r._discontinued).length;
       console.log('[fetchInvTab] Merged ' + mergedCount + ' existing, Added ' + newAdded + ' new products to DATA. Discontinued: ' + discCount);
 
-      document.getElementById('navMeta').textContent = 'Live · ' + INVLIVE.length + ' rows · ' + new Date().toLocaleTimeString();
+      // (navMeta removed)
       populateCatDropdown();
       populateColorDropdown();
+      populateInvTags();
+      populateInvProductTypes();
       renderInv();
       renderHome();
       renderTraf();
@@ -5252,22 +5938,13 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
     }
     // ── SHOPIFY INVENTORY FETCH ──
     async function fetchShopifyInventory() {
-      const baseUrl = (document.getElementById('invShopifyUrl').value || '').trim().replace(/\/$/, '');
       const msgEl = document.getElementById('invShopifyMsg');
       const tagEl = document.getElementById('invShopifyStatus');
-
-      if (!baseUrl) {
-        msgEl.textContent = '⚠ Enter your server URL (e.g. http://localhost:5000)';
-        msgEl.style.color = 'var(--out)';
-        return;
-      }
-
       msgEl.textContent = '⏳ Fetching inventory from Shopify…';
       msgEl.style.color = 'var(--mu2)';
       tagEl.textContent = 'Fetching…';
-
       try {
-        const resp = await fetch(baseUrl + '/api/inventory');
+        const resp = await fetch('/api/inventory');
         if (!resp.ok) {
           const errText = await resp.text().catch(() => '');
           throw new Error('HTTP ' + resp.status + (errText ? ' — ' + errText.slice(0, 120) : ''));
@@ -5379,18 +6056,17 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
           }
         });
 
-        // Save URL for next visit
-        try { localStorage.setItem('ops_inv_url', baseUrl); } catch (e) { }
-
         const discCount = INVLIVE.filter(r => r._discontinued).length;
         const exclCount = INVLIVE.filter(r => r._excluded).length;
         msgEl.textContent = '✓ ' + INVLIVE.length + ' color variants — ' + mergedCount + ' matched, ' + newAdded + ' new' + (discCount > 0 ? ', ' + discCount + ' discontinued' : '') + (exclCount > 0 ? ', ' + exclCount + ' excluded' : '');
         msgEl.style.color = 'var(--in)';
         tagEl.textContent = 'Live · ' + INVLIVE.length + ' products';
 
-        document.getElementById('navMeta').textContent = 'Shopify Inv · ' + INVLIVE.length + ' products · ' + new Date().toLocaleTimeString();
+        // (navMeta removed)
         populateCatDropdown();
         populateColorDropdown();
+        populateInvTags();
+        populateInvProductTypes();
         renderInv();
         renderHome();
         renderTraf();
@@ -5509,27 +6185,25 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
     // Traffic → ⚙ Data Source panel.
 
     async function fetchShopifyTraffic() {
-      const baseUrl = (document.getElementById('shopifyBackendUrl').value || '').trim().replace(/\/$/, '');
-      const dateVal = document.getElementById('shopifyFetchDate').value;
+      const since = document.getElementById('masterSince').value;
+      const until = document.getElementById('masterUntil').value;
+      const dateVal = until || since || document.getElementById('shopifyFetchDate').value;
       const msgEl = document.getElementById('shopifyFetchMsg');
       const tagEl = document.getElementById('shopifyFetchStatus');
 
-      // ── Validation ──
-      if (!baseUrl) {
-        _trafMsg(msgEl, tagEl, 'err', '⚠ Enter your Vercel project URL first (e.g. https://your-project.vercel.app).');
-        return;
-      }
       if (!dateVal) {
-        _trafMsg(msgEl, tagEl, 'err', '⚠ Select a date to fetch.');
+        _trafMsg(msgEl, tagEl, 'err', '⚠ Pick a date range in the navbar.');
         return;
       }
 
       _trafMsg(msgEl, tagEl, 'loading', '⏳ Fetching from Shopify…');
 
       try {
-        // ── Call Vercel API proxy ──
-        const fetchUrl = baseUrl + '/api/traffic?date=' + encodeURIComponent(dateVal);
-        const resp = await fetch(fetchUrl);
+        // Use since/until if available, otherwise fall back to single date
+        const qs = (since && until)
+          ? '?since=' + encodeURIComponent(since) + '&until=' + encodeURIComponent(until)
+          : '?date=' + encodeURIComponent(dateVal);
+        const resp = await fetch('/api/traffic' + qs);
 
         if (!resp.ok) {
           const errText = await resp.text().catch(() => '');
@@ -5709,9 +6383,6 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
           }
         });
 
-        // Save URL for next visit
-        try { localStorage.setItem('ops_vercel_url', baseUrl); } catch (e) { }
-
         const note = zeroed > 0 ? ' · ' + zeroed + ' had 0 traffic' : '';
         const collNote = TRAFFIC_META.collection.sessions > 0 ? ' · ' + TRAFFIC_META.collection.sessions + ' coll sessions' : '';
         const homeNote = TRAFFIC_META.home.sessions > 0 ? ' · ' + TRAFFIC_META.home.sessions + ' home sessions' : '';
@@ -5724,8 +6395,7 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
         renderHome();
         renderTraf();
         renderAds();
-        document.getElementById('navMeta').textContent =
-          'Shopify · ' + dateVal + ' · ' + matched + ' products';
+        // (navMeta removed)
 
       } catch (err) {
         _trafMsg(msgEl, tagEl, 'err', '✗ ' + err.message);
@@ -5775,26 +6445,109 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
       return sign + '₹' + Math.round(abs);
     }
 
+    // Exact ₹ formatter — full Indian number format (used in Orders KPIs)
+    function fmtRsExact(v) {
+      if (v == null || isNaN(v)) return '₹0';
+      return '₹' + Number(v).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // Display-only date formatter: 'YYYY-MM-DD' or Date → '06 May 2026'
+    function fmtDate(d) {
+      if (!d) return '';
+      const dt = d instanceof Date ? d : new Date(d);
+      if (isNaN(dt.getTime())) return '';
+      return dt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+
+    // Robust order-date parser — returns Date or null
+    function parseOrderDate(raw) {
+      if (!raw) return null;
+      const d = new Date(raw);
+      return isNaN(d.getTime()) ? null : d;
+    }
+
+    // ── Card-view helpers (Overview / Sales / Orders) ──
+    function _stockLeftColor(status) {
+      if (status === 'in_stock') return 'var(--in)';
+      if (status === 'low_stock' || status === 'broken_stock') return 'var(--low)';
+      if (status === 'out_of_stock') return 'var(--out)';
+      return 'var(--bd)';
+    }
+
+    function productCard(r, opts) {
+      opts = opts || {};
+      const color = r._color || (typeof extractColor === 'function' ? extractColor(r.name, r.variants) : '');
+      const stockColor = _stockLeftColor(r.stockStatus);
+      const lc = (r._lifecycle || '').toLowerCase();
+      const lcLabel = lc === 'npd' ? '🌱 NPD' : (lc === 'discontinued' ? 'Discontinued' : 'Active');
+      const stats = [];
+      if (opts.units != null) stats.push('<span><span class="pc-lbl">Units</span>' + Math.round(opts.units).toLocaleString() + '</span>');
+      if (opts.revenue != null) stats.push('<span><span class="pc-lbl">Sales</span>' + fmtRs(opts.revenue) + '</span>');
+      if (opts.sessions != null) stats.push('<span><span class="pc-lbl">Sessions</span>' + fmt(opts.sessions) + '</span>');
+      if (opts.atcPct != null) stats.push('<span><span class="pc-lbl">ATC</span>' + opts.atcPct + '%</span>');
+      const click = opts.idx != null ? ' onclick="onRow(' + opts.idx + ')"' : '';
+      return '<div class="p-card"' + click + ' style="border-left-color:' + stockColor + ';">'
+        + '<div class="pc-name" data-tip="' + (r.name || '').replace(/"/g, '&quot;') + '">' + sh(r.name) + '</div>'
+        + '<div class="pc-meta">' + lcLabel + (color ? ' · ' + color : '') + (r.colorSku ? ' · ' + r.colorSku : '') + '</div>'
+        + '<div class="pc-stats">' + stats.join('') + '</div>'
+        + '</div>';
+    }
+
+    function saleCard(r) {
+      return '<div class="p-card" style="border-left-color:#4ade80;">'
+        + '<div class="pc-name">' + sh(r.product_title || '—') + '</div>'
+        + '<div class="pc-meta">' + (r.product_type || '—') + ' · ' + (r.product_vendor || '—') + '</div>'
+        + '<div class="pc-stats">'
+        + '<span><span class="pc-lbl">Total</span>' + fmtRs(r.total_sales || 0) + '</span>'
+        + '<span><span class="pc-lbl">Net</span>' + fmtRs(r.net_sales || 0) + '</span>'
+        + '<span><span class="pc-lbl">Units</span>' + (r.net_items_sold || r.orders || 0) + '</span>'
+        + (r.discounts ? '<span><span class="pc-lbl">Disc</span>' + fmtRs(Math.abs(r.discounts)) + '</span>' : '')
+        + (r.returns ? '<span><span class="pc-lbl">Ret</span>' + fmtRs(Math.abs(r.returns)) + '</span>' : '')
+        + '</div></div>';
+    }
+
+    function orderCard(o, idx) {
+      const cust = o.customer ? o.customer.name : '—';
+      const city = o.address ? o.address.city : '';
+      const items = (o.lineItems || []).map(li => li.title).filter(Boolean).slice(0, 3).join(', ');
+      const dt = parseOrderDate(o.createdAt);
+      const dateStr = dt ? fmtDate(dt) : '—';
+      const fsColor = o.financialStatus === 'PAID' ? '#4ade80' : (o.financialStatus === 'PENDING' ? 'var(--low)' : 'var(--mu2)');
+      return '<div class="p-card" onclick="openOrderDetail(' + idx + ')" style="border-left-color:' + fsColor + ';">'
+        + '<div class="pc-name">' + sh(o.name || '—') + ' <span style="color:var(--mu2);font-weight:400;font-size:.75em;">· ' + dateStr + '</span></div>'
+        + '<div class="pc-meta">' + sh(cust) + (city ? ' · ' + city : '') + '</div>'
+        + '<div class="pc-stats">'
+        + '<span><span class="pc-lbl">Total</span><span style="color:#4ade80;">' + fmtRs(o.total) + '</span></span>'
+        + '<span><span class="pc-lbl">Items</span>' + (o.itemCount || 0) + '</span>'
+        + '<span><span class="pc-lbl">Status</span>' + (o.financialStatus || '—') + '</span>'
+        + '</div>'
+        + (items ? '<div class="pc-meta" style="margin-top:8px;margin-bottom:0;font-size:.55rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + sh(items) + '</div>' : '')
+        + '</div>';
+    }
+
     function renderSales() {
       const el = document.getElementById('salesView');
+      const cardsEl = document.getElementById('salesCardsView');
+      if (el && cardsEl) {
+        el.style.display = salesViewMode === 'cards' ? 'none' : '';
+        cardsEl.style.display = salesViewMode === 'cards' ? 'grid' : 'none';
+      }
       if (!SALES_DATA.length) {
         el.innerHTML = '<div class="empty">No sales data loaded. Click ⚙ Data Source to fetch.</div>';
+        if (cardsEl) cardsEl.innerHTML = '';
         document.getElementById('salesKpis').innerHTML = '';
         return;
       }
       const all = SALES_DATA;
-      // Prefer Shopify WITH TOTALS row for accurate KPIs, fallback to summing rows if totals are invalid or stale
+      // Prefer Shopify WITH TOTALS row for accurate KPIs, fallback to summing rows
       const st = window._salesTotals || null;
-      const safeNumber = v => typeof v === 'string' ? parseFloat(v.replace(/,/g, '')) || 0 : Number(v) || 0;
-      const hasTotalsRow = st && (st.total_sales != null || st.gross_sales != null || st.net_items_sold != null);
-      const totalsRowValid = hasTotalsRow && !(safeNumber(st.total_sales) === 0 && all.some(r => safeNumber(r.total_sales) !== 0));
-      const totSales = totalsRowValid ? safeNumber(st.total_sales) : all.reduce((a, r) => a + safeNumber(r.total_sales), 0);
-      const totGross = totalsRowValid ? safeNumber(st.gross_sales) : all.reduce((a, r) => a + safeNumber(r.gross_sales), 0);
-      const _units = r => getSalesUnits(r);
-      const totUnits = totalsRowValid ? safeNumber(st.net_items_sold) : all.reduce((a, r) => a + _units(r), 0);
-      const totDisc = totalsRowValid ? safeNumber(st.discounts) : all.reduce((a, r) => a + safeNumber(r.discounts), 0);
-      const totRet = totalsRowValid ? safeNumber(st.returns) : all.reduce((a, r) => a + safeNumber(r.returns), 0);
-      const totNet = totalsRowValid ? safeNumber(st.net_sales) : all.reduce((a, r) => a + safeNumber(r.net_sales), 0);
+      const totSales = st ? (st.total_sales || 0) : all.reduce((a, r) => a + (r.total_sales || 0), 0);
+      const totGross = st ? (st.gross_sales || 0) : all.reduce((a, r) => a + (r.gross_sales || 0), 0);
+      const _units = r => r.orders || r.net_items_sold || 0;
+      const totUnits = st ? (st.net_items_sold || 0) : all.reduce((a, r) => a + _units(r), 0);
+      const totDisc = st ? (st.discounts || 0) : all.reduce((a, r) => a + (r.discounts || 0), 0);
+      const totRet = st ? (st.returns || 0) : all.reduce((a, r) => a + (r.returns || 0), 0);
+      const totNet = st ? (st.net_sales || 0) : all.reduce((a, r) => a + (r.net_sales || 0), 0);
 
       const rangeLabel = document.getElementById('salesSince').value && document.getElementById('salesUntil').value
         ? document.getElementById('salesSince').value + ' → ' + document.getElementById('salesUntil').value
@@ -5824,6 +6577,9 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
 
       const rows = getSales();
       _lastSalesRows = rows;
+      if (cardsEl) {
+        cardsEl.innerHTML = rows.length ? rows.map(r => saleCard(r)).join('') : '<div class="empty" style="padding:32px;text-align:center;color:var(--mu2);">No products match</div>';
+      }
       if (!rows.length) { el.innerHTML = '<div class="empty">No products match.</div>'; return; }
       const maxSales = Math.max(...rows.map(r => r.total_sales || 0), 1);
       let thtml = '';
@@ -5855,7 +6611,6 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
 
     function fetchSalesData() {
       SALES_DATA = [...EMBEDDED_SALES];
-      window._salesTotals = null;
       _salesMsg('live', '✓ ' + SALES_DATA.length + ' products from embedded data');
       renderSales();
     }
@@ -5876,19 +6631,15 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
     }
 
     async function fetchShopifySales() {
-      const baseUrl = (document.getElementById('salesServerUrl').value || '').trim().replace(/\/$/, '');
-      const since = document.getElementById('salesSince').value;
-      const until = document.getElementById('salesUntil').value;
+      const since = document.getElementById('masterSince').value || document.getElementById('salesSince').value;
+      const until = document.getElementById('masterUntil').value || document.getElementById('salesUntil').value;
 
-      if (!baseUrl) { _salesMsg('err', '⚠ Enter server URL'); return; }
-      if (!since || !until) { _salesMsg('err', '⚠ Select date range'); return; }
+      if (!since || !until) { _salesMsg('err', '⚠ Pick a date range in the navbar'); return; }
 
       _salesMsg('loading', '⏳ Fetching sales from Shopify…');
 
-      const query = buildSalesQuery(since, until);
-
       try {
-        const resp = await fetch(baseUrl + '/api/sales?since=' + encodeURIComponent(since) + '&until=' + encodeURIComponent(until));
+        const resp = await fetch('/api/sales?since=' + encodeURIComponent(since) + '&until=' + encodeURIComponent(until));
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
         const raw = await resp.json();
         if (raw && raw.error) throw new Error(raw.error);
@@ -5949,8 +6700,7 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
         }
 
         SALES_DATA = rows;
-        try { localStorage.setItem('ops_sales_url', baseUrl); } catch (e) { }
-        _salesMsg('live', '✓ ' + rows.length + ' products · ' + since + ' to ' + until);
+        _salesMsg('live', '✓ ' + rows.length + ' products · ' + fmtDate(since) + ' → ' + fmtDate(until));
         toggleEl('salesCpanel');
         renderSales();
       } catch (err) {
@@ -5962,41 +6712,8 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
     function openProductDetail(idx) {
       const sale = _lastSalesRows[idx];
       if (!sale) return;
-      openProductDetailForTitle(sale.product_title || '—', sale);
-    }
-
-    function getSalesSummaryByTitle(productTitle) {
-      const key = normalizeProductKey(productTitle);
-      if (!key) return null;
-      const rows = (SALES_DATA || []).filter(r => normalizeProductKey(r.product_title) === key);
-      if (!rows.length) return null;
-      return rows.reduce((acc, r) => ({
-        product_title: acc.product_title || r.product_title || productTitle,
-        product_type: acc.product_type || r.product_type || '',
-        total_sales: acc.total_sales + (parseFloat(r.total_sales) || 0),
-        gross_sales: acc.gross_sales + (parseFloat(r.gross_sales) || 0),
-        discounts: acc.discounts + (parseFloat(r.discounts) || 0),
-        returns: acc.returns + (parseFloat(r.returns) || 0),
-        net_sales: acc.net_sales + (parseFloat(r.net_sales) || 0),
-        taxes: acc.taxes + (parseFloat(r.taxes) || 0),
-        net_items_sold: acc.net_items_sold + getSalesUnits(r)
-      }), {
-        product_title: productTitle,
-        product_type: '',
-        total_sales: 0,
-        gross_sales: 0,
-        discounts: 0,
-        returns: 0,
-        net_sales: 0,
-        taxes: 0,
-        net_items_sold: 0
-      });
-    }
-
-    function openProductDetailForTitle(productTitle, saleData) {
-      const title = productTitle || '—';
-      const titleLower = title.toLowerCase();
-      const sale = saleData || getSalesSummaryByTitle(title) || { product_title: title, total_sales: 0, gross_sales: 0, discounts: 0, returns: 0, net_sales: 0, taxes: 0, net_items_sold: 0 };
+      const productTitle = sale.product_title || '—';
+      const titleLower = productTitle.toLowerCase();
 
       // Traffic data (DATA array — PDP products)
       const traf = DATA.find(r => (r.name || '').toLowerCase() === titleLower);
@@ -6067,49 +6784,278 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
       document.getElementById('productDetailOverlay').style.display = 'none';
     }
 
+    // ── Per-tab "Know More" info modal ──
+    const TAB_INFO = {
+      home: { title: 'Overview', body: 'Shows all products with stock status, sales data, lifecycle tags, and collection groupings. Use the Lifecycle / Stock / Category filters to drill down. Toggle between Products and Collections views from the row of pill buttons. Date range in the navbar drives every metric.' },
+      inv: { title: 'Inventory', body: 'Per-variant stock levels with size coverage, color-grouped SKUs, and stock-status badges. Use Mode (Name / SKU / Size) for the search field, and switch Table ↔ Cards to taste. Sell-Through Rate joins live inventory or the daily snapshot against sales.' },
+      traf: { title: 'Traffic', body: 'Page-level visit data from Shopify Analytics, split into PDP / Collection / Home rows. ATC% = sessions with cart additions ÷ sessions. Bounce rate = bounces ÷ sessions. UTM rows aggregated per landing page.' },
+      ads: { title: 'Ad Intelligence', body: 'Meta ads (from Supabase) joined with product traffic and sales. Adjust Target Impressions / Target ROAS in Definitions to recolor winners and losers. Hook rate = thru-plays ÷ video plays. Hold = avg watch ÷ length.' },
+      sales: { title: 'Sales', body: 'Revenue by product over the selected date range (aggregated from orders). Net sales = gross sales − discounts − returns. Units = net_items_sold. Discounts and returns shown as positive values in the table.' },
+      orders: { title: 'Orders', body: 'Raw Shopify orders with line items, customer, payment & fulfillment. Cross-sell attribution counts orders where 2+ products were purchased together. Excludes orders tagged return_prime, inf, or cancelled by default.' }
+    };
+
+    function openTabInfo(tab) {
+      const info = TAB_INFO[tab];
+      if (!info) return;
+      showInfoModal(info.title, info.body);
+    }
+
+    function showInfoModal(title, body) {
+      let el = document.getElementById('tabInfoModal');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'tabInfoModal';
+        el.style.cssText =
+          'position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);';
+        el.innerHTML =
+          '<div class="info-modal-card" onclick="event.stopPropagation();">'
+          + '<div class="info-modal-title" id="tabInfoTitle"></div>'
+          + '<div class="info-modal-body" id="tabInfoBody"></div>'
+          + '<button class="info-modal-close" onclick="document.getElementById(\'tabInfoModal\').style.display=\'none\';">×</button>'
+          + '</div>';
+        el.addEventListener('click', function (e) { if (e.target === el) el.style.display = 'none'; });
+        document.body.appendChild(el);
+      }
+      document.getElementById('tabInfoTitle').textContent = title;
+      document.getElementById('tabInfoBody').textContent = body;
+      el.style.display = 'flex';
+    }
+
+    // ── Custom Date Range Picker (popover with presets + two-month calendar) ──
+    let _drpPending = { start: null, end: null };
+    let _drpLeftMonth = null;
+    let _drpAnchor = null;
+
+    function _drpToISO(d) {
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+    function _drpFromISO(s) {
+      const parts = (s || '').split('-').map(Number);
+      if (parts.length !== 3) return null;
+      return new Date(parts[0], parts[1] - 1, parts[2]);
+    }
+    function _drpStartOfDay(d) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
+    function _drpFirstOfMonth(d) { return new Date(d.getFullYear(), d.getMonth(), 1); }
+    function _drpAddMonths(d, n) { return new Date(d.getFullYear(), d.getMonth() + n, 1); }
+
+    function openDateRangePicker() {
+      const since = document.getElementById('masterSince').value;
+      const until = document.getElementById('masterUntil').value;
+      const today = _drpStartOfDay(new Date());
+      _drpPending.start = _drpFromISO(since) || today;
+      _drpPending.end = _drpFromISO(until) || today;
+      _drpAnchor = null;
+      _drpLeftMonth = _drpAddMonths(_drpFirstOfMonth(_drpPending.end), -1);
+      renderDrpCal();
+      document.getElementById('dateRangeBackdrop').classList.add('open');
+      document.getElementById('dateRangePopover').classList.add('open');
+    }
+
+    function closeDateRangePicker() {
+      document.getElementById('dateRangeBackdrop').classList.remove('open');
+      document.getElementById('dateRangePopover').classList.remove('open');
+    }
+
+    function _drpShiftMonth(delta) {
+      _drpLeftMonth = _drpAddMonths(_drpLeftMonth, delta);
+      renderDrpCal();
+    }
+
+    function _drpRenderMonth(monthDate, gridId, titleId) {
+      const title = monthDate.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+      document.getElementById(titleId).textContent = title;
+      const firstDow = monthDate.getDay();
+      const lastDay = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
+      const prevLastDay = new Date(monthDate.getFullYear(), monthDate.getMonth(), 0).getDate();
+      let html = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
+        .map(n => '<div class="drp-day-name">' + n + '</div>').join('');
+      for (let i = firstDow - 1; i >= 0; i--) {
+        const d = new Date(monthDate.getFullYear(), monthDate.getMonth() - 1, prevLastDay - i);
+        html += _drpDayHtml(d, true);
+      }
+      for (let i = 1; i <= lastDay; i++) {
+        const d = new Date(monthDate.getFullYear(), monthDate.getMonth(), i);
+        html += _drpDayHtml(d, false);
+      }
+      const totalShown = firstDow + lastDay;
+      const trailing = (Math.ceil(totalShown / 7) * 7) - totalShown;
+      for (let i = 1; i <= trailing; i++) {
+        const d = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, i);
+        html += _drpDayHtml(d, true);
+      }
+      document.getElementById(gridId).innerHTML = html;
+    }
+
+    function _drpDayHtml(date, muted) {
+      const iso = _drpToISO(date);
+      const start = _drpPending.start;
+      const end = _drpPending.end;
+      let cls = 'drp-day';
+      if (muted) cls += ' muted';
+      if (start && end) {
+        const t = date.getTime();
+        const s = _drpStartOfDay(start).getTime();
+        const e = _drpStartOfDay(end).getTime();
+        if (t >= s && t <= e) cls += ' in-range';
+        if (t === s) cls += ' range-start';
+        if (t === e) cls += ' range-end';
+      }
+      return '<div class="' + cls + '" onclick="drpDayClick(\'' + iso + '\')">' + date.getDate() + '</div>';
+    }
+
+    function renderDrpCal() {
+      _drpRenderMonth(_drpLeftMonth, 'drpCal1', 'drpMonthTitle1');
+      _drpRenderMonth(_drpAddMonths(_drpLeftMonth, 1), 'drpCal2', 'drpMonthTitle2');
+      const start = _drpPending.start;
+      const end = _drpPending.end;
+      const display = document.getElementById('drpRangeDisplay');
+      if (start && end) {
+        display.textContent = (start.getTime() === end.getTime())
+          ? fmtDate(start)
+          : (fmtDate(start) + ' – ' + fmtDate(end));
+      } else if (start) {
+        display.textContent = fmtDate(start) + ' – select end';
+      } else {
+        display.textContent = 'Pick a range';
+      }
+      _drpHighlightActivePreset();
+    }
+
+    function drpDayClick(iso) {
+      const d = _drpFromISO(iso);
+      if (!d) return;
+      if (!_drpAnchor) {
+        _drpAnchor = d;
+        _drpPending.start = d;
+        _drpPending.end = d;
+      } else {
+        if (d.getTime() < _drpAnchor.getTime()) {
+          _drpPending.start = d;
+          _drpPending.end = _drpAnchor;
+        } else {
+          _drpPending.start = _drpAnchor;
+          _drpPending.end = d;
+        }
+        _drpAnchor = null;
+      }
+      renderDrpCal();
+    }
+
+    function setDrpPreset(preset) {
+      const today = _drpStartOfDay(new Date());
+      let start, end;
+      switch (preset) {
+        case 'today': start = today; end = today; break;
+        case 'yesterday': { const y = new Date(today); y.setDate(today.getDate() - 1); start = y; end = y; break; }
+        case '7days': { const s = new Date(today); s.setDate(today.getDate() - 6); start = s; end = today; break; }
+        case '30days': { const s = new Date(today); s.setDate(today.getDate() - 29); start = s; end = today; break; }
+        case 'thisMonth': start = new Date(today.getFullYear(), today.getMonth(), 1); end = today; break;
+        case 'lastMonth':
+          start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+          end = new Date(today.getFullYear(), today.getMonth(), 0); break;
+        case 'lifetime': start = new Date(2024, 0, 1); end = today; break;
+        case 'custom': _drpAnchor = null; renderDrpCal(); return;
+        default: return;
+      }
+      _drpPending.start = start;
+      _drpPending.end = end;
+      _drpAnchor = null;
+      _drpLeftMonth = _drpAddMonths(_drpFirstOfMonth(end), -1);
+      renderDrpCal();
+    }
+
+    function _drpHighlightActivePreset() {
+      const start = _drpPending.start;
+      const end = _drpPending.end;
+      const today = _drpStartOfDay(new Date());
+      const buttons = document.querySelectorAll('.drp-preset');
+      buttons.forEach(b => b.classList.remove('active'));
+      if (!start || !end) return;
+      const sIso = _drpToISO(start), eIso = _drpToISO(end), tIso = _drpToISO(today);
+      const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+      const last7Start = new Date(today); last7Start.setDate(today.getDate() - 6);
+      const last30Start = new Date(today); last30Start.setDate(today.getDate() - 29);
+      const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+      const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
+      let preset = 'custom';
+      if (sIso === tIso && eIso === tIso) preset = 'today';
+      else if (sIso === _drpToISO(yesterday) && eIso === _drpToISO(yesterday)) preset = 'yesterday';
+      else if (sIso === _drpToISO(last7Start) && eIso === tIso) preset = '7days';
+      else if (sIso === _drpToISO(last30Start) && eIso === tIso) preset = '30days';
+      else if (sIso === _drpToISO(thisMonthStart) && eIso === tIso) preset = 'thisMonth';
+      else if (sIso === _drpToISO(lastMonthStart) && eIso === _drpToISO(lastMonthEnd)) preset = 'lastMonth';
+      const btn = document.querySelector('.drp-preset[data-preset="' + preset + '"]');
+      if (btn) btn.classList.add('active');
+    }
+
+    function applyDateRange() {
+      if (!_drpPending.start || !_drpPending.end) { closeDateRangePicker(); return; }
+      const since = _drpToISO(_drpPending.start);
+      const until = _drpToISO(_drpPending.end);
+      document.getElementById('masterSince').value = since;
+      document.getElementById('masterUntil').value = until;
+      // Sync to legacy fields used by fetchAll
+      document.getElementById('masterDate').value = until;
+      try { localStorage.setItem('ops_master_since', since); localStorage.setItem('ops_master_until', until); } catch (e) { }
+      _updateDateRangeBtnLabel();
+      closeDateRangePicker();
+      // Same-origin fetch — no URL required
+      fetchAll();
+    }
+
+    function _updateDateRangeBtnLabel() {
+      const since = document.getElementById('masterSince').value;
+      const until = document.getElementById('masterUntil').value;
+      const lbl = document.getElementById('dateRangeBtnLabel');
+      if (!lbl) return;
+      if (!since || !until) { lbl.textContent = 'Pick date range'; return; }
+      lbl.textContent = (since === until) ? fmtDate(since) : (fmtDate(since) + ' – ' + fmtDate(until));
+    }
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        const pop = document.getElementById('dateRangePopover');
+        if (pop && pop.classList.contains('open')) closeDateRangePicker();
+      }
+    });
+
     // ══════════════════════════════════════════════════════════════════════════
     // ══════════════════════════════════════════════════════════════════════════
     // ── MASTER FETCH ALL ──
     // ══════════════════════════════════════════════════════════════════════════
     async function fetchAll() {
-      const baseUrl = (document.getElementById('masterServerUrl').value || '').trim().replace(/\/$/, '');
-      const dateVal = document.getElementById('masterDate').value;
+      const since = document.getElementById('masterSince').value;
+      const until = document.getElementById('masterUntil').value;
       const statusEl = document.getElementById('masterFetchStatus');
-      const btn = document.getElementById('masterFetchBtn');
-      if (!baseUrl) { statusEl.textContent = '⚠ Enter server URL'; return; }
-      if (!dateVal) { statusEl.textContent = '⚠ Select a date'; return; }
-      // Sync URL to all individual panels
-      document.getElementById('shopifyBackendUrl').value = baseUrl;
-      document.getElementById('invShopifyUrl').value = baseUrl;
-      document.getElementById('salesServerUrl').value = baseUrl;
-      document.getElementById('ordersServerUrl').value = baseUrl;
-      document.getElementById('shopifyFetchDate').value = dateVal;
-      document.getElementById('salesSince').value = dateVal;
-      document.getElementById('salesUntil').value = dateVal;
-      document.getElementById('ordersSince').value = dateVal;
-      document.getElementById('ordersUntil').value = dateVal;
-      try { localStorage.setItem('ops_master_url', baseUrl); } catch (e) { }
-      btn.disabled = true;
-      btn.textContent = 'Fetching…';
-      let steps = 0, errors = [];
-      statusEl.textContent = '⏳ 1/5 Traffic…';
+      if (!since || !until) { statusEl.textContent = '⚠ Pick a date range'; return; }
+      // Sync date to legacy per-panel inputs (so individual panel rerenders still work)
+      const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+      setVal('shopifyFetchDate', until);
+      setVal('salesSince', since); setVal('salesUntil', until);
+      setVal('ordersSince', since); setVal('ordersUntil', until);
+      const label = since === until ? fmtDate(since) : (fmtDate(since) + ' → ' + fmtDate(until));
+      const errors = [];
+      let steps = 0, total = 6;
+      statusEl.textContent = '⏳ 1/' + total + ' Traffic…';
       try { await fetchShopifyTraffic(); steps++; } catch (e) { errors.push('Traffic: ' + e.message); }
-      statusEl.textContent = '⏳ 2/5 Inventory…';
+      statusEl.textContent = '⏳ 2/' + total + ' Inventory…';
       try { await fetchShopifyInventory(); steps++; } catch (e) { errors.push('Inventory: ' + e.message); }
-      statusEl.textContent = '⏳ 3/5 Orders…';
+      statusEl.textContent = '⏳ 3/' + total + ' Orders…';
       try { await fetchShopifyOrders(); steps++; } catch (e) { errors.push('Orders: ' + e.message); }
-      statusEl.textContent = '⏳ 4/5 Sales…';
+      statusEl.textContent = '⏳ 4/' + total + ' Sales…';
       try { await fetchShopifySales(); steps++; } catch (e) { errors.push('Sales: ' + e.message); }
-      statusEl.textContent = '⏳ 5/5 Rendering…';
+      statusEl.textContent = '⏳ 5/' + total + ' Ads…';
+      try { await fetchSupabaseAds(); steps++; } catch (e) { errors.push('Ads: ' + e.message); }
+      statusEl.textContent = '⏳ 6/' + total + ' Sell-Through Snapshot…';
+      try { await fetchSTRSnapshot(); steps++; } catch (e) { errors.push('STR: ' + e.message); }
       computeProductAttribution();
       renderHome();
-      btn.disabled = false;
-      btn.textContent = 'Fetch All →';
       if (errors.length) {
-        statusEl.textContent = '⚠ ' + steps + '/4 OK · ' + errors.length + ' failed';
+        statusEl.textContent = '⚠ ' + steps + '/' + total + ' OK · ' + errors.length + ' failed';
         console.warn('[FetchAll] Errors:', errors);
       } else {
-        statusEl.textContent = '✓ All data loaded · ' + dateVal;
+        statusEl.textContent = '✓ All data loaded · ' + label;
       }
     }
 
@@ -6119,25 +7065,22 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
     let _ordersAutoInterval = null;
 
     async function fetchShopifyOrders() {
-      const baseUrl = (document.getElementById('ordersServerUrl').value || '').trim().replace(/\/$/, '');
       const msgEl = document.getElementById('ordersFetchMsg');
       const tagEl = document.getElementById('ordersFetchStatus');
-      if (!baseUrl) { msgEl.textContent = '⚠ Enter your server URL'; msgEl.style.color = 'var(--out)'; return; }
-      const since = document.getElementById('ordersSince').value;
-      const until = document.getElementById('ordersUntil').value;
-      if (!since || !until) { msgEl.textContent = '⚠ Select date range'; msgEl.style.color = 'var(--out)'; return; }
+      const since = document.getElementById('masterSince').value || document.getElementById('ordersSince').value;
+      const until = document.getElementById('masterUntil').value || document.getElementById('ordersUntil').value;
+      if (!since || !until) { msgEl.textContent = '⚠ Pick a date range in the navbar'; msgEl.style.color = 'var(--out)'; return; }
       msgEl.textContent = '⏳ Fetching orders from Shopify…'; msgEl.style.color = 'var(--mu2)';
       tagEl.textContent = 'Fetching…';
       try {
-        const resp = await fetch(baseUrl + '/api/orders?since=' + since + '&until=' + until);
+        const resp = await fetch('/api/orders?since=' + since + '&until=' + until);
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
         const orders = await resp.json();
         if (orders && orders.error) throw new Error(orders.error);
         if (!Array.isArray(orders)) throw new Error('Invalid response');
         ORDERS_DATA = orders;
         computeProductAttribution();
-        try { localStorage.setItem('ops_orders_url', baseUrl); } catch (e) { }
-        msgEl.textContent = '✓ ' + orders.length + ' orders · ' + since + ' to ' + until + ' · ' + new Date().toLocaleTimeString();
+        msgEl.textContent = '✓ ' + orders.length + ' orders · ' + fmtDate(since) + ' → ' + fmtDate(until) + ' · ' + new Date().toLocaleTimeString();
         msgEl.style.color = 'var(--in)';
         tagEl.textContent = 'Live · ' + orders.length;
         toggleEl('ordersCpanel');
@@ -6153,12 +7096,11 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
     function startOrdersAutoRefresh() {
       if (_ordersAutoInterval) clearInterval(_ordersAutoInterval);
       _ordersAutoInterval = setInterval(async () => {
-        const baseUrl = (document.getElementById('ordersServerUrl').value || '').trim().replace(/\/$/, '');
-        const since = document.getElementById('ordersSince').value;
-        const until = document.getElementById('ordersUntil').value;
-        if (!baseUrl || !since || !until) return;
+        const since = document.getElementById('masterSince').value;
+        const until = document.getElementById('masterUntil').value;
+        if (!since || !until) return;
         try {
-          const resp = await fetch(baseUrl + '/api/orders?since=' + since + '&until=' + until);
+          const resp = await fetch('/api/orders?since=' + since + '&until=' + until);
           if (!resp.ok) return;
           const orders = await resp.json();
           if (Array.isArray(orders)) {
@@ -6179,9 +7121,17 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
     function renderOrders() {
       const emptyEl = document.getElementById('ordersEmpty');
       const viewEl = document.getElementById('ordersView');
+      const cardsEl = document.getElementById('ordersCardsView');
       const kpiEl = document.getElementById('ordersKpis');
+      if (viewEl && cardsEl) {
+        viewEl.style.display = ordersViewMode === 'cards' ? 'none' : '';
+        cardsEl.style.display = ordersViewMode === 'cards' ? 'grid' : 'none';
+      }
       if (!ORDERS_DATA.length) {
-        emptyEl.style.display = 'block'; viewEl.innerHTML = ''; kpiEl.innerHTML = '';
+        emptyEl.style.display = 'block';
+        viewEl.innerHTML = '';
+        if (cardsEl) cardsEl.innerHTML = '';
+        kpiEl.innerHTML = '';
         return;
       }
       emptyEl.style.display = 'none';
@@ -6222,8 +7172,8 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
       kpiEl.innerHTML =
         kpi('ca', 'Total Fetched', totalFetched, 'all orders from Shopify')
         + kpi('in', 'Active Orders', totOrders, totOrders < totalFetched ? 'after exclusions' : '')
-        + kpi('in', 'Revenue', fmtRs(totRevenue), '')
-        + kpi('ca', 'Avg Order Value', fmtRs(avgOrder), '')
+        + kpi('in', 'Revenue', fmtRsExact(totRevenue), '')
+        + kpi('ca', 'Avg Order Value', fmtRsExact(avgOrder), '')
         + kpi('out', 'Excluded', totalExcluded, (tagBreakdown ? tagBreakdown : '') + (cancelledCount > 0 ? (tagBreakdown ? ' · ' : '') + 'cancelled: ' + cancelledCount : ''))
         + kpi('low', 'Payment Pending', pendingCount, pendingCount > 0 ? 'needs attention' : '')
         + kpi('low', 'Unfulfilled', unfulfilledCount, '');
@@ -6275,6 +7225,9 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
       }).join('');
       html += '</tbody></table></div></div>';
       viewEl.innerHTML = html;
+      if (cardsEl) {
+        cardsEl.innerHTML = rows.slice(0, 200).map((o, i) => orderCard(o, i)).join('');
+      }
     }
 
     function openOrderDetail(idx) {
@@ -6413,8 +7366,15 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
       document.getElementById('ordersSince').value = today.toISOString().slice(0, 10);
       const oUrl = localStorage.getItem('ops_orders_url');
       if (oUrl) document.getElementById('ordersServerUrl').value = oUrl;
-      // Master fetch bar defaults
-      document.getElementById('masterDate').value = today.toISOString().slice(0, 10);
+      // Master date defaults — yesterday by default (so dashboard auto-loads useful data on open)
+      const todayIso = today.toISOString().slice(0, 10);
+      const yIso = new Date(today.getTime() - 86400000).toISOString().slice(0, 10);
+      document.getElementById('masterDate').value = todayIso;
+      const savedSince = localStorage.getItem('ops_master_since');
+      const savedUntil = localStorage.getItem('ops_master_until');
+      document.getElementById('masterSince').value = savedSince || yIso;
+      document.getElementById('masterUntil').value = savedUntil || yIso;
+      _updateDateRangeBtnLabel();
       const mUrl = localStorage.getItem('ops_master_url') || localStorage.getItem('ops_vercel_url') || '';
       if (mUrl) document.getElementById('masterServerUrl').value = mUrl;
       // Restore Supabase credentials
@@ -6430,9 +7390,24 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
     populateCatDropdown();
     populateColorDropdown();
     populateInvTags();
+    populateInvProductTypes();
     populateHomeCats();
-    DATA.forEach(r => { r._lifecycle = getLifecycleEx(r); extendDataModel(r); });
+    // Clear any synthetic/embedded sample data so the dashboard starts with live data only
+    try {
+      SALES_DATA = [];
+      // Reset traffic/order metrics seeded from embedded DATA
+      DATA.forEach(r => {
+        r.visitors = 0; r.sessions = 0; r.cartAdds = 0; r.checkout = 0;
+        r.atcPct = 0; r.leakage = 0; r.bounceRate = 0; r.avgDuration = 0; r.ppSession = 0;
+        r._utmSources = {}; r._topUtm = ''; r.isAdLeak = false; r.acqSignal = false;
+        r._lifecycle = getLifecycleEx(r); extendDataModel(r);
+      });
+    } catch (e) { console.warn('init reset:', e); }
     renderHome();
+    // Auto-fetch live data for the default range (yesterday)
+    setTimeout(function () {
+      try { fetchAll(); } catch (e) { console.warn('auto fetchAll failed:', e); }
+    }, 100);
 
     // Forward wheel events from anywhere on page-home to the scroll container
     document.getElementById('page-home').addEventListener('wheel', function (e) {
@@ -6451,13 +7426,14 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
 
   <style>
     .pd-modal {
-      background: var(--bg);
+      background: var(--bg-white);
       border: 1px solid var(--bd);
-      border-radius: 10px;
+      border-radius: 12px;
       max-width: 700px;
       width: 100%;
       max-height: 85vh;
       overflow-y: auto;
+      box-shadow: 0 16px 48px rgba(44, 36, 32, .15);
     }
 
     .pd-header {
@@ -6467,7 +7443,7 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
       border-bottom: 1px solid var(--bd);
       position: sticky;
       top: 0;
-      background: var(--bg);
+      background: var(--bg-white);
       z-index: 1;
     }
 
@@ -6555,4 +7531,4 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
 
 </body>
 
-</html>
+</html> 

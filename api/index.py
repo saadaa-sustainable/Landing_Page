@@ -31,8 +31,10 @@ try:
 except ImportError:
     pass
 
-SHOP_DOMAIN        = os.environ.get("SHOP_DOMAIN", "")
-ADMIN_ACCESS_TOKEN = os.environ.get("ADMIN_ACCESS_TOKEN", "")
+SHOP_DOMAIN          = os.environ.get("SHOP_DOMAIN", "")
+ADMIN_ACCESS_TOKEN   = os.environ.get("ADMIN_ACCESS_TOKEN", "")
+SUPABASE_URL         = (os.environ.get("SUPABASE_URL") or "").strip().rstrip("/")
+SUPABASE_SERVICE_KEY = (os.environ.get("SUPABASE_SERVICE_KEY") or "").strip()
 
 app = Flask(__name__, static_folder=None)
 
@@ -57,7 +59,7 @@ def preflight(**_):
 
 # ── Shopify helpers ───────────────────────────────────────────────────────────
 
-SHOPIFY_GQL = f"https://{SHOP_DOMAIN}/admin/api/2025-10/graphql.json"
+SHOPIFY_GQL = f"https://{SHOP_DOMAIN}/admin/api/2024-10/graphql.json"
 SHOPIFY_HEADERS = lambda: {
     "Content-Type": "application/json",
     "X-Shopify-Access-Token": ADMIN_ACCESS_TOKEN,
@@ -159,7 +161,9 @@ def rows_to_dicts(columns: list, raw_rows: list) -> list:
 
 # ── Fetch functions ───────────────────────────────────────────────────────────
 
-def fetch_traffic(date: str) -> list:
+def fetch_traffic(since: str, until: str) -> list:
+    """Fetch page sessions for a date range. Aggregated across the range
+    (no `day` in GROUP BY); single-day fetches use since == until."""
     ql = (
         "FROM sessions "
         "SHOW online_store_visitors, sessions, sessions_with_cart_additions, "
@@ -168,9 +172,9 @@ def fetch_traffic(date: str) -> list:
         "WHERE landing_page_path IS NOT NULL "
         "AND human_or_bot_session IN ('human', 'bot') "
         "GROUP BY landing_page_type, landing_page_path, "
-        "utm_source, utm_medium, utm_campaign, day "
+        "utm_source, utm_medium, utm_campaign "
         "WITH TOTALS "
-        f"SINCE {date} UNTIL {date} "
+        f"SINCE {since} UNTIL {until} "
         "ORDER BY sessions DESC "
         "LIMIT 10000"
     )
@@ -298,28 +302,69 @@ def fetch_inventory() -> list:
 
 
 def fetch_sales(since: str, until: str) -> list:
-    ql = (
-        "FROM sales "
-        "SHOW net_items_sold, gross_sales, discounts, returns, net_sales, taxes, total_sales "
-        "WHERE product_title IS NOT NULL "
-        "GROUP BY product_title, product_vendor, product_type WITH TOTALS "
-        f"SINCE {since} UNTIL {until} "
-        "ORDER BY total_sales DESC LIMIT 1000"
-    )
-    query = """
-    query($ql: String!) {
-      shopifyqlQuery(query: $ql) {
-        tableData { columns { name dataType } rows }
-        parseErrors
-      }
-    }
     """
-    data = _gql(query, {"ql": ql})
-    sqr = data.get("data", {}).get("shopifyqlQuery", {})
-    if sqr.get("parseErrors"):
-        raise ValueError(f"ShopifyQL parse error: {sqr['parseErrors']}")
-    table = sqr.get("tableData") or {}
-    return rows_to_dicts(table.get("columns", []), table.get("rows", []))
+    Aggregate product-level sales from orders (ShopifyQL is unavailable for this token).
+    Distributes order-level discounts/refunds/tax across line items proportionally
+    to their gross share.
+    """
+    orders = fetch_orders(since, until)
+    product_sales: dict[str, dict] = {}
+
+    for o in orders:
+        if o.get("cancelled") or o.get("financialStatus") == "VOIDED":
+            continue
+        line_items = o.get("lineItems") or []
+        if not line_items:
+            continue
+        order_gross = sum((float(li.get("price") or 0) * int(li.get("quantity") or 0))
+                          for li in line_items)
+        if order_gross <= 0:
+            continue
+
+        order_discount = float(o.get("discounts") or 0)
+        order_refund = float(o.get("refunded") or 0)
+        order_tax = float(o.get("tax") or 0)
+
+        for li in line_items:
+            title = (li.get("title") or "").strip()
+            if not title:
+                continue
+            qty = int(li.get("quantity") or 0)
+            price = float(li.get("price") or 0)
+            line_gross = qty * price
+            if line_gross <= 0:
+                continue
+            share = line_gross / order_gross
+            line_discount = order_discount * share
+            line_refund = order_refund * share
+            line_tax = order_tax * share
+            line_net = line_gross - line_discount - line_refund
+
+            entry = product_sales.get(title)
+            if entry is None:
+                entry = product_sales[title] = {
+                    "product_title": title,
+                    "product_vendor": "",
+                    "product_type": "",
+                    "net_items_sold": 0,
+                    "gross_sales": 0.0,
+                    "discounts": 0.0,
+                    "returns": 0.0,
+                    "net_sales": 0.0,
+                    "taxes": 0.0,
+                    "total_sales": 0.0,
+                }
+            entry["net_items_sold"] += qty
+            entry["gross_sales"] += line_gross
+            entry["discounts"] += line_discount
+            entry["returns"] += line_refund
+            entry["net_sales"] += line_net
+            entry["taxes"] += line_tax
+            entry["total_sales"] += (line_net + line_tax)
+
+    result = list(product_sales.values())
+    result.sort(key=lambda x: x["total_sales"], reverse=True)
+    return result
 
 
 def fetch_orders(since: str, until: str) -> list:
@@ -434,6 +479,74 @@ def fetch_orders(since: str, until: str) -> list:
 
     return all_orders
 
+# ── Supabase proxy fetch ─────────────────────────────────────────────────────
+
+def _supabase_get(table: str, params: list) -> list:
+    """GET from Supabase REST. `params` is a list of (key, value) tuples
+    so the same key (e.g. computed_at) can appear multiple times."""
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        raise ValueError("Supabase not configured. Add SUPABASE_URL and SUPABASE_SERVICE_KEY env vars.")
+    url = f"{SUPABASE_URL}/rest/v1/{table}"
+    headers = {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        "Content-Type": "application/json",
+    }
+    r = requests.get(url, headers=headers, params=params, timeout=30)
+    r.raise_for_status()
+    return r.json()
+
+
+def fetch_ads(since: str = "", until: str = "") -> list:
+    params = [
+        ("select", "*"),
+        ("order", "total_spend.desc"),
+        ("limit", "500"),
+    ]
+    if since:
+        params.append(("computed_at", f"gte.{since}T00:00:00"))
+    if until:
+        params.append(("computed_at", f"lte.{until}T23:59:59"))
+    rows = _supabase_get("results_table", params)
+    if (not rows) and (since or until):
+        rows = _supabase_get("results_table", [
+            ("select", "*"), ("order", "total_spend.desc"), ("limit", "500"),
+        ])
+    return rows
+
+
+def fetch_inventory_snapshot(date: str = "") -> dict:
+    """Return inventory_snapshots for `date`; fall back to latest if missing."""
+    if date:
+        rows = _supabase_get("inventory_snapshots", [
+            ("select", "*"),
+            ("snapshot_date", f"eq.{date}"),
+            ("limit", "5000"),
+        ])
+        if rows:
+            return {"rows": rows, "date": date, "requestedDate": date, "isFallback": False}
+
+    latest = _supabase_get("inventory_snapshots", [
+        ("select", "snapshot_date"),
+        ("order", "snapshot_date.desc"),
+        ("limit", "1"),
+    ])
+    if not latest:
+        return {"rows": [], "date": "", "requestedDate": date or "", "isFallback": bool(date)}
+    actual = latest[0].get("snapshot_date") or ""
+    rows = _supabase_get("inventory_snapshots", [
+        ("select", "*"),
+        ("snapshot_date", f"eq.{actual}"),
+        ("limit", "5000"),
+    ])
+    return {
+        "rows": rows,
+        "date": actual,
+        "requestedDate": date or "",
+        "isFallback": bool(date) and actual != date,
+    }
+
+
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @app.route("/")
@@ -450,15 +563,47 @@ def health():
 
 @app.route("/api/traffic")
 def traffic():
+    since = request.args.get("since", "")
+    until = request.args.get("until", "")
     date_param = request.args.get("date", "")
-    if not re.match(r"^\d{4}-\d{2}-\d{2}$", date_param):
-        return jsonify({"error": "Missing or invalid ?date=YYYY-MM-DD"}), 400
+    if date_param and not since and not until:
+        since = until = date_param
+    DATE_RE = r"^\d{4}-\d{2}-\d{2}$"
+    if not re.match(DATE_RE, since or "") or not re.match(DATE_RE, until or ""):
+        return jsonify({"error": "Missing or invalid ?since=YYYY-MM-DD&until=YYYY-MM-DD"}), 400
     if not SHOP_DOMAIN or not ADMIN_ACCESS_TOKEN:
         return jsonify({"error": "Server credentials not configured"}), 500
     try:
-        return jsonify(fetch_traffic(date_param))
+        return jsonify(fetch_traffic(since, until))
     except requests.HTTPError as e:
         return jsonify({"error": f"Shopify HTTP error: {e}"}), 502
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/ads")
+def ads():
+    since = request.args.get("since", "") or ""
+    until = request.args.get("until", "") or ""
+    try:
+        return jsonify(fetch_ads(since, until))
+    except requests.HTTPError as e:
+        return jsonify({"error": f"Supabase HTTP error: {e}"}), 502
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/inventory-snapshot")
+def inventory_snapshot():
+    date = request.args.get("date", "") or ""
+    try:
+        return jsonify(fetch_inventory_snapshot(date))
+    except requests.HTTPError as e:
+        return jsonify({"error": f"Supabase HTTP error: {e}"}), 502
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except Exception as e:

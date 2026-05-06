@@ -30,8 +30,10 @@ if hasattr(sys.stderr, 'reconfigure'):
 # ── Load credentials from .env ──
 load_dotenv()
 
-SHOP_DOMAIN         = os.getenv("SHOP_DOMAIN")
-ADMIN_ACCESS_TOKEN  = os.getenv("ADMIN_ACCESS_TOKEN")
+SHOP_DOMAIN          = os.getenv("SHOP_DOMAIN")
+ADMIN_ACCESS_TOKEN   = os.getenv("ADMIN_ACCESS_TOKEN")
+SUPABASE_URL         = (os.getenv("SUPABASE_URL") or "").strip().rstrip("/")
+SUPABASE_SERVICE_KEY = (os.getenv("SUPABASE_SERVICE_KEY") or "").strip()
 
 if not SHOP_DOMAIN or not ADMIN_ACCESS_TOKEN:
     raise SystemExit(
@@ -42,8 +44,10 @@ if not SHOP_DOMAIN or not ADMIN_ACCESS_TOKEN:
 
 # ── Shopify fetch ──────────────────────────────────────────────────────────────
 
-def fetch_traffic(date: str) -> list:
-    """Fetch all page sessions from ShopifyQL for a single date with UTM data."""
+def fetch_traffic(since: str, until: str) -> list:
+    """Fetch page sessions from ShopifyQL for a date range with UTM data.
+    When since == until, this is a single-day fetch. Otherwise it returns
+    rows aggregated across the range (no `day` in GROUP BY)."""
 
     ql = (
         "FROM sessions "
@@ -53,9 +57,9 @@ def fetch_traffic(date: str) -> list:
         "WHERE landing_page_path IS NOT NULL "
         "AND human_or_bot_session IN ('human', 'bot') "
         "GROUP BY landing_page_type, landing_page_path, "
-        "utm_source, utm_medium, utm_campaign, day "
+        "utm_source, utm_medium, utm_campaign "
         "WITH TOTALS "
-        f"SINCE {date} UNTIL {date} "
+        f"SINCE {since} UNTIL {until} "
         "ORDER BY sessions DESC "
         "LIMIT 10000"
     )
@@ -380,86 +384,78 @@ def fetch_inventory() -> list:
 
 def fetch_sales(since: str, until: str) -> list:
     """
-    Fetch product-level sales data from Shopify using ShopifyQL.
-    Returns: [{product_title, product_vendor, product_type, net_items_sold, gross_sales, discounts, returns, net_sales, taxes, total_sales}]
+    Aggregate product-level sales by walking the orders we already fetch.
+    fetch_orders() flattens orders into {financialStatus, total, discounts, refunded, tax,
+    cancelled, lineItems:[{title, sku, quantity, price, ...}]}, so we read the flattened
+    fields here and distribute order-level discounts/refunds/tax across line items
+    proportionally to their gross share.
+
+    Returns: [{product_title, product_vendor, product_type, net_items_sold,
+               gross_sales, discounts, returns, net_sales, taxes, total_sales}]
     """
+    print(f"  [Sales] Fetching orders {since}..{until} to aggregate sales...")
+    orders = fetch_orders(since, until)
 
-    ql = (
-        "FROM sales "
-        "SHOW net_items_sold, gross_sales, discounts, returns, net_sales, taxes, total_sales "
-        "WHERE product_title IS NOT NULL "
-        "GROUP BY product_title, product_vendor, product_type WITH TOTALS "
-        f"SINCE {since} UNTIL {until} "
-        "ORDER BY total_sales DESC "
-        "LIMIT 1000"
-    )
+    product_sales: dict[str, dict] = {}
 
-    query = """
-    query($ql: String!) {
-      shopifyqlQuery(query: $ql) {
-        tableData {
-          columns { name dataType }
-          rows
-        }
-        parseErrors
-      }
-    }
-    """
+    for o in orders:
+        # Skip cancelled / voided orders entirely
+        if o.get("cancelled") or o.get("financialStatus") == "VOIDED":
+            continue
+        line_items = o.get("lineItems") or []
+        if not line_items:
+            continue
 
-    print(f"  [Sales] ShopifyQL: {ql}")
+        order_gross = sum((float(li.get("price") or 0) * int(li.get("quantity") or 0))
+                          for li in line_items)
+        if order_gross <= 0:
+            continue
 
-    sales_resp = requests.post(
-        f"https://{SHOP_DOMAIN}/admin/api/2025-10/graphql.json",
-        headers={
-            "Content-Type": "application/json",
-            "X-Shopify-Access-Token": ADMIN_ACCESS_TOKEN,
-        },
-        json={"query": query, "variables": {"ql": ql}},
-        timeout=30,
-    )
-    sales_resp.raise_for_status()
-    body = sales_resp.json()
+        order_discount = float(o.get("discounts") or 0)
+        order_refund = float(o.get("refunded") or 0)
+        order_tax = float(o.get("tax") or 0)
 
-    if body.get("errors"):
-        print(f"  [Sales] GraphQL errors: {body['errors']}")
-        raise ValueError(f"GraphQL error: {body['errors']}")
+        for li in line_items:
+            title = (li.get("title") or "").strip()
+            if not title:
+                continue
+            qty = int(li.get("quantity") or 0)
+            price = float(li.get("price") or 0)
+            line_gross = qty * price
+            if line_gross <= 0:
+                continue
 
-    sqr = body.get("data", {}).get("shopifyqlQuery", {})
+            share = line_gross / order_gross
+            line_discount = order_discount * share
+            line_refund = order_refund * share
+            line_tax = order_tax * share
+            line_net = line_gross - line_discount - line_refund
 
-    parse_errors = sqr.get("parseErrors") or []
-    if parse_errors:
-        print(f"  [Sales] Parse errors: {parse_errors}")
-        raise ValueError(f"ShopifyQL parse error: {parse_errors}")
+            entry = product_sales.get(title)
+            if entry is None:
+                entry = product_sales[title] = {
+                    "product_title": title,
+                    "product_vendor": "",
+                    "product_type": "",
+                    "net_items_sold": 0,
+                    "gross_sales": 0.0,
+                    "discounts": 0.0,
+                    "returns": 0.0,
+                    "net_sales": 0.0,
+                    "taxes": 0.0,
+                    "total_sales": 0.0,
+                }
+            entry["net_items_sold"] += qty
+            entry["gross_sales"] += line_gross
+            entry["discounts"] += line_discount
+            entry["returns"] += line_refund
+            entry["net_sales"] += line_net
+            entry["taxes"] += line_tax
+            entry["total_sales"] += (line_net + line_tax)
 
-    table = sqr.get("tableData") or {}
-    if not table:
-        print(f"  [Sales] No tableData. Response: {str(sqr)[:500]}")
-        return []
-
-    columns = table.get("columns", [])
-    raw_rows = table.get("rows", [])
-    print(f"  [Sales] Got {len(columns)} columns, {len(raw_rows)} rows")
-
-    if not raw_rows:
-        return []
-
-    # If rows are already dicts, pass through
-    if raw_rows and isinstance(raw_rows[0], dict):
-        return raw_rows
-
-    if not columns:
-        return []
-
-    col_names = [c.get("name", f"col_{i}") for i, c in enumerate(columns)]
-    result = []
-    for row in raw_rows:
-        if isinstance(row, list):
-            entry = {}
-            for i, val in enumerate(row):
-                if i < len(col_names):
-                    entry[col_names[i]] = val
-            result.append(entry)
-
+    result = list(product_sales.values())
+    result.sort(key=lambda x: x["total_sales"], reverse=True)
+    print(f"  [Sales] Aggregated {len(result)} products from {len(orders)} orders")
     return result
 
 
@@ -599,6 +595,80 @@ query {
     return all_orders
 
 
+# ── Supabase proxy fetch ─────────────────────────────────────────────────────
+
+def _supabase_get(table: str, params: list) -> list:
+    """GET from Supabase REST. `params` is a list of (key, value) tuples
+    so the same key (e.g. computed_at) can appear multiple times."""
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        raise ValueError("Supabase not configured. Add SUPABASE_URL and SUPABASE_SERVICE_KEY to .env")
+    url = f"{SUPABASE_URL}/rest/v1/{table}"
+    headers = {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        "Content-Type": "application/json",
+    }
+    r = requests.get(url, headers=headers, params=params, timeout=30)
+    r.raise_for_status()
+    return r.json()
+
+
+def fetch_ads(since: str = "", until: str = "") -> list:
+    """Fetch ad rows from Supabase results_table, optionally filtered by computed_at range."""
+    params = [
+        ("select", "*"),
+        ("order", "total_spend.desc"),
+        ("limit", "500"),
+    ]
+    if since:
+        params.append(("computed_at", f"gte.{since}T00:00:00"))
+    if until:
+        params.append(("computed_at", f"lte.{until}T23:59:59"))
+    rows = _supabase_get("results_table", params)
+    # If date filter returned nothing, retry without filter so the dashboard at least shows something
+    if (not rows) and (since or until):
+        rows = _supabase_get("results_table", [
+            ("select", "*"), ("order", "total_spend.desc"), ("limit", "500"),
+        ])
+    return rows
+
+
+def fetch_inventory_snapshot(date: str = "") -> dict:
+    """Fetch inventory snapshot for a given date.
+    Falls back to the latest available snapshot when the requested date has no rows.
+    Returns: {rows, date, requestedDate, isFallback}
+    """
+    if date:
+        rows = _supabase_get("inventory_snapshots", [
+            ("select", "*"),
+            ("snapshot_date", f"eq.{date}"),
+            ("limit", "5000"),
+        ])
+        if rows:
+            return {"rows": rows, "date": date, "requestedDate": date, "isFallback": False}
+
+    # Fall back to the latest snapshot date
+    latest = _supabase_get("inventory_snapshots", [
+        ("select", "snapshot_date"),
+        ("order", "snapshot_date.desc"),
+        ("limit", "1"),
+    ])
+    if not latest:
+        return {"rows": [], "date": "", "requestedDate": date or "", "isFallback": bool(date)}
+    actual = latest[0].get("snapshot_date") or ""
+    rows = _supabase_get("inventory_snapshots", [
+        ("select", "*"),
+        ("snapshot_date", f"eq.{actual}"),
+        ("limit", "5000"),
+    ])
+    return {
+        "rows": rows,
+        "date": actual,
+        "requestedDate": date or "",
+        "isFallback": bool(date) and actual != date,
+    }
+
+
 class Handler(BaseHTTPRequestHandler):
 
     def send_json(self, status: int, body):
@@ -654,19 +724,53 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(200, {"status": "ok", "shop": SHOP_DOMAIN})
             return
 
-        # ── GET /api/traffic?date=YYYY-MM-DD ──
+        # ── GET /api/traffic?since=YYYY-MM-DD&until=YYYY-MM-DD (or ?date=YYYY-MM-DD) ──
         if parsed.path == "/api/traffic":
+            since = params.get("since", [None])[0]
+            until = params.get("until", [None])[0]
             date_param = params.get("date", [None])[0]
+            if date_param and not since and not until:
+                since = until = date_param
 
-            if not date_param or not re.match(r"^\d{4}-\d{2}-\d{2}$", date_param):
-                self.send_json(400, {"error": "Missing or invalid date. Use ?date=YYYY-MM-DD"})
+            DATE_RE = r"^\d{4}-\d{2}-\d{2}$"
+            if not since or not until or not re.match(DATE_RE, since) or not re.match(DATE_RE, until):
+                self.send_json(400, {"error": "Missing or invalid date. Use ?since=YYYY-MM-DD&until=YYYY-MM-DD"})
                 return
 
             try:
-                rows = fetch_traffic(date_param)
+                rows = fetch_traffic(since, until)
                 self.send_json(200, rows)
             except requests.HTTPError as e:
                 self.send_json(502, {"error": f"Shopify HTTP error: {e}"})
+            except ValueError as e:
+                self.send_json(400, {"error": str(e)})
+            except Exception as e:
+                self.send_json(500, {"error": str(e)})
+            return
+
+        # ── GET /api/ads?since=YYYY-MM-DD&until=YYYY-MM-DD (Supabase proxy) ──
+        if parsed.path == "/api/ads":
+            since = params.get("since", [""])[0] or ""
+            until = params.get("until", [""])[0] or ""
+            try:
+                rows = fetch_ads(since, until)
+                self.send_json(200, rows)
+            except requests.HTTPError as e:
+                self.send_json(502, {"error": f"Supabase HTTP error: {e}"})
+            except ValueError as e:
+                self.send_json(400, {"error": str(e)})
+            except Exception as e:
+                self.send_json(500, {"error": str(e)})
+            return
+
+        # ── GET /api/inventory-snapshot?date=YYYY-MM-DD (Supabase proxy) ──
+        if parsed.path == "/api/inventory-snapshot":
+            date = params.get("date", [""])[0] or ""
+            try:
+                payload = fetch_inventory_snapshot(date)
+                self.send_json(200, payload)
+            except requests.HTTPError as e:
+                self.send_json(502, {"error": f"Supabase HTTP error: {e}"})
             except ValueError as e:
                 self.send_json(400, {"error": str(e)})
             except Exception as e:
@@ -758,12 +862,17 @@ class Handler(BaseHTTPRequestHandler):
 
         # ── POST /api/traffic ──
         if parsed.path == "/api/traffic":
+            since = get_param("since")
+            until = get_param("until")
             date_param = get_param("date")
-            if not date_param or not re.match(r"^\d{4}-\d{2}-\d{2}$", date_param):
-                self.send_json(400, {"error": "Missing or invalid date. Use ?date=YYYY-MM-DD"})
+            if date_param and not since and not until:
+                since = until = date_param
+            DATE_RE = r"^\d{4}-\d{2}-\d{2}$"
+            if not since or not until or not re.match(DATE_RE, since) or not re.match(DATE_RE, until):
+                self.send_json(400, {"error": "Missing or invalid date. Use since/until YYYY-MM-DD"})
                 return
             try:
-                rows = fetch_traffic(date_param)
+                rows = fetch_traffic(since, until)
                 self.send_json(200, rows)
             except requests.HTTPError as e:
                 self.send_json(502, {"error": f"Shopify HTTP error: {e}"})
@@ -830,3 +939,6 @@ if __name__ == "__main__":
         server.serve_forever()
     except KeyboardInterrupt:
         print("\n  Server stopped.")
+
+
+        

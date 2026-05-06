@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python server.py)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5000/api/health)",
+      "Bash(curl -s http://localhost:5000/api/health)",
+      "Bash(curl -s \"http://localhost:5000/api/inventory-snapshot?date=2026-05-05\")",
+      "Bash(python -c \"import sys, json; d = json.load\\(sys.stdin\\); print\\('rows:', len\\(d.get\\('rows',[]\\)\\), 'date:', d.get\\('date'\\), 'isFallback:', d.get\\('isFallback'\\), 'requestedDate:', d.get\\('requestedDate'\\)\\)\")",
+      "Bash(curl -s \"http://localhost:5000/api/ads\")",
+      "Bash(python -c \"import sys, json; d = json.load\\(sys.stdin\\); print\\('count:', len\\(d\\) if isinstance\\(d, list\\) else 'error', '|', \\(d[0].get\\('account_name'\\) if isinstance\\(d, list\\) and d else d\\)\\)\")",
+      "Bash(curl -sv \"http://localhost:5000/api/ads\")",
+      "Bash(netstat -ano)",
+      "Bash(tasklist /FI \"PID eq 51140\" /FO CSV /NH)",
+      "Bash(tasklist /FI \"PID eq 10972\" /FO CSV /NH)",
+      "Bash(tasklist /FI \"PID eq 52008\" /FO CSV /NH)",
+      "Bash(taskkill /F /PID 51140 /PID 10972 /PID 52008)",
+      "Bash(node -e \"const fs = require\\('fs'\\); const html = fs.readFileSync\\('dashboard_final.html', 'utf8'\\); const m = html.match\\(/<script>[\\\\s\\\\S]*?<\\\\/script>/g\\); if \\(!m\\) { console.log\\('no inline script'\\); process.exit\\(0\\); } let total = 0; m.forEach\\(\\(s, i\\) => { const code = s.replace\\(/^<script>/, ''\\).replace\\(/<\\\\/script>$/, ''\\); if \\(code.trim\\(\\).length < 100\\) return; total++; try { new Function\\(code\\); console.log\\('script ' + i + ' OK \\(' + code.length + ' chars\\)'\\); } catch \\(e\\) { console.log\\('script ' + i + ' ERR: ' + e.message\\); } }\\); console.log\\('checked ' + total + ' inline scripts'\\);\")"
+    ]
+  }
+}
