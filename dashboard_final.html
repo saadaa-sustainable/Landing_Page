@@ -1528,26 +1528,31 @@
       cursor: pointer;
     }
 
-    /* Hover tooltip for truncated cells */
-    .dtbl td [data-tip] {
+    /* Hover tooltip for truncated cells — works on any element that carries
+       data-tip="…" inside a .dtbl td, .p-card, or .card. Brand-light styling. */
+    .dtbl td [data-tip],
+    .p-card [data-tip],
+    .card [data-tip] {
       position: relative;
     }
 
-    .dtbl td [data-tip]::after {
+    .dtbl td [data-tip]::after,
+    .p-card [data-tip]::after,
+    .card [data-tip]::after {
       content: attr(data-tip);
       position: absolute;
       left: 0;
       top: 100%;
       margin-top: 4px;
-      background: #1e2030;
-      color: var(--txt);
-      font-size: .68rem;
-      font-weight: 400;
+      background: var(--bg-white);
+      color: var(--txt-charcoal);
+      font-size: .72rem;
+      font-weight: 500;
       line-height: 1.4;
-      padding: 6px 10px;
+      padding: 8px 12px;
       border-radius: 6px;
-      border: 1px solid var(--bd2);
-      box-shadow: 0 4px 16px rgba(0, 0, 0, .5);
+      border: 1px solid var(--bd-strong);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, .12);
       white-space: pre-wrap;
       word-break: break-word;
       max-width: 360px;
@@ -1556,17 +1561,21 @@
       pointer-events: none;
       opacity: 0;
       transform: translateY(-2px);
-      transition: opacity .15s, transform .15s;
+      transition: opacity .12s ease, transform .12s ease;
     }
 
-    .dtbl td [data-tip]:hover::after {
+    .dtbl td [data-tip]:hover::after,
+    .p-card [data-tip]:hover::after,
+    .card [data-tip]:hover::after {
       opacity: 1;
       transform: translateY(0);
     }
 
     /* Hide tooltip if data-tip is empty or just a dash */
     .dtbl td [data-tip=""]::after,
-    .dtbl td [data-tip="—"]::after {
+    .dtbl td [data-tip="—"]::after,
+    .p-card [data-tip=""]::after,
+    .card [data-tip=""]::after {
       display: none;
     }
 
@@ -2645,13 +2654,28 @@
     }
     #ordersKpis .kv { font-size: 1.5rem; }
 
-    /* Product-detail modal KPIs — modal width is constrained, scale text down so values
-       like "₹21.4k" don't get clipped at narrow column widths */
-    .dsec .krow .kpi { padding: 12px 14px !important; }
-    .dsec .krow .kv { font-size: 1.05rem; line-height: 1.15; }
+    /* Product-detail modal KPIs — modal width is constrained, and we now show
+       full whole-number sales values (e.g. ₹15,92,432.10) instead of "₹15.9k".
+       Use auto-fit grid so cards reflow into 2/3 cols on narrow modals instead
+       of being crushed into 4/5 fixed columns. Allow values to wrap as a
+       safety net if a string is exceptionally long. */
+    .dsec .krow.k4,
+    .dsec .krow.k5,
+    .dsec .krow.k6 {
+      grid-template-columns: repeat(auto-fit, minmax(125px, 1fr)) !important;
+    }
+    .dsec .krow .kpi { padding: 12px 14px !important; min-width: 0; }
+    .dsec .krow .kv {
+      font-size: .95rem;
+      line-height: 1.2;
+      white-space: normal;        /* allow wrap so long values can show in full */
+      overflow: visible;
+      text-overflow: clip;
+      overflow-wrap: anywhere;    /* break only when truly necessary */
+    }
     .dsec .krow .kl { font-size: .48rem; margin-bottom: 3px; }
     .dsec .krow .ks { font-size: .52rem; }
-    /* Allow modal KPI rows to wrap to 2 cols on narrow widths */
+    /* Phone widths — cap at 2 columns regardless */
     @media (max-width: 560px) {
       .dsec .krow.k4, .dsec .krow.k5, .dsec .krow.k6 {
         grid-template-columns: repeat(2, 1fr) !important;
@@ -2786,6 +2810,7 @@
               <option value="all">All</option>
               <option value="npd">🌱 NPD</option>
               <option value="active">Active</option>
+              <option value="draft">Draft</option>
               <option value="discontinued">Discontinued</option>
             </select>
           </div>
@@ -2801,6 +2826,13 @@
           <div class="tg"><span class="tb-lbl">Category</span>
             <select class="filter-select" id="hcatSelect" onchange="setHCat(this.value)">
               <option value="all">All Categories</option>
+            </select>
+          </div>
+          <div class="tg"><span class="tb-lbl">Status</span>
+            <select class="filter-select" id="hstatusSelect" onchange="setHStatus(this.value)" title="Filter by Shopify product status (active / draft)">
+              <option value="all">All</option>
+              <option value="ACTIVE">Active</option>
+              <option value="DRAFT">Draft</option>
             </select>
           </div>
           <div style="display:flex;gap:4px;margin-right:8px;">
@@ -2876,6 +2908,7 @@
             <option value="all">All</option>
             <option value="npd">🌱 NPD</option>
             <option value="active">Active</option>
+            <option value="draft">Draft</option>
             <option value="discontinued">Disc.</option>
           </select>
         </div>
@@ -2892,6 +2925,14 @@
         <div class="tg"><span class="tb-lbl">Category</span>
           <select class="filter-select" id="invCatSelect" onchange="setIF(this.value)">
             <option value="all">All Categories</option>
+          </select>
+        </div>
+        <div style="width:1px;height:20px;background:var(--bd2);margin:0 4px;"></div>
+        <div class="tg"><span class="tb-lbl">Status</span>
+          <select class="filter-select" id="istatusSelect" onchange="setIStatus(this.value)" title="Filter by Shopify product status (active / draft)">
+            <option value="all">All</option>
+            <option value="ACTIVE">Active</option>
+            <option value="DRAFT">Draft</option>
           </select>
         </div>
         <div style="width:1px;height:20px;background:var(--bd2);margin:0 4px;"></div>
@@ -3522,6 +3563,10 @@
 
     let trafF = 'all', trafV = 'table', trafLC = 'all', trafPT = 'all';
     let homF = 'all', homLC = 'all', homView = 'product', invLC = 'all', homCat = 'all';
+    // Shopify productStatus filter (ACTIVE / DRAFT / ARCHIVED). Independent of
+    // homLC which filters by lifecycle (NPD / active / discontinued by age).
+    let homStatus = 'all';
+    let invStatus = 'all';
     // View-mode toggles (table/cards) for tabs that didn't have them
     let homeViewMode = 'table', salesViewMode = 'table', ordersViewMode = 'table';
     function setHomeView(v) { homeViewMode = v;['table', 'cards'].forEach(k => { const el = document.getElementById('hv-' + k); if (el) el.classList.toggle('on', k === v); }); renderHome(); }
@@ -3603,6 +3648,9 @@
     // Everything else defaults to "active"
     function getLifecycleEx(r) {
       if (r._discontinued) return 'discontinued';
+      // Shopify-DRAFT products are not visible on the storefront yet — surface
+      // that as its own lifecycle tag instead of falling through to "active".
+      if ((r.productStatus || '').toUpperCase() === 'DRAFT') return 'draft';
       const d = NPD_DATES[r.slug];
       if (!d) { r._createdDate = ''; r._daysOld = null; return 'active'; }
       const days = Math.round((new Date() - new Date(d)) / 86400000);
@@ -3793,11 +3841,14 @@
     function setHF(f) { homF = f; styleDropdown('hfSelect', f); renderHome(); }
     function setHLC(lc) { homLC = lc; styleDropdown('hlcSelect', lc); renderHome(); }
     function setHCat(c) { homCat = c; styleDropdown('hcatSelect', c); renderHome(); }
+    function setHStatus(s) { homStatus = s; styleDropdown('hstatusSelect', s); renderHome(); }
+    function setIStatus(s) { invStatus = s; styleDropdown('istatusSelect', s); renderInv(); }
     // Reset all Overview filters at once (used by Total Products / Total Inventory hero cards)
     function clearHomeFilters() {
       homLC = 'all'; styleDropdown('hlcSelect', 'all');
       homF = 'all'; styleDropdown('hfSelect', 'all');
       homCat = 'all'; styleDropdown('hcatSelect', 'all');
+      homStatus = 'all'; styleDropdown('hstatusSelect', 'all');
       const srch = document.getElementById('homeSrch'); if (srch) srch.value = '';
       renderHome();
     }
@@ -3806,6 +3857,7 @@
       homLC = 'all'; styleDropdown('hlcSelect', 'all');
       homF = 'all'; styleDropdown('hfSelect', 'all');
       homCat = 'all'; styleDropdown('hcatSelect', 'all');
+      homStatus = 'all'; styleDropdown('hstatusSelect', 'all');
       const srch = document.getElementById('homeSrch'); if (srch) srch.value = '';
       renderHome();
     }
@@ -4136,7 +4188,7 @@
         + '<div class="hero-panel hp-traf" style="cursor:pointer;" onclick="goPage(\'traf\')" title="Open Traffic tab"><div class="hp-label">PDP Visitors</div><div class="hp-value c-traf">' + fmt(totV) + '</div><div class="hp-sub">Product page visitors (day-1)</div></div>'
         + '<div class="hero-panel hp-all" style="cursor:pointer;" onclick="goPage(\'inv\')" title="Open Inventory tab"><div class="hp-label">Total Inventory</div><div class="hp-value">' + totalUnits.toLocaleString() + '</div><div class="hp-sub">units (excl. combos)</div></div>'
         + '<div class="hero-panel hp-in" style="cursor:pointer;" onclick="goPage(\'traf\')" title="Open Traffic tab"><div class="hp-label">Cart Adds / ATC%</div><div class="hp-value c-in">' + totalCartAdds + ' <span style="font-size:.6em;color:var(--mu2)">(' + avgAtc + '%)</span></div><div class="hp-sub">overall add-to-cart rate</div></div>'
-        + '<div class="hero-panel hp-out" style="border-color:rgba(138,138,255,.2);cursor:pointer;" onclick="setHLC(\'discontinued\')" title="Filter to Discontinued"><div class="hp-label">Draft Products</div><div class="hp-value" style="color:#8a8aff">' + draftProds.length + '</div><div class="hp-sub">Hidden from storefront</div></div>';
+        + '<div class="hero-panel hp-out" style="border-color:rgba(138,138,255,.2);cursor:pointer;" onclick="setHStatus(\'DRAFT\')" title="Filter to Draft products (Shopify status)"><div class="hp-label">Draft Products</div><div class="hp-value" style="color:#8a8aff">' + draftProds.length + '</div><div class="hp-sub">Hidden from storefront</div></div>';
 
 
       const q = (document.getElementById('homeSrch').value || '').toLowerCase();
@@ -4144,6 +4196,7 @@
       // Lifecycle filter
       if (homLC === 'npd') rows = rows.filter(r => r._lifecycle === 'npd');
       else if (homLC === 'active') rows = rows.filter(r => r._lifecycle === 'active');
+      else if (homLC === 'draft') rows = rows.filter(r => r._lifecycle === 'draft');
       else if (homLC === 'discontinued') rows = rows.filter(r => r._lifecycle === 'discontinued');
       // Stock filter
       if (homF === 'in') rows = rows.filter(r => r.stockStatus === 'in_stock');
@@ -4152,6 +4205,8 @@
       else if (homF === 'leak') rows = rows.filter(r => r.isAdLeak);
       // Category filter
       if (homCat !== 'all') rows = rows.filter(r => (r.category || '').trim() === homCat);
+      // Shopify productStatus filter (Active / Draft)
+      if (homStatus !== 'all') rows = rows.filter(r => (r.productStatus || '').toUpperCase() === homStatus);
       if (q) rows = rows.filter(r => (r.name || '').toLowerCase().includes(q) || (r.slug || '').toLowerCase().includes(q));
       // Pre-build sales lookup and order caches for sorting
       const salesMap = {};
@@ -4198,7 +4253,10 @@
       tbody.innerHTML = rows.map(r => {
         const ss = SS[r.stockStatus] || SS.unknown;
         const stockHtml = '<span class="stock-pill ' + ss.cls + '">' + ss.l + '</span>';
-        const lcHtml = r._lifecycle === 'npd' ? '<span class="stock-pill sk-in">NPD</span>' : r._lifecycle === 'discontinued' ? '<span class="stock-pill s-disc">Disc.</span>' : '<span class="stock-pill" style="background:rgba(138,138,255,.08);color:#8a8aff;border:1px solid rgba(138,138,255,.15)">Active</span>';
+        const lcHtml = r._lifecycle === 'npd' ? '<span class="stock-pill sk-in">NPD</span>'
+          : r._lifecycle === 'discontinued' ? '<span class="stock-pill s-disc">Disc.</span>'
+          : r._lifecycle === 'draft' ? '<span class="stock-pill" style="background:var(--bg-muted);color:var(--mu2);border:1px solid var(--bd)">Draft</span>'
+          : '<span class="stock-pill" style="background:rgba(138,138,255,.08);color:#8a8aff;border:1px solid rgba(138,138,255,.15)">Active</span>';
         const atcVal = r.atcPct != null ? r.atcPct + '%' : '—';
         const atcColor = r.atcPct >= 10 ? 'color:#4ade80' : r.atcPct >= 5 ? 'color:var(--low)' : r.atcPct > 0 ? 'color:var(--out)' : '';
         // Units Sold from ORDERS_DATA (today/fetched date range)
@@ -4353,15 +4411,17 @@
       function passesFilters(r) {
         if (homLC === 'npd' && r._lifecycle !== 'npd') return false;
         if (homLC === 'active' && r._lifecycle !== 'active') return false;
+        if (homLC === 'draft' && r._lifecycle !== 'draft') return false;
         if (homLC === 'discontinued' && r._lifecycle !== 'discontinued') return false;
         if (homF === 'in' && r.stockStatus !== 'in_stock') return false;
         if (homF === 'low' && r.stockStatus !== 'low_stock') return false;
         if (homF === 'out' && r.stockStatus !== 'out_of_stock') return false;
         if (homF === 'leak' && !r.isAdLeak) return false;
         if (homCat !== 'all' && (r.category || '').trim() !== homCat) return false;
+        if (homStatus !== 'all' && (r.productStatus || '').toUpperCase() !== homStatus) return false;
         return true;
       }
-      const filtersActive = homLC !== 'all' || homF !== 'all' || homCat !== 'all';
+      const filtersActive = homLC !== 'all' || homF !== 'all' || homCat !== 'all' || homStatus !== 'all';
 
       const q = (document.getElementById('homeSrch').value || '').toLowerCase();
       const rows = COLLECTION_DATA.map(coll => {
@@ -4413,7 +4473,7 @@
           ? c._matchCount + ' / ' + c._allProds + ' products match'
           : c.prods + ' products';
         return '<tr onclick="expandHomeCollection(' + i + ')" style="cursor:pointer;" title="Click to see products">'
-          + '<td><div class="tn">' + sh(c.name) + '</div><div class="tm">' + (c.path || '') + ' · ' + prodSubtitle + '</div></td>'
+          + '<td><div class="tn" data-tip="' + (c.name || '').replace(/"/g, '&quot;') + '">' + sh(c.name) + '</div><div class="tm">' + (c.path || '') + ' · ' + prodSubtitle + '</div></td>'
           + '<td><div class="tnum">' + c.totalUnits.toLocaleString() + '</div></td>'
           + '<td><div class="tnum">' + fmt(c.visitors) + '</div><div class="mbar-bg"><div class="mbar-f" style="width:' + Math.min(100, Math.round(c.visitors / maxV * 100)) + '%;background:var(--sand);"></div></div></td>'
           + '<td><div class="tnum">' + fmt(c.sessions) + '</div></td>'
@@ -4485,7 +4545,10 @@
       tbody.innerHTML = filtered.map(r => {
         const ss = SS[r.stockStatus] || SS.unknown;
         const stockHtml = '<span class="stock-pill ' + ss.cls + '">' + ss.l + '</span>';
-        const lcHtml = r._lifecycle === 'npd' ? '<span class="stock-pill sk-in">NPD</span>' : r._lifecycle === 'discontinued' ? '<span class="stock-pill s-disc">Disc.</span>' : '<span class="stock-pill" style="background:rgba(138,138,255,.08);color:#8a8aff;border:1px solid rgba(138,138,255,.15)">Active</span>';
+        const lcHtml = r._lifecycle === 'npd' ? '<span class="stock-pill sk-in">NPD</span>'
+          : r._lifecycle === 'discontinued' ? '<span class="stock-pill s-disc">Disc.</span>'
+          : r._lifecycle === 'draft' ? '<span class="stock-pill" style="background:var(--bg-muted);color:var(--mu2);border:1px solid var(--bd)">Draft</span>'
+          : '<span class="stock-pill" style="background:rgba(138,138,255,.08);color:#8a8aff;border:1px solid rgba(138,138,255,.15)">Active</span>';
         const atcVal = r.atcPct != null ? r.atcPct + '%' : (r.sessions > 0 ? (r.cartAdds / r.sessions * 100).toFixed(1) + '%' : '—');
         const atcNum = r.atcPct != null ? r.atcPct : (r.sessions > 0 ? r.cartAdds / r.sessions * 100 : 0);
         const atcColor = atcNum >= 10 ? 'color:#4ade80' : atcNum >= 5 ? 'color:var(--low)' : atcNum > 0 ? 'color:var(--out)' : '';
@@ -4918,7 +4981,10 @@
       // Lifecycle filter
       if (invLC === 'npd') d = d.filter(r => r._lifecycle === 'npd');
       else if (invLC === 'active') d = d.filter(r => r._lifecycle === 'active');
+      else if (invLC === 'draft') d = d.filter(r => r._lifecycle === 'draft');
       else if (invLC === 'discontinued') d = d.filter(r => r._lifecycle === 'discontinued');
+      // Shopify productStatus filter (Active / Draft)
+      if (invStatus !== 'all') d = d.filter(r => (r.productStatus || '').toUpperCase() === invStatus);
       if (invStockF === 'in_stock') d = d.filter(r => r.stockStatus === 'in_stock');
       else if (invStockF === 'broken_stock') d = d.filter(r => ['broken_stock', 'low_stock'].includes(r.stockStatus));
       else if (invStockF === 'out_of_stock') d = d.filter(r => r.stockStatus === 'out_of_stock');
@@ -5012,12 +5078,34 @@
       STR_SNAPSHOT_DAILY = {};
 
       try {
-        // Single day → preserve original payload semantics (fallback note, etc.).
+        // Single day → STRICT match. STR has to use the snapshot for the
+        // selected date; if Supabase has nothing for that date, the backend
+        // returns its latest snapshot with isFallback=true. Using that to
+        // compute STR would mean "sold-on-D / avail-on-some-other-day" which
+        // is meaningless. Refuse to render in that case.
         if (dates.length === 1) {
           const resp = await fetch('/api/inventory-snapshot?date=' + encodeURIComponent(dates[0]));
           if (!resp.ok) throw new Error('HTTP ' + resp.status + ': ' + (await resp.text()).slice(0, 120));
           const payload = await resp.json();
           if (payload && payload.error) throw new Error(payload.error);
+
+          // Strict gate: backend returned a fallback snapshot from a different
+          // date. Wipe in-memory STR data so renderSTR shows the empty state
+          // and surface a clear warning instead of a misleading number.
+          if (payload.isFallback) {
+            STR_SNAPSHOT = [];
+            STR_SNAPSHOT_DAILY = {};
+            const reqDisp = fmtDate(payload.requestedDate || dates[0]) || dates[0];
+            const latestDisp = fmtDate(payload.date || '') || 'unknown';
+            if (msgEl) {
+              msgEl.textContent = '⚠ No snapshot for ' + reqDisp + '. STR cannot be computed for the selected date (latest snapshot in DB: ' + latestDisp + ').';
+              msgEl.style.color = 'var(--out)';
+            }
+            if (statusEl) statusEl.textContent = 'No snapshot · ' + reqDisp;
+            if (typeof renderSTR === 'function') renderSTR();
+            return;
+          }
+
           const rows = (payload && payload.rows) || [];
           if (!rows.length) throw new Error('No snapshot rows available.');
 
@@ -5029,27 +5117,25 @@
             captured_at: r.captured_at || '',
           }));
 
-          // Populate the daily map keyed by the actual snapshot_date returned
-          // (matters when isFallback substitutes the latest snapshot in).
-          const actualDateKey = payload.date || (STR_SNAPSHOT[0].snapshot_date || dates[0]);
-          STR_SNAPSHOT_DAILY[actualDateKey] = {};
+          // Key the daily map by the REQUESTED date, not by whatever Shopify
+          // returned. Since we've already gated out isFallback above, the
+          // returned snapshot_date == requested date, so this is just a tidy
+          // alignment of bookkeeping.
+          const dateKey = dates[0];
+          STR_SNAPSHOT_DAILY[dateKey] = {};
           rows.forEach(r => {
             if (r.color_sku) return; // product-level only
             const k = (r.product_title || '').toLowerCase().trim();
             if (!k) return;
-            STR_SNAPSHOT_DAILY[actualDateKey][k] = (STR_SNAPSHOT_DAILY[actualDateKey][k] || 0) + (parseInt(r.total_stock) || 0);
+            STR_SNAPSHOT_DAILY[dateKey][k] = (STR_SNAPSHOT_DAILY[dateKey][k] || 0) + (parseInt(r.total_stock) || 0);
           });
 
-          const actualDate = payload.date || (STR_SNAPSHOT[0].snapshot_date || '');
-          const actualDisplay = fmtDate(actualDate) || 'unknown';
-          const fallbackNote = payload.isFallback
-            ? ' ⚠ no snapshot for ' + (fmtDate(payload.requestedDate) || 'requested date') + ' — showing latest (' + actualDisplay + ')'
-            : '';
+          const actualDisplay = fmtDate(dateKey) || 'unknown';
           if (msgEl) {
-            msgEl.textContent = '✓ ' + STR_SNAPSHOT.length + ' snapshot rows · date: ' + actualDisplay + fallbackNote;
-            msgEl.style.color = payload.isFallback ? 'var(--low)' : 'var(--in)';
+            msgEl.textContent = '✓ ' + STR_SNAPSHOT.length + ' snapshot rows · date: ' + actualDisplay;
+            msgEl.style.color = 'var(--in)';
           }
-          if (statusEl) statusEl.textContent = (payload.isFallback ? 'Fallback · ' : 'Loaded · ') + actualDisplay;
+          if (statusEl) statusEl.textContent = 'Loaded · ' + actualDisplay;
         } else {
           // Multi-day → fetch all days in parallel and aggregate by averaging
           // per-product total_stock across the days that returned real data.
@@ -5279,7 +5365,7 @@
       rows.forEach((r, idx) => {
         const strColor = r.str >= 70 ? '#4ade80' : r.str >= 40 ? 'var(--low)' : r.str > 0 ? 'var(--out)' : 'var(--mu2)';
         html += '<tr style="cursor:pointer;" onclick="openSTRDetail(' + idx + ')" title="Click for STR calculation and product metrics">'
-          + '<td><div class="tn" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + sh(r.title) + '</div></td>'
+          + '<td><div class="tn" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" data-tip="' + (r.title || '').replace(/"/g, '&quot;') + '">' + sh(r.title) + '</div></td>'
           + '<td><div class="tnum">' + r.availQty.toLocaleString() + '</div></td>'
           + '<td><div class="tnum">' + (r.soldQty > 0 ? r.soldQty.toLocaleString() : '—') + '</div></td>'
           + '<td><div class="tnum" style="color:' + strColor + ';font-weight:600;">' + r.str + '%</div>'
@@ -5661,7 +5747,7 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
           var ssBorder = ss === 'in_stock' ? 'var(--in-bd)' : ss === 'out_of_stock' ? 'var(--out-bd)' : ss === 'low_stock' || ss === 'broken_stock' ? 'var(--low-bd)' : 'var(--bd2)';
           var patc = p.sessions > 0 ? (p.cartAdds / p.sessions * 100).toFixed(1) : '0';
           html += '<tr>'
-            + '<td><div class="tn" style="font-size:.8em;">' + sh(p.name) + '</div></td>'
+            + '<td><div class="tn" style="font-size:.8em;" data-tip="' + (p.name || '').replace(/"/g, '&quot;') + '">' + sh(p.name) + '</div></td>'
             + '<td><span class="tpill" style="background:' + ssBg + ';color:' + ssColor + ';border:1px solid ' + ssBorder + ';font-size:.7em;">' + ss.replace(/_/g, ' ') + '</span></td>'
             + '<td><div class="tnum">' + (p.totalStock >= 0 ? p.totalStock : '—') + '</div></td>'
             + '<td><div class="tnum">' + fmt(p.visitors || 0) + '</div></td>'
@@ -5821,7 +5907,7 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
           const prods = getCollectionProducts(r.path);
           const brColor = r.bounceRate > 70 ? 'color:var(--out)' : r.bounceRate > 50 ? 'color:var(--low)' : r.bounceRate > 0 ? 'color:#4ade80' : '';
           return '<tr onclick="openCollectionDetail(' + i + ')" style="cursor:pointer;" title="Click to view details">'
-            + '<td><div class="tn">' + sh(r.name) + ' <span style="color:var(--mu2);font-size:.75em;">(' + prods.length + ' products)</span></div><div class="tm">' + (r.path || '') + '</div></td>'
+            + '<td><div class="tn" data-tip="' + (r.name || '').replace(/"/g, '&quot;') + '">' + sh(r.name) + ' <span style="color:var(--mu2);font-size:.75em;">(' + prods.length + ' products)</span></div><div class="tm">' + (r.path || '') + '</div></td>'
             + '<td><div class="tnum">' + fmt(r.visitors) + '</div></td>'
             + '<td><div class="tnum">' + fmt(r.sessions) + '</div><div class="mbar-bg"><div class="mbar-f" style="width:' + Math.min(100, Math.round(r.sessions / maxCS * 100)) + '%;background:var(--sand);"></div></div></td>'
             + '<td><div class="tnum" style="' + brColor + '">' + (r.bounceRate || 0) + '%</div></td>'
@@ -5845,7 +5931,7 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
         const homeEl = document.getElementById('homePageView');
         let hhtml = HOME_DATA.map(r => {
           const brColor = r.bounceRate > 70 ? 'color:var(--out)' : r.bounceRate > 50 ? 'color:var(--low)' : r.bounceRate > 0 ? 'color:#4ade80' : '';
-          return '<tr><td><div class="tn">' + r.name + '</div><div class="tm">' + (r.path || '/') + '</div></td>'
+          return '<tr><td><div class="tn" data-tip="' + String(r.name || '').replace(/"/g, '&quot;') + '">' + r.name + '</div><div class="tm">' + (r.path || '/') + '</div></td>'
             + '<td><div class="tnum">' + fmt(r.visitors) + '</div></td>'
             + '<td><div class="tnum">' + fmt(r.sessions) + '</div></td>'
             + '<td><div class="tnum" style="' + brColor + '">' + (r.bounceRate || 0) + '%</div></td>'
@@ -5911,7 +5997,7 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
           const strColor = str > 50 ? '#4ade80' : str >= 20 ? 'var(--low)' : str > 0 ? 'var(--out)' : 'var(--mu2)';
 
           html += '<tr onclick="onRow(' + gi + ')">'
-            + '<td><div class="tn">' + sh(r.name) + '</div></td>'
+            + '<td><div class="tn" data-tip="' + (r.name || '').replace(/"/g, '&quot;') + '">' + sh(r.name) + '</div></td>'
             + '<td><div class="tm">' + r.colorSku + '</div></td>'
             + '<td>' + lcCell + '</td>'
             + '<td><div class="tm">' + (r.category || '—') + '</div></td>'
@@ -5922,7 +6008,7 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
         } else if (mode === 'traf') {
           const brColor = r.bounceRate > 70 ? 'color:var(--out)' : r.bounceRate > 50 ? 'color:var(--low)' : r.bounceRate > 0 ? 'color:#4ade80' : '';
           html += '<tr class="' + (r.isAdLeak ? 'tr-pause' : '') + '" onclick="onRow(' + gi + ')">'
-            + '<td><div class="tn">' + sh(r.name) + '</div><div class="tm">' + r.slug.slice(0, 30) + '</div></td>'
+            + '<td><div class="tn" data-tip="' + (r.name || '').replace(/"/g, '&quot;') + '">' + sh(r.name) + '</div><div class="tm">' + r.slug.slice(0, 30) + '</div></td>'
             + '<td><div class="tnum">' + fmt(r.visitors) + '</div><div class="mbar-bg"><div class="mbar-f" style="width:' + Math.min(100, r.visitors / 10) + '%;background:var(--traf);"></div></div></td>'
             + '<td><div class="tnum">' + fmt(r.sessions) + '</div></td>'
             + '<td><div class="tnum" style="' + brColor + '">' + (r.bounceRate || 0) + '%</div></td>'
@@ -5935,7 +6021,7 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
         } else {
           const sig = r.stockStatus === 'out_of_stock' && r.cartAdds > 0 ? '<span class="tpill" style="background:var(--out-bg);color:var(--out);border:1px solid var(--out-bd)">PAUSE</span>' : r.isAdLeak ? '<span class="tpill" style="background:var(--low-bg);color:var(--low);border:1px solid var(--low-bd)">LEAK</span>' : r.acqSignal && r.stockStatus === 'in_stock' ? '<span class="tpill" style="background:rgba(107,163,214,.08);color:var(--traf);border:1px solid rgba(107,163,214,.2)">SCALE</span>' : '';
           html += '<tr class="' + (r.stockStatus === 'out_of_stock' && r.cartAdds > 0 ? 'tr-pause' : r.isAdLeak ? 'tr-warn' : 'tr-acq') + '" onclick="onRow(' + gi + ')">'
-            + '<td><div class="tn">' + sh(r.name) + '</div></td>'
+            + '<td><div class="tn" data-tip="' + (r.name || '').replace(/"/g, '&quot;') + '">' + sh(r.name) + '</div></td>'
             + '<td>' + sig + '</td>'
             + '<td><div class="tnum">' + fmt(r.visitors) + '</div></td>'
             + '<td><div class="tnum">' + r.cartAdds + '</div></td>'
@@ -6946,7 +7032,7 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
         const discPct = r.gross_sales > 0 ? Math.round(Math.abs(r.discounts || 0) / r.gross_sales * 100) : 0;
         const retPct = r.gross_sales > 0 ? Math.round(Math.abs(r.returns || 0) / r.gross_sales * 100) : 0;
         thtml += '<tr style="cursor:pointer" onclick="openProductDetail(' + idx + ')">'
-          + '<td><div class="tn">' + (r.product_title || '—') + '</div><div class="tm">' + (r.product_type || '') + '</div></td>'
+          + '<td><div class="tn" data-tip="' + String(r.product_title || '').replace(/"/g, '&quot;') + '">' + (r.product_title || '—') + '</div><div class="tm">' + (r.product_type || '') + '</div></td>'
           + '<td><div class="tnum" style="color:#4ade80">' + fmtRs(r.total_sales) + '</div><div class="mbar-bg"><div class="mbar-f" style="width:' + Math.min(100, Math.round((r.total_sales || 0) / maxSales * 100)) + '%;background:#4ade80;"></div></div></td>'
           + '<td><div class="tnum">' + fmtRs(r.gross_sales) + '</div></td>'
           + '<td><div class="tnum">' + _units(r) + '</div></td>'
