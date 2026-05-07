@@ -3651,7 +3651,13 @@
       // Shopify-DRAFT products are not visible on the storefront yet — surface
       // that as its own lifecycle tag instead of falling through to "active".
       if ((r.productStatus || '').toUpperCase() === 'DRAFT') return 'draft';
-      const d = NPD_DATES[r.slug];
+      // Prefer Shopify's live createdAt (attached during fetchShopifyInventory
+      // merge) so NPD detection reflects the actual product creation timestamp.
+      // The Apps Script writes the same Shopify createdAt to the Google Sheet,
+      // so this matches the sheet's "Created Timestamp" column by construction.
+      // Fall back to the legacy NPD_DATES map for products not yet covered by
+      // a live inventory fetch.
+      const d = (r._createdAt && String(r._createdAt).slice(0, 10)) || NPD_DATES[r.slug];
       if (!d) { r._createdDate = ''; r._daysOld = null; return 'active'; }
       const days = Math.round((new Date() - new Date(d)) / 86400000);
       r._createdDate = d; r._daysOld = days;
@@ -6458,6 +6464,7 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
             r._excluded = live._excluded || false;
             r._gender = live._gender || r._gender || '';
             r._color = live._color || r._color || '';
+            r._createdAt = live._createdAt || r._createdAt || '';
             r.isAdLeak = r.cartAdds > 0 && r.checkout === 0 && ['out_of_stock', 'low_stock', 'broken_stock'].includes(r.stockStatus);
             mergedCount++;
           }
@@ -6487,6 +6494,7 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
               _excluded: live._excluded || false,
               _gender: live._gender || '',
               _color: live._color || '',
+              _createdAt: live._createdAt || '',
               isAdLeak: false,
               visitors: 0, sessions: 0, cartAdds: 0, checkout: 0, atcPct: 0, leakage: 0,
               pctVisitors: null, pctCart: null, pctAtc: null,
