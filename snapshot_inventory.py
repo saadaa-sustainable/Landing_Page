@@ -49,6 +49,37 @@ def fetch_inventory_from_server() -> list:
     return data
 
 
+def fetch_inventory_direct() -> list:
+    """
+    Fetch directly from Shopify by importing server.py's fetch_inventory().
+    No HTTP server required — this is the path used by the scheduled cron job
+    so it works even if server.py isn't running at 12:10am.
+    """
+    import importlib.util
+    here = os.path.dirname(os.path.abspath(__file__))
+    spec = importlib.util.spec_from_file_location(
+        "_srv_for_snapshot", os.path.join(here, "server.py")
+    )
+    srv = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(srv)
+    print("Fetching inventory directly from Shopify (no local server needed)...")
+    data = srv.fetch_inventory()
+    print(f"  Got {len(data)} color variants from Shopify")
+    return data
+
+
+def fetch_inventory_smart() -> list:
+    """
+    Try the local server first (fast cache when it's already up); on any failure
+    fall back to a direct Shopify call. Cron path tolerates either.
+    """
+    try:
+        return fetch_inventory_from_server()
+    except Exception as e:
+        print(f"  Local server unavailable ({e}); falling back to direct fetch.")
+        return fetch_inventory_direct()
+
+
 def aggregate_by_product(variants: list) -> list:
     """
     Aggregate all color variants into product-level totals.
@@ -107,18 +138,12 @@ def aggregate_by_product(variants: list) -> list:
 
 def save_snapshot(supabase: Client, rows: list, today: date):
     """
-    Delete today's existing snapshot rows, then insert fresh ones.
-    Idempotent — safe to run multiple times per day.
+    Insert today's snapshot rows. Re-running this on the same day appends a
+    second set of rows for snapshot_date=today; clean up duplicates manually
+    in Supabase if needed.
     """
     today_str = today.isoformat()
     print(f"Saving snapshot for {today_str} ...")
-
-    # Delete existing rows for today
-    supabase.table("inventory_snapshots") \
-        .delete() \
-        .eq("snapshot_date", today_str) \
-        .execute()
-    print(f"  Cleared existing rows for {today_str}")
 
     # Add snapshot_date to all rows
     for row in rows:
@@ -145,8 +170,8 @@ def main():
 
     print(f"\n[{date.today()}] Starting inventory snapshot...")
 
-    # 1. Fetch from server.py (which calls Shopify internally)
-    variants = fetch_inventory_from_server()
+    # 1. Fetch from server.py if it's running, else go direct to Shopify.
+    variants = fetch_inventory_smart()
 
     # 2. Aggregate into product + color rows
     rows = aggregate_by_product(variants)

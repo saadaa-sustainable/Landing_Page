@@ -1,0 +1,45 @@
+============================================== 
+Snapshot run started at Wed 05/06/2026 19:59:27.28 
+============================================== 
+Traceback (most recent call last):
+  File "D:\landing_page\snapshot_inventory.py", line 20, in <module>
+    from supabase import create_client, Client
+ModuleNotFoundError: No module named 'supabase'
+Snapshot run finished at Wed 05/06/2026 19:59:27.46 (exit code 1) 
+ 
+============================================== 
+Snapshot run started at Wed 05/06/2026 19:59:59.34 
+============================================== 
+
+[2026-05-06] Starting inventory snapshot...
+Calling http://localhost:5000/api/inventory ...
+  Local server unavailable (HTTPConnectionPool(host='localhost', port=5000): Read timed out. (read timeout=120)); falling back to direct fetch.
+Fetching inventory directly from Shopify (no local server needed)...
+  [Inventory] Page 1: 50 products (total: 50)
+  [Inventory] Page 2: 50 products (total: 100)
+  [Inventory] Page 3: 50 products (total: 150)
+  [Inventory] Page 4: 50 products (total: 200)
+  [Inventory] Page 5: 50 products (total: 250)
+  [Inventory] Page 6: 50 products (total: 300)
+  [Inventory] Page 7: 50 products (total: 350)
+  [Inventory] Page 8: 50 products (total: 400)
+  [Inventory] Page 9: 50 products (total: 450)
+  [Inventory] Page 10: 50 products (total: 500)
+  [Inventory] Page 11: 50 products (total: 550)
+  [Inventory] Page 12: 50 products (total: 600)
+  [Inventory] Page 13: 50 products (total: 650)
+  [Inventory] Page 14: 50 products (total: 700)
+  [Inventory] Page 15: 50 products (total: 750)
+  [Inventory] Page 16: 50 products (total: 800)
+  [Inventory] Page 17: 19 products (total: 819)
+  [Inventory] Done. 819 products → 822 color variants.
+  Got 822 color variants from Shopify
+  Aggregated: 588 products, 593 color variants
+Saving snapshot for 2026-05-06 ...
+  Inserted 500/1181 rows...
+  Inserted 1000/1181 rows...
+  Inserted 1181/1181 rows...
+✓ Snapshot saved: 1181 rows for 2026-05-06
+
+Done ✓
+

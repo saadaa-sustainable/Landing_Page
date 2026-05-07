@@ -301,68 +301,168 @@ def fetch_inventory() -> list:
     return result
 
 
+def fetch_refunds_in_range(since: str, until: str) -> dict:
+    """
+    DEPRECATED — fetch_sales now uses ShopifyQL directly which matches Shopify
+    Analytics' returns column exactly. Kept only because some older code paths
+    might import it; do not call from new code.
+    """
+    from datetime import datetime, timedelta
+    try:
+        until_buf = (datetime.fromisoformat(until) + timedelta(days=1)).date().isoformat()
+    except Exception:
+        until_buf = until
+
+    refund_by_product: dict[str, dict] = {}
+    cursor = None
+    max_pages = 80
+
+    for page in range(max_pages):
+        after_clause = f', after: "{cursor}"' if cursor else ""
+        query_filter = f"updated_at:>={since} updated_at:<={until_buf}"
+        gql = (
+            'query { orders(first: 50, query: "' + query_filter +
+            '", sortKey: UPDATED_AT, reverse: true' + after_clause +
+            ') { pageInfo { hasNextPage endCursor } nodes { id cancelledAt '
+            'refunds { id createdAt totalRefundedSet { shopMoney { amount } } '
+            'refundLineItems(first: 50) { nodes { quantity '
+            'subtotalSet { shopMoney { amount } } '
+            'lineItem { title sku } } } } } } }'
+        )
+        try:
+            resp = requests.post(
+                f"https://{SHOP_DOMAIN}/admin/api/2025-10/graphql.json",
+                headers={"Content-Type": "application/json", "X-Shopify-Access-Token": ADMIN_ACCESS_TOKEN},
+                json={"query": gql}, timeout=30,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+        except Exception:
+            break
+
+        if data.get("errors"):
+            break
+
+        orders_data = data.get("data", {}).get("orders", {}) or {}
+        nodes = orders_data.get("nodes", []) or []
+        page_info = orders_data.get("pageInfo", {}) or {}
+
+        for o in nodes:
+            if o.get("cancelledAt"):
+                continue
+            for r in (o.get("refunds") or []):
+                created = (r.get("createdAt") or "")[:10]
+                if not (since <= created <= until):
+                    continue
+                rlis = ((r.get("refundLineItems") or {}).get("nodes")) or []
+                for rli in rlis:
+                    li = rli.get("lineItem") or {}
+                    title = (li.get("title") or "").strip()
+                    if not title:
+                        continue
+                    qty = int(rli.get("quantity") or 0)
+                    try:
+                        amt = abs(float(((rli.get("subtotalSet") or {}).get("shopMoney") or {}).get("amount") or 0))
+                    except Exception:
+                        amt = 0.0
+                    bucket = refund_by_product.setdefault(title, {"qty": 0, "amount": 0.0})
+                    bucket["qty"] += qty
+                    bucket["amount"] += amt
+
+        if not page_info.get("hasNextPage", False):
+            break
+        cursor = page_info.get("endCursor")
+
+    return refund_by_product
+
+
 def fetch_sales(since: str, until: str) -> list:
     """
-    Aggregate product-level sales from orders (ShopifyQL is unavailable for this token).
-    Distributes order-level discounts/refunds/tax across line items proportionally
-    to their gross share.
+    Per-product sales pulled from ShopifyQL `FROM sales` so the numbers match
+    Shopify Analytics exactly. Sign convention: discounts and returns returned
+    as POSITIVE magnitudes (ShopifyQL gives them as negative; we abs()).
     """
-    orders = fetch_orders(since, until)
-    product_sales: dict[str, dict] = {}
+    ql = (
+        "FROM sales "
+        "SHOW gross_sales, discounts, returns, net_sales, shipping_charges, "
+        "taxes, total_sales, net_items_sold "
+        "GROUP BY product_title "
+        "ORDER BY total_sales DESC "
+        "LIMIT 1000 "
+        f"SINCE {since} UNTIL {until}"
+    )
+    gql = """
+    query($ql: String!) {
+      shopifyqlQuery(query: $ql) {
+        tableData { columns { name dataType } rows }
+        parseErrors
+      }
+    }
+    """
+    resp = requests.post(
+        f"https://{SHOP_DOMAIN}/admin/api/2025-10/graphql.json",
+        headers={
+            "Content-Type": "application/json",
+            "X-Shopify-Access-Token": ADMIN_ACCESS_TOKEN,
+        },
+        json={"query": gql, "variables": {"ql": ql}},
+        timeout=30,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    if data.get("errors"):
+        raise ValueError(f"ShopifyQL GraphQL error: {data['errors']}")
+    sqr = (data.get("data") or {}).get("shopifyqlQuery") or {}
+    parse_errors = sqr.get("parseErrors") or []
+    if parse_errors:
+        raise ValueError(f"ShopifyQL parse error: {parse_errors}")
 
-    for o in orders:
-        if o.get("cancelled") or o.get("financialStatus") == "VOIDED":
+    table = sqr.get("tableData") or {}
+    columns = table.get("columns") or []
+    raw_rows = table.get("rows") or []
+    col_names = [c.get("name", "") for c in columns]
+
+    def _f(row, key):
+        try:
+            return float(row.get(key) or 0)
+        except Exception:
+            return 0.0
+
+    def _i(row, key):
+        try:
+            return int(float(row.get(key) or 0))
+        except Exception:
+            return 0
+
+    # Pass Shopify's values straight through — dashboard totals match Shopify
+    # Analytics exactly. discounts/returns stored as positive magnitudes.
+    result = []
+    for raw in raw_rows:
+        if isinstance(raw, list):
+            row = {col_names[i]: v for i, v in enumerate(raw) if i < len(col_names)}
+        elif isinstance(raw, dict):
+            row = raw
+        else:
             continue
-        line_items = o.get("lineItems") or []
-        if not line_items:
-            continue
-        order_gross = sum((float(li.get("price") or 0) * int(li.get("quantity") or 0))
-                          for li in line_items)
-        if order_gross <= 0:
+
+        title = (row.get("product_title") or "").strip()
+        if not title:
             continue
 
-        order_discount = float(o.get("discounts") or 0)
-        order_refund = float(o.get("refunded") or 0)
-        order_tax = float(o.get("tax") or 0)
+        result.append({
+            "product_title": title,
+            "product_vendor": "",
+            "product_type": "",
+            "net_items_sold": _i(row, "net_items_sold"),
+            "gross_sales": _f(row, "gross_sales"),
+            "discounts": abs(_f(row, "discounts")),
+            "returns": abs(_f(row, "returns")),
+            "net_sales": _f(row, "net_sales"),
+            "shipping": _f(row, "shipping_charges"),
+            "taxes": _f(row, "taxes"),
+            "total_sales": _f(row, "total_sales"),
+        })
 
-        for li in line_items:
-            title = (li.get("title") or "").strip()
-            if not title:
-                continue
-            qty = int(li.get("quantity") or 0)
-            price = float(li.get("price") or 0)
-            line_gross = qty * price
-            if line_gross <= 0:
-                continue
-            share = line_gross / order_gross
-            line_discount = order_discount * share
-            line_refund = order_refund * share
-            line_tax = order_tax * share
-            line_net = line_gross - line_discount - line_refund
-
-            entry = product_sales.get(title)
-            if entry is None:
-                entry = product_sales[title] = {
-                    "product_title": title,
-                    "product_vendor": "",
-                    "product_type": "",
-                    "net_items_sold": 0,
-                    "gross_sales": 0.0,
-                    "discounts": 0.0,
-                    "returns": 0.0,
-                    "net_sales": 0.0,
-                    "taxes": 0.0,
-                    "total_sales": 0.0,
-                }
-            entry["net_items_sold"] += qty
-            entry["gross_sales"] += line_gross
-            entry["discounts"] += line_discount
-            entry["returns"] += line_refund
-            entry["net_sales"] += line_net
-            entry["taxes"] += line_tax
-            entry["total_sales"] += (line_net + line_tax)
-
-    result = list(product_sales.values())
     result.sort(key=lambda x: x["total_sales"], reverse=True)
     return result
 

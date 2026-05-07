@@ -2582,6 +2582,36 @@
     /* ── Global spacing & polish ── */
     body { background-color: var(--bg); }
 
+    /* Empty-state notice for "pick a date range" */
+    .date-range-notice {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin: 14px 22px 0;
+      padding: 12px 16px;
+      background: var(--warm-tint);
+      border: 1px solid var(--bd);
+      border-left: 3px solid var(--cta);
+      border-radius: 8px;
+      color: var(--txt-charcoal);
+      font-size: .88rem;
+      letter-spacing: .01em;
+    }
+    .date-range-notice-icon { font-size: 1rem; }
+    .date-range-notice-text { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .date-range-notice-cta {
+      background: var(--cta);
+      color: var(--txt);
+      border: 1px solid var(--cta-hover);
+      border-radius: 6px;
+      padding: 5px 12px;
+      font-size: .82rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .date-range-notice-cta:hover { background: var(--cta-hover); }
+
     /* Tabs */
     .ntab { font-size: .78rem; letter-spacing: .02em; padding: 0 22px; }
 
@@ -2683,6 +2713,15 @@
       <input type="hidden" id="masterUntil" value="" />
       <span id="masterFetchStatus" class="nav-date-status">Not loaded</span>
     </div>
+  </div>
+
+  <!-- ===== Empty-state notice (shown until a date range is applied) ===== -->
+  <div id="dateRangeNotice" class="date-range-notice" role="status" style="display:none;">
+    <span class="date-range-notice-icon">📅</span>
+    <span class="date-range-notice-text">
+      Select a date range to view dashboard data.
+      <button type="button" class="date-range-notice-cta" onclick="openDateRangePicker()">Pick a range</button>
+    </span>
   </div>
 
   <!-- ===== Date Range Picker Popover ===== -->
@@ -2807,61 +2846,17 @@
 
   <!-- ===== INVENTORY PAGE ===== -->
   <div class="page" id="page-inv">
-    <div class="cpanel hidden" id="invCpanel">
-      <div style="display:flex;align-items:center;gap:8px;">
-        <span
-          style="font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--sand);text-transform:uppercase;letter-spacing:.08em;">⚡
-          Inventory Data Source</span>
-        <button class="ibtn" onclick="loadLocalInv()">Use Local Data</button>
-        <button class="ibtn" onclick="toggleEl('invCpanel')" style="margin-left:auto;">✕</button>
-      </div>
-
-      <!-- Option 1: Fetch from Shopify -->
-      <div
-        style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;padding:8px 0 4px;border-top:1px solid var(--bd);margin-top:6px;">
-        <div
-          style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--traf);text-transform:uppercase;letter-spacing:.08em;flex-shrink:0;align-self:center;">
-          🔗 Fetch from Shopify</div>
-        <div class="cp-field" style="flex:2;min-width:220px;">
-          <div class="cp-lbl">Server URL</div>
-          <input class="cp-inp" id="invShopifyUrl" placeholder="http://localhost:5000" />
-        </div>
-        <button class="ibtn acc" onclick="fetchShopifyInventory()" style="flex-shrink:0;">Fetch Inventory →</button>
-        <span class="shopify-status" id="invShopifyStatus">Not connected</span>
-      </div>
-      <div id="invShopifyMsg"
-        style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--mu2);min-height:14px;padding-bottom:2px;">
-      </div>
-
-      <!-- Option 2: Google Sheets -->
-      <div style="border-top:1px solid var(--bd);padding-top:8px;margin-top:4px;">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span
-            style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--sand);text-transform:uppercase;letter-spacing:.08em;">
-            📊 Google Sheets</span>
-          <button class="ibtn" onclick="toggleEl('invCfgBody')">Configure</button>
-        </div>
-        <div id="invCfgBody" style="display:none;">
-          <div class="cp-row">
-            <div class="cp-field" style="flex:2;">
-              <div class="cp-lbl">Sheet ID</div><input class="cp-inp" id="invSid"
-                placeholder="1gCqWlABFBw14Bwp509TSad97yYQKlRPPXHnO38oVGX8" />
-            </div>
-            <div class="cp-field" style="flex:2;">
-              <div class="cp-lbl">API Key</div><input class="cp-inp" id="invKey" type="password" placeholder="AIza…" />
-            </div>
-            <div style="display:flex;gap:6px;align-items:flex-end;flex-shrink:0;">
-              <button class="ibtn acc" onclick="connectInv()">Connect ↗</button>
-            </div>
-          </div>
-          <div class="cp-hint"><a href="https://console.cloud.google.com" target="_blank">console.cloud.google.com</a> →
-            Enable Sheets API → Create API Key · Share sheet → Anyone with link → Viewer
-            <br>💡 <strong>Discontinued products:</strong> Add a column named <code
-              style="color:var(--sand)">Discontinued</code> (values: yes/no) or <code
-              style="color:var(--sand)">Lifecycle</code> (values: npd / active / discontinued)
-          </div>
-        </div>
-      </div>
+    <!-- Inventory Data Source panel removed — fetch is fired automatically by
+         fetchAll() when the user picks a date range. Hidden stubs preserve the
+         IDs that fetch/init code still reads & writes (status messages, URL
+         restore from localStorage). Do not re-add the visible panel. -->
+    <div id="invCpanel" style="display:none;" aria-hidden="true">
+      <input id="invShopifyUrl" type="hidden" />
+      <span id="invShopifyStatus"></span>
+      <div id="invShopifyMsg"></div>
+      <input id="invSid" type="hidden" />
+      <input id="invKey" type="hidden" />
+      <div id="invCfgBody"></div>
     </div>
     <div class="toolbar" style="flex-direction:column;align-items:stretch;gap:0;padding:0;">
       <!-- Row 1: Filter dropdowns -->
@@ -2975,46 +2970,22 @@
 
       <!-- ===== SELL-THROUGH RATE SECTION ===== -->
       <div id="strSection" style="display:none;">
-        <!-- Supabase snapshot config -->
-        <div class="cpanel" id="strCpanel" style="margin:12px 0 0;">
-          <div class="cpanel-inner" style="display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;">
-            <div class="cp-hdr" style="flex-basis:100%;margin-bottom:2px;">▦ Sell-Through Rate — Supabase Daily Snapshot
-            </div>
-            <div class="cp-field" style="flex:2;min-width:200px;">
-              <div class="cp-lbl">Supabase URL</div>
-              <input class="cp-inp" id="strSbUrl" placeholder="https://xxxx.supabase.co" />
-            </div>
-            <div class="cp-field" style="flex:2;min-width:200px;">
-              <div class="cp-lbl">Anon Key</div>
-              <input class="cp-inp" id="strSbKey" type="password" placeholder="eyJ…" />
-            </div>
-            <div class="cp-field" style="flex:0 0 110px;">
-              <div class="cp-lbl">Snapshot Date</div>
-              <input class="cp-inp" type="date" id="strSnapshotDate" />
-            </div>
-            <button class="ibtn acc" onclick="fetchSTRSnapshot()" style="flex-shrink:0;">Fetch Snapshot →</button>
-            <button class="ibtn" onclick="useCurrentInvAsBaseline()" style="flex-shrink:0;"
-              title="Use today's live inventory fetch as baseline">Use Live Inv →</button>
-            <span class="shopify-status" id="strStatus">No snapshot</span>
-          </div>
-          <div id="strMsg"
-            style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--mu2);min-height:14px;margin-top:4px;">
-          </div>
-          <div
-            style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--mu2);margin-top:4px;line-height:1.6;">
-            Snapshot table schema: <code style="color:var(--in);">inventory_snapshots</code> with columns:
-            <code>snapshot_date (date)</code>, <code>product_title (text)</code>, <code>color_sku (text)</code>,
-            <code>total_stock (int)</code>, <code>captured_at (timestamptz)</code> — captured daily after 12:10am.
-            STR = qty_sold / available_qty (snapshot). <a href="#" onclick="copySTRTableSQL(event)"
-              style="color:var(--sand);">Copy CREATE TABLE SQL →</a>
-          </div>
+        <!-- STR config panel removed — fetchSTRSnapshot() runs automatically as
+             part of fetchAll() and reads dates from the master picker. Hidden
+             stubs preserve IDs that fetch / init code reads & writes. -->
+        <div id="strCpanel" style="display:none;" aria-hidden="true">
+          <input id="strSbUrl" type="hidden" />
+          <input id="strSbKey" type="hidden" />
+          <input id="strSnapshotDate" type="hidden" />
+          <span id="strStatus"></span>
+          <div id="strMsg"></div>
         </div>
         <!-- STR KPIs + table -->
         <div class="krow k4" id="strKpis" style="margin-top:10px;"></div>
         <div id="strView" style="margin-top:8px;"></div>
         <div id="strEmpty"
           style="text-align:center;color:var(--mu2);padding:40px;font-family:'JetBrains Mono',monospace;font-size:.7rem;">
-          Fetch a Supabase snapshot or use live inventory → then STR is computed vs SALES_DATA.
+          📅 Pick a date range — single day fetches that day's snapshot; a multi-day range averages per-product stock across the days that have data.
         </div>
       </div>
     </div>
@@ -3207,31 +3178,14 @@
   <!-- ===== AD INTELLIGENCE PAGE ===== -->
   <div class="page" id="page-ads">
     <!-- Supabase Connection Panel -->
-    <div class="cpanel hidden" id="metaAdsCpanel">
-      <div class="cpanel-inner" style="display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;">
-        <div class="cp-hdr" style="flex-basis:100%;margin-bottom:2px;">◎ Connect Supabase — Ads Intelligence Database
-        </div>
-        <div class="cp-field" style="flex:2;min-width:240px;">
-          <div class="cp-lbl">Supabase Project URL</div>
-          <input class="cp-inp" id="sbUrl" placeholder="https://xxxx.supabase.co" />
-        </div>
-        <div class="cp-field" style="flex:2;min-width:240px;">
-          <div class="cp-lbl">Anon / Service Key</div>
-          <input class="cp-inp" id="sbKey" type="password" placeholder="eyJ…" />
-        </div>
-        <div class="cp-field" style="flex:0 0 130px;">
-          <div class="cp-lbl">Date From</div>
-          <input class="cp-inp" type="date" id="sbDateFrom" />
-        </div>
-        <div class="cp-field" style="flex:0 0 130px;">
-          <div class="cp-lbl">Date To</div>
-          <input class="cp-inp" type="date" id="sbDateTo" />
-        </div>
-        <button class="ibtn acc" onclick="fetchSupabaseAds()" style="flex-shrink:0;">Fetch Ads →</button>
-        <span class="shopify-status" id="metaAdsStatus">Not loaded</span>
-      </div>
-      <div id="metaAdsMsg"
-        style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--mu2);min-height:14px;"></div>
+    <!-- Supabase Ads config panel removed — fetchSupabaseAds() is fired by
+         fetchAll() and reads dates directly from #masterSince / #masterUntil.
+         Hidden stubs preserve IDs that fetch / init code reads & writes. -->
+    <div id="metaAdsCpanel" style="display:none;" aria-hidden="true">
+      <input id="sbUrl" type="hidden" />
+      <input id="sbKey" type="hidden" />
+      <span id="metaAdsStatus"></span>
+      <div id="metaAdsMsg"></div>
     </div>
     <div class="toolbar" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
       <input class="srch" id="adSrch" placeholder="Search ad or product…" oninput="renderAds()"
@@ -4093,14 +4047,18 @@
     function setProductThead() {
       const row = document.getElementById('homeTheadRow');
       if (!row) return;
+      const _ind = (k, label) => {
+        const arrow = (k === homeSortKey) ? (homeSortDesc ? ' ↓' : ' ↑') : ' ↕';
+        return label + arrow;
+      };
       row.innerHTML =
         '<th>Product</th>'
         + '<th>Lifecycle</th>'
         + '<th>Stock</th>'
-        + '<th style="cursor:pointer;user-select:none;" onclick="sortHome(\'sessions\')" id="thSort_sessions" title="Sort by Sessions">Sessions ↕</th>'
+        + '<th style="cursor:pointer;user-select:none;" onclick="sortHome(\'sessions\')" id="thSort_sessions" title="Sort by Sessions">' + _ind('sessions', 'Sessions') + '</th>'
         + '<th>ATC%</th>'
-        + '<th style="cursor:pointer;user-select:none;" onclick="sortHome(\'units\')" id="thSort_units" title="Sort by Units Sold">Units Sold ↕</th>'
-        + '<th style="cursor:pointer;user-select:none;" onclick="sortHome(\'sales\')" id="thSort_sales" title="Sort by Sales">Sales (₹) ↕</th>'
+        + '<th style="cursor:pointer;user-select:none;" onclick="sortHome(\'units\')" id="thSort_units" title="Sort by Units Sold">' + _ind('units', 'Units Sold') + '</th>'
+        + '<th style="cursor:pointer;user-select:none;" onclick="sortHome(\'sales\')" id="thSort_sales" title="Sort by Sales">' + _ind('sales', 'Sales (₹)') + '</th>'
         + '<th>Last Click UTM</th>';
     }
 
@@ -4224,6 +4182,8 @@
       rows = rows.slice(0, 80);
       document.getElementById('homeCount').textContent = rows.length + ' products shown';
       const tbody = document.getElementById('homeTbody');
+      const _hasRange = !!(document.getElementById('masterSince').value && document.getElementById('masterUntil').value);
+      const _emptyMsg = _hasRange ? 'No products match' : '📅 Select a date range to view dashboard data';
       // Render cards alongside the table so the toggle is instant
       if (cardsView) {
         cardsView.innerHTML = rows.length ? rows.map(r => {
@@ -4232,9 +4192,9 @@
           const orderRev = hasOrders ? getOrderRevenueForProduct(r, ordersRevCache) : 0;
           const revenue = orderRev > 0 ? orderRev : (sale ? (sale.total_sales || 0) : 0);
           return productCard(r, { idx: DATA.indexOf(r), units: unitsSold, revenue: revenue, sessions: r.sessions, atcPct: r.atcPct });
-        }).join('') : '<div class="empty" style="padding:32px;text-align:center;color:var(--mu2);">No products match</div>';
+        }).join('') : '<div class="empty" style="padding:32px;text-align:center;color:var(--mu2);">' + _emptyMsg + '</div>';
       }
-      if (!rows.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty">No products match</td></tr>'; return; }
+      if (!rows.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty" style="text-align:center;padding:40px 20px;color:var(--mu2);">' + _emptyMsg + '</td></tr>'; return; }
       tbody.innerHTML = rows.map(r => {
         const ss = SS[r.stockStatus] || SS.unknown;
         const stockHtml = '<span class="stock-pill ' + ss.cls + '">' + ss.l + '</span>';
@@ -4993,6 +4953,9 @@
     }
     // ── SELL-THROUGH RATE ──
     let STR_SNAPSHOT = []; // [{product_title, color_sku, total_stock, snapshot_date}]
+    // Per-day breakdown: { 'YYYY-MM-DD': { product_title_lower: avail_qty (product-level only) } }
+    // Populated by fetchSTRSnapshot; consumed by renderSTR for per-day STR computation.
+    let STR_SNAPSHOT_DAILY = {};
     let _strViewActive = false;
 
     function toggleSTRView() {
@@ -5016,40 +4979,147 @@
     async function fetchSTRSnapshot() {
       const msgEl = document.getElementById('strMsg');
       const statusEl = document.getElementById('strStatus');
-      // Snapshot follows the master "Until" date; explicit override via strSnapshotDate
+      const since = (document.getElementById('masterSince') || {}).value || '';
+      const until = (document.getElementById('masterUntil') || {}).value || '';
       const overrideDate = (document.getElementById('strSnapshotDate') || {}).value || '';
-      const snapDate = overrideDate || document.getElementById('masterUntil').value || '';
+
+      if (!since && !until && !overrideDate) {
+        if (msgEl) { msgEl.textContent = '⚠ Pick a date range'; msgEl.style.color = 'var(--out)'; }
+        if (statusEl) statusEl.textContent = 'No range';
+        return;
+      }
 
       if (msgEl) { msgEl.textContent = '⏳ Fetching snapshot…'; msgEl.style.color = 'var(--mu2)'; }
       if (statusEl) statusEl.textContent = 'Loading…';
 
-      try {
-        const endpoint = '/api/inventory-snapshot' + (snapDate ? ('?date=' + encodeURIComponent(snapDate)) : '');
-        const resp = await fetch(endpoint);
-        if (!resp.ok) throw new Error('HTTP ' + resp.status + ': ' + (await resp.text()).slice(0, 120));
-        const payload = await resp.json();
-        if (payload && payload.error) throw new Error(payload.error);
-        const rows = (payload && payload.rows) || [];
-        if (!rows.length) throw new Error('No snapshot rows available.');
-
-        STR_SNAPSHOT = rows.map(r => ({
-          product_title: (r.product_title || '').toLowerCase().trim(),
-          color_sku: r.color_sku || '',
-          total_stock: parseInt(r.total_stock) || 0,
-          snapshot_date: r.snapshot_date || '',
-          captured_at: r.captured_at || '',
-        }));
-
-        const actualDate = payload.date || (STR_SNAPSHOT[0].snapshot_date || '');
-        const actualDisplay = fmtDate(actualDate) || 'unknown';
-        const fallbackNote = payload.isFallback
-          ? ' ⚠ no snapshot for ' + (fmtDate(payload.requestedDate) || 'requested date') + ' — showing latest (' + actualDisplay + ')'
-          : '';
-        if (msgEl) {
-          msgEl.textContent = '✓ ' + STR_SNAPSHOT.length + ' snapshot rows · date: ' + actualDisplay + fallbackNote;
-          msgEl.style.color = payload.isFallback ? 'var(--low)' : 'var(--in)';
+      // Build the list of dates to fetch. Override beats the range; otherwise
+      // walk every day from since→until inclusive (cap at 31 days to limit fan-out).
+      const dates = [];
+      if (overrideDate) {
+        dates.push(overrideDate);
+      } else {
+        const dayMs = 86400000;
+        const start = new Date(since + 'T00:00:00Z').getTime();
+        const end = new Date(until + 'T00:00:00Z').getTime();
+        for (let t = start; t <= end && dates.length < 31; t += dayMs) {
+          dates.push(new Date(t).toISOString().slice(0, 10));
         }
-        if (statusEl) statusEl.textContent = (payload.isFallback ? 'Fallback · ' : 'Loaded · ') + actualDisplay;
+        if (!dates.length) dates.push(until || since);
+      }
+
+      // Reset the per-day breakdown for this fetch — option 2 path in renderSTR
+      // depends on this map having only the days actually fetched in this run.
+      STR_SNAPSHOT_DAILY = {};
+
+      try {
+        // Single day → preserve original payload semantics (fallback note, etc.).
+        if (dates.length === 1) {
+          const resp = await fetch('/api/inventory-snapshot?date=' + encodeURIComponent(dates[0]));
+          if (!resp.ok) throw new Error('HTTP ' + resp.status + ': ' + (await resp.text()).slice(0, 120));
+          const payload = await resp.json();
+          if (payload && payload.error) throw new Error(payload.error);
+          const rows = (payload && payload.rows) || [];
+          if (!rows.length) throw new Error('No snapshot rows available.');
+
+          STR_SNAPSHOT = rows.map(r => ({
+            product_title: (r.product_title || '').toLowerCase().trim(),
+            color_sku: r.color_sku || '',
+            total_stock: parseInt(r.total_stock) || 0,
+            snapshot_date: r.snapshot_date || '',
+            captured_at: r.captured_at || '',
+          }));
+
+          // Populate the daily map keyed by the actual snapshot_date returned
+          // (matters when isFallback substitutes the latest snapshot in).
+          const actualDateKey = payload.date || (STR_SNAPSHOT[0].snapshot_date || dates[0]);
+          STR_SNAPSHOT_DAILY[actualDateKey] = {};
+          rows.forEach(r => {
+            if (r.color_sku) return; // product-level only
+            const k = (r.product_title || '').toLowerCase().trim();
+            if (!k) return;
+            STR_SNAPSHOT_DAILY[actualDateKey][k] = (STR_SNAPSHOT_DAILY[actualDateKey][k] || 0) + (parseInt(r.total_stock) || 0);
+          });
+
+          const actualDate = payload.date || (STR_SNAPSHOT[0].snapshot_date || '');
+          const actualDisplay = fmtDate(actualDate) || 'unknown';
+          const fallbackNote = payload.isFallback
+            ? ' ⚠ no snapshot for ' + (fmtDate(payload.requestedDate) || 'requested date') + ' — showing latest (' + actualDisplay + ')'
+            : '';
+          if (msgEl) {
+            msgEl.textContent = '✓ ' + STR_SNAPSHOT.length + ' snapshot rows · date: ' + actualDisplay + fallbackNote;
+            msgEl.style.color = payload.isFallback ? 'var(--low)' : 'var(--in)';
+          }
+          if (statusEl) statusEl.textContent = (payload.isFallback ? 'Fallback · ' : 'Loaded · ') + actualDisplay;
+        } else {
+          // Multi-day → fetch all days in parallel and aggregate by averaging
+          // per-product total_stock across the days that returned real data.
+          // Fallback days (isFallback) are skipped so we don't double-count the
+          // "latest available" snapshot N times.
+          const results = await Promise.allSettled(
+            dates.map(d => fetch('/api/inventory-snapshot?date=' + encodeURIComponent(d))
+              .then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
+          );
+
+          // key: product_title|color_sku → { sumStock, countDays, latestDate, latestCapture }
+          const agg = {};
+          let daysWithData = 0;
+          let fallbackDays = 0;
+          results.forEach((res, dayIdx) => {
+            if (res.status !== 'fulfilled') return;
+            const payload = res.value;
+            if (!payload || payload.error) return;
+            if (payload.isFallback) { fallbackDays++; return; }
+            const rows = payload.rows || [];
+            if (!rows.length) return;
+            daysWithData++;
+            const dateKey = payload.date || rows[0].snapshot_date || dates[dayIdx];
+            if (!STR_SNAPSHOT_DAILY[dateKey]) STR_SNAPSHOT_DAILY[dateKey] = {};
+            rows.forEach(r => {
+              const title = (r.product_title || '').toLowerCase().trim();
+              const sku = r.color_sku || '';
+              const key = title + '||' + sku;
+              const stock = parseInt(r.total_stock) || 0;
+              if (!agg[key]) {
+                agg[key] = {
+                  product_title: title,
+                  color_sku: sku,
+                  sumStock: 0,
+                  countDays: 0,
+                  latestDate: r.snapshot_date || '',
+                  latestCapture: r.captured_at || '',
+                };
+              }
+              agg[key].sumStock += stock;
+              agg[key].countDays++;
+              if ((r.snapshot_date || '') > agg[key].latestDate) {
+                agg[key].latestDate = r.snapshot_date;
+                agg[key].latestCapture = r.captured_at;
+              }
+              // Per-day map uses product-level rows only.
+              if (!sku && title) {
+                STR_SNAPSHOT_DAILY[dateKey][title] = (STR_SNAPSHOT_DAILY[dateKey][title] || 0) + stock;
+              }
+            });
+          });
+
+          if (!daysWithData) throw new Error('No snapshot data for ' + fmtDate(since) + ' → ' + fmtDate(until));
+
+          STR_SNAPSHOT = Object.values(agg).map(a => ({
+            product_title: a.product_title,
+            color_sku: a.color_sku,
+            total_stock: Math.round(a.sumStock / a.countDays), // avg available qty
+            snapshot_date: a.latestDate,
+            captured_at: a.latestCapture,
+          }));
+
+          const skipped = fallbackDays > 0 ? ' · ' + fallbackDays + ' day(s) skipped (no snapshot)' : '';
+          if (msgEl) {
+            msgEl.textContent = '✓ ' + STR_SNAPSHOT.length + ' products · avg across ' + daysWithData + ' day(s) · ' + fmtDate(since) + ' → ' + fmtDate(until) + skipped;
+            msgEl.style.color = fallbackDays > 0 ? 'var(--low)' : 'var(--in)';
+          }
+          if (statusEl) statusEl.textContent = 'Aggregated · ' + daysWithData + 'd';
+        }
+
         if (typeof renderSTR === 'function') renderSTR();
       } catch (err) {
         if (msgEl) { msgEl.textContent = '✗ ' + err.message; msgEl.style.color = 'var(--out)'; }
@@ -5073,6 +5143,12 @@
       renderSTR();
     }
 
+    // Stash for openSTRDetail(idx) lookups — declared before renderSTR so the
+    // assignment inside renderSTR cannot hit a temporal-dead-zone error.
+    let _lastSTRRows = [];
+    let _lastSTRMethod = 'sales-summed'; // 'orders-daily' (option 2) | 'sales-summed' (option 1)
+    let _lastSTRDayCount = 0;
+
     function renderSTR() {
       const emptyEl = document.getElementById('strEmpty');
       const viewEl = document.getElementById('strView');
@@ -5081,18 +5157,47 @@
       if (!STR_SNAPSHOT.length) { emptyEl.style.display = 'block'; viewEl.innerHTML = ''; kpiEl.innerHTML = ''; return; }
       emptyEl.style.display = 'none';
 
-      // Build snapshot map: product_title → available_qty
-      // Only use product-level rows (color_sku null/empty) to avoid double-counting
-      // since snapshot contains both product-level totals AND per-color rows
-      const snapMap = {};
-      STR_SNAPSHOT.forEach(s => {
-        const sku = s.color_sku || '';
-        if (sku !== '') return; // skip color-level rows, only use product-level totals
-        const key = (s.product_title || '').toLowerCase().trim();
-        if (key) snapMap[key] = (snapMap[key] || 0) + s.total_stock;
-      });
+      // ── METHOD SELECTION ───────────────────────────────────────────────────
+      // Option 2 (preferred, "real-time"): for each (day, product), pull units
+      //   sold from ORDERS_DATA (filtered by createdAt date) and avail from the
+      //   per-day snapshot. Sum across days. STR = Σsold / Σavail × 100.
+      // Option 1 (fallback): if ORDERS_DATA is empty or has no overlap with the
+      //   snapshot days, use SALES_DATA's range-aggregated net_items_sold as
+      //   sold and Σ(daily_avail) from STR_SNAPSHOT_DAILY as avail.
+      // Both paths use sum/sum so the displayed numerator and denominator are
+      // mutually consistent (sold/avail = displayed STR).
+      const dailyDates = Object.keys(STR_SNAPSHOT_DAILY || {});
+      const ordersAvailable = (typeof ORDERS_DATA !== 'undefined') && Array.isArray(ORDERS_DATA) && ORDERS_DATA.length > 0;
 
-      // Build sales map from SALES_DATA
+      // Build per-day per-product sold map from ORDERS_DATA, restricted to the
+      // days that have a snapshot. (No snapshot for a day → that day's sales
+      // can't be matched to an avail, so they're excluded — keeps the units
+      // consistent on both sides of the ratio.)
+      let dailySoldMap = null; // { 'YYYY-MM-DD': { product_lower: units } }
+      let totalDaysMatched = 0;
+      if (ordersAvailable && dailyDates.length) {
+        dailySoldMap = {};
+        const dateSet = new Set(dailyDates);
+        dailyDates.forEach(d => { dailySoldMap[d] = {}; });
+        const filtered = (typeof getFilteredOrders === 'function') ? getFilteredOrders() : ORDERS_DATA;
+        filtered.forEach(o => {
+          const dt = (o.createdAt || '').slice(0, 10);
+          if (!dt || !dateSet.has(dt)) return;
+          (o.lineItems || []).forEach(li => {
+            const t = (li.title || '').toLowerCase().trim();
+            const qty = parseInt(li.quantity) || 0;
+            if (!t || qty <= 0) return;
+            dailySoldMap[dt][t] = (dailySoldMap[dt][t] || 0) + qty;
+          });
+        });
+        // Count days where at least one order matched a snapshot product (for status display)
+        totalDaysMatched = dailyDates.filter(d => Object.keys(dailySoldMap[d]).length > 0).length;
+      }
+
+      // True if option 2 actually has *something* to compute with.
+      const useOptionTwo = !!(dailySoldMap && totalDaysMatched > 0);
+
+      // Sales map (range-totaled) for option-1 fallback and for the popup.
       const salesMap = {};
       (SALES_DATA || []).forEach(s => {
         const key = (s.product_title || '').toLowerCase().trim();
@@ -5102,11 +5207,43 @@
       // Search + sort controls
       const q = (document.getElementById('invSrch').value || '').toLowerCase();
 
-      // Compute STR rows
-      let rows = Object.entries(snapMap).map(([title, availQty]) => {
-        const soldQty = salesMap[title] || 0;
-        const str = availQty > 0 ? Math.min(100, Math.round(soldQty / availQty * 100)) : (soldQty > 0 ? 100 : 0);
-        return { title, availQty, soldQty, str };
+      // Build the universe of products: union of (snapshot products) ∪ (sold-via-orders products)
+      const productSet = new Set();
+      STR_SNAPSHOT.forEach(s => {
+        if (s.color_sku) return;
+        const k = (s.product_title || '').toLowerCase().trim();
+        if (k) productSet.add(k);
+      });
+      if (useOptionTwo) {
+        Object.values(dailySoldMap).forEach(daySold => {
+          Object.keys(daySold).forEach(t => productSet.add(t));
+        });
+      }
+
+      // Compute per-product rows using whichever method is active.
+      let rows = Array.from(productSet).map(title => {
+        let sumAvail = 0;
+        let sumSold = 0;
+        // Σ(daily_avail) across days that have data — same on both paths.
+        dailyDates.forEach(d => {
+          sumAvail += (STR_SNAPSHOT_DAILY[d][title] || 0);
+        });
+        if (useOptionTwo) {
+          dailyDates.forEach(d => {
+            sumSold += ((dailySoldMap[d] || {})[title] || 0);
+          });
+        } else {
+          // Option-1 fallback: range-aggregated SALES_DATA total.
+          sumSold = salesMap[title] || 0;
+        }
+        const str = sumAvail > 0 ? Math.min(100, Math.round(sumSold / sumAvail * 100)) : (sumSold > 0 ? 100 : 0);
+        return {
+          title,
+          availQty: sumAvail,
+          soldQty: sumSold,
+          str,
+          _method: useOptionTwo ? 'orders-daily' : 'sales-summed',
+        };
       }).filter(r => r.availQty > 0 || r.soldQty > 0);
 
       if (q) rows = rows.filter(r => r.title.includes(q));
@@ -5123,12 +5260,25 @@
         + kpi('ci', '≥50% STR', highSTR, 'moving well')
         + kpi('co', 'Total Avail', fmt(totalAvail), 'from snapshot');
 
+      // Cache the rendered rows + the active method so the per-row click handler
+      // (openSTRDetail) can show the right calculation breakdown.
+      _lastSTRRows = rows;
+      _lastSTRMethod = useOptionTwo ? 'orders-daily' : 'sales-summed';
+      _lastSTRDayCount = dailyDates.length;
+
+      const isMultiDay = dailyDates.length > 1;
+      const methodTag = useOptionTwo
+        ? '<span style="background:var(--in-bg);color:var(--in-text);border:1px solid var(--in);border-radius:4px;padding:2px 8px;font-size:.6rem;letter-spacing:.05em;margin-left:8px;" title="Per-day STR computed from ORDERS_DATA × per-day snapshots">REAL-TIME · ' + totalDaysMatched + 'd</span>'
+        : '<span style="background:var(--low-bg);color:var(--low-text);border:1px solid var(--low);border-radius:4px;padding:2px 8px;font-size:.6rem;letter-spacing:.05em;margin-left:8px;" title="Range-aggregated sales ÷ Σ(daily snapshots). Fetch Orders for per-day precision.">FALLBACK · sales÷Σavail</span>';
+      const availLbl = isMultiDay ? 'Available (Σ unit-days)' : 'Available Qty';
+      const soldLbl = isMultiDay ? 'Units Sold (Σ over range)' : 'Units Sold';
+
       // Table
-      let html = '<div class="tbl-wrap"><div class="tbl-hdr"><span class="tbl-title">' + rows.length + ' products · STR = Units Sold ÷ Available Qty</span></div><div class="tbl-scr"><table class="dtbl"><thead><tr>'
-        + '<th>Product</th><th>Available Qty</th><th>Units Sold</th><th>Sell-Through Rate</th></tr></thead><tbody>';
-      rows.forEach(r => {
+      let html = '<div class="tbl-wrap"><div class="tbl-hdr"><span class="tbl-title">' + rows.length + ' products · STR = ' + (isMultiDay ? 'Σ Units Sold ÷ Σ Available' : 'Units Sold ÷ Available') + ' · click any row for breakdown' + methodTag + '</span></div><div class="tbl-scr"><table class="dtbl"><thead><tr>'
+        + '<th>Product</th><th>' + availLbl + '</th><th>' + soldLbl + '</th><th>Sell-Through Rate</th></tr></thead><tbody>';
+      rows.forEach((r, idx) => {
         const strColor = r.str >= 70 ? '#4ade80' : r.str >= 40 ? 'var(--low)' : r.str > 0 ? 'var(--out)' : 'var(--mu2)';
-        html += '<tr>'
+        html += '<tr style="cursor:pointer;" onclick="openSTRDetail(' + idx + ')" title="Click for STR calculation and product metrics">'
           + '<td><div class="tn" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + sh(r.title) + '</div></td>'
           + '<td><div class="tnum">' + r.availQty.toLocaleString() + '</div></td>'
           + '<td><div class="tnum">' + (r.soldQty > 0 ? r.soldQty.toLocaleString() : '—') + '</div></td>'
@@ -5139,6 +5289,212 @@
       });
       html += '</tbody></table></div></div>';
       viewEl.innerHTML = html;
+    }
+
+    // ── STR PER-PRODUCT POPUP ──
+    // Reuses the existing #productDetailOverlay (.pd-modal) styling so it looks
+    // identical to the Sales/Overview product modal. Shows the STR formula with
+    // actual numbers substituted in, plus every other metric the dashboard has
+    // for this product (sales breakdown, traffic, orders, snapshot detail).
+    function openSTRDetail(idx) {
+      const row = _lastSTRRows && _lastSTRRows[idx];
+      if (!row) return;
+      const t = String(row.title || '').trim();
+      const tl = t.toLowerCase();
+      if (!tl) return;
+
+      // Sales (already range-aggregated server-side)
+      const sale = (SALES_DATA || []).find(s => (s.product_title || '').toLowerCase().trim() === tl);
+
+      // Traffic + live inventory live on DATA rows
+      const dataRow = DATA.find(r => (r.name || '').toLowerCase().trim() === tl);
+
+      // Snapshot rows for this product (product-level + color-level)
+      const snapEntries = (STR_SNAPSHOT || []).filter(s => (s.product_title || '').toLowerCase().trim() === tl);
+      const productLevel = snapEntries.filter(s => !s.color_sku);
+      const colorLevel = snapEntries.filter(s => s.color_sku);
+
+      // Use the row's pre-computed values so the popup matches the table exactly.
+      const availQty = row.availQty;
+      const salesUnits = row.soldQty;
+      const str = row.str;
+
+      let orderUnits = 0, orderRevenue = 0;
+      if (ORDERS_DATA && ORDERS_DATA.length) {
+        const stub = dataRow || { name: t, colorSku: '' };
+        orderUnits = getUnitsSoldForProduct(stub, {});
+        orderRevenue = getOrderRevenueForProduct(stub, {});
+      }
+
+      const strColor = str >= 70 ? 'var(--in)' : str >= 40 ? 'var(--low)' : str > 0 ? 'var(--out)' : 'var(--mu2)';
+      const since = (document.getElementById('masterSince') || {}).value || '';
+      const until = (document.getElementById('masterUntil') || {}).value || '';
+      const isMultiDay = since && until && since !== until;
+
+      const d = document.getElementById('productDetailOverlay');
+      let html = '<div class="pd-modal">';
+      html += '<div class="pd-header"><div class="pd-title">' + sh(t) + '</div>';
+      html += '<button class="pd-close" onclick="closeProductDetail()">✕</button></div>';
+
+      // ── STR calculation breakdown ──
+      const usingOptionTwo = _lastSTRMethod === 'orders-daily';
+      const dailyDates = Object.keys(STR_SNAPSHOT_DAILY || {}).sort();
+      const formulaLine = isMultiDay
+        ? 'STR = (Σ Units Sold per day) ÷ (Σ Available per day) × 100'
+        : 'STR = Units Sold ÷ Available Qty × 100';
+
+      html += '<div class="pd-section"><div class="pd-section-title">▦ Sell-Through Rate Calculation</div>';
+      html += '<div style="font-family:\'JetBrains Mono\',monospace;font-size:.78rem;padding:14px 18px;background:var(--warm-tint);border:1px solid var(--bd);border-radius:6px;line-height:1.9;">';
+      html += '<div style="color:var(--mu2);font-size:.65rem;letter-spacing:.05em;">METHOD · ' + (usingOptionTwo ? 'PER-DAY ORDERS × PER-DAY SNAPSHOTS (REAL-TIME)' : 'RANGE-SUMMED SALES ÷ Σ DAILY SNAPSHOTS (FALLBACK)') + '</div>';
+      html += '<div style="margin-top:6px;color:var(--mu2);font-size:.65rem;letter-spacing:.05em;">FORMULA</div>';
+      html += '<div>' + formulaLine + '</div>';
+      html += '<div style="margin-top:8px;color:var(--mu2);font-size:.65rem;letter-spacing:.05em;">SUBSTITUTED</div>';
+      html += '<div>STR = ' + salesUnits.toLocaleString() + ' ÷ ' + (availQty || 0).toLocaleString() + ' × 100</div>';
+      html += '<div style="margin-top:6px;font-size:1.5rem;font-weight:700;color:' + strColor + ';">= ' + str + '%</div>';
+      html += '</div>';
+      if (isMultiDay) {
+        const note = usingOptionTwo
+          ? 'Per-day STR computed across <b>' + dailyDates.length + '</b> snapshot days from <b>' + fmtDate(since) + ' → ' + fmtDate(until) + '</b>. Sold = sum of order line-items per day. Available = sum of daily snapshot quantities.'
+          : '⚠ ORDERS_DATA empty or no overlap with snapshot days — using range-summed sales (<b>' + (sale ? (sale.net_items_sold || 0) : 0) + '</b>) ÷ Σ daily snapshots (<b>' + (availQty || 0) + '</b>). Fetch orders for per-day precision.';
+        html += '<div class="tm" style="margin-top:8px;color:var(--mu2);">' + note + '</div>';
+      } else if (since || productLevel[0]) {
+        const sd = (productLevel[0] && productLevel[0].snapshot_date) || since;
+        html += '<div class="tm" style="margin-top:8px;color:var(--mu2);">Snapshot date: <b>' + (sd ? fmtDate(sd) : '—') + '</b>.</div>';
+      }
+
+      // Per-day breakdown table — only meaningful when option 2 is active.
+      if (usingOptionTwo && dailyDates.length) {
+        // Recompute per-day sold / avail just for this product (cheap — small N).
+        const filteredOrders = (typeof getFilteredOrders === 'function') ? getFilteredOrders() : (ORDERS_DATA || []);
+        const perDay = dailyDates.map(d => {
+          let sold = 0;
+          filteredOrders.forEach(o => {
+            const dt = (o.createdAt || '').slice(0, 10);
+            if (dt !== d) return;
+            (o.lineItems || []).forEach(li => {
+              if ((li.title || '').toLowerCase().trim() === tl) sold += (parseInt(li.quantity) || 0);
+            });
+          });
+          const avail = (STR_SNAPSHOT_DAILY[d] || {})[tl] || 0;
+          const dailySTR = avail > 0 ? Math.min(100, Math.round(sold / avail * 100)) : (sold > 0 ? 100 : 0);
+          return { d, sold, avail, dailySTR };
+        });
+        html += '<div style="margin-top:12px;overflow-x:auto;"><table class="dtbl" style="font-size:.65rem;">';
+        html += '<thead><tr><th>Date</th><th>Units Sold</th><th>Available</th><th>Daily STR</th></tr></thead><tbody>';
+        perDay.forEach(p => {
+          const c = p.dailySTR >= 70 ? 'var(--in)' : p.dailySTR >= 40 ? 'var(--low)' : p.dailySTR > 0 ? 'var(--out)' : 'var(--mu2)';
+          html += '<tr>'
+            + '<td>' + fmtDate(p.d) + '</td>'
+            + '<td><div class="tnum">' + p.sold + '</div></td>'
+            + '<td><div class="tnum">' + p.avail + '</div></td>'
+            + '<td><div class="tnum" style="color:' + c + ';font-weight:600;">' + p.dailySTR + '%</div></td>'
+            + '</tr>';
+        });
+        // Totals row
+        const totSold = perDay.reduce((a, p) => a + p.sold, 0);
+        const totAvail = perDay.reduce((a, p) => a + p.avail, 0);
+        const totSTR = totAvail > 0 ? Math.min(100, Math.round(totSold / totAvail * 100)) : (totSold > 0 ? 100 : 0);
+        html += '<tr style="background:var(--warm-tint);font-weight:600;">'
+          + '<td>Σ Total</td>'
+          + '<td><div class="tnum">' + totSold + '</div></td>'
+          + '<td><div class="tnum">' + totAvail + '</div></td>'
+          + '<td><div class="tnum" style="color:' + strColor + ';">' + totSTR + '%</div></td>'
+          + '</tr>';
+        html += '</tbody></table></div>';
+      }
+      html += '</div>';
+
+      // ── Sales (range-aggregated) ──
+      html += '<div class="pd-section"><div class="pd-section-title">₹ Sales</div>';
+      if (sale) {
+        html += '<div class="pd-grid">'
+          + '<div class="pd-metric"><div class="pd-val" style="color:#4ade80">' + fmtRs(sale.total_sales) + '</div><div class="pd-lbl">Total Sales</div></div>'
+          + '<div class="pd-metric"><div class="pd-val">' + fmtRs(sale.gross_sales) + '</div><div class="pd-lbl">Gross Sales</div></div>'
+          + '<div class="pd-metric"><div class="pd-val">' + fmtRs(sale.net_sales) + '</div><div class="pd-lbl">Net Sales</div></div>'
+          + '<div class="pd-metric"><div class="pd-val">' + (sale.net_items_sold || 0) + '</div><div class="pd-lbl">Units Sold</div></div>'
+          + '<div class="pd-metric"><div class="pd-val" style="color:var(--low)">' + fmtRs(Math.abs(sale.discounts || 0)) + '</div><div class="pd-lbl">Discounts</div></div>'
+          + '<div class="pd-metric"><div class="pd-val" style="color:var(--out)">' + fmtRs(Math.abs(sale.returns || 0)) + '</div><div class="pd-lbl">Returns</div></div>'
+          + '<div class="pd-metric"><div class="pd-val">' + fmtRs(sale.taxes || 0) + '</div><div class="pd-lbl">Taxes</div></div>'
+          + '</div>';
+      } else {
+        html += '<div class="pd-empty">No sales data for this product in the selected range</div>';
+      }
+      html += '</div>';
+
+      // ── Traffic ──
+      html += '<div class="pd-section"><div class="pd-section-title">↗ Traffic</div>';
+      if (dataRow && (dataRow.sessions > 0 || dataRow.visitors > 0)) {
+        html += '<div class="pd-grid">'
+          + '<div class="pd-metric"><div class="pd-val" style="color:var(--traf)">' + fmt(dataRow.visitors || 0) + '</div><div class="pd-lbl">Visitors</div></div>'
+          + '<div class="pd-metric"><div class="pd-val">' + fmt(dataRow.sessions || 0) + '</div><div class="pd-lbl">Sessions</div></div>'
+          + '<div class="pd-metric"><div class="pd-val">' + (dataRow.cartAdds || 0) + '</div><div class="pd-lbl">Cart Adds</div></div>'
+          + '<div class="pd-metric"><div class="pd-val">' + (dataRow.checkout || 0) + '</div><div class="pd-lbl">Checkouts</div></div>'
+          + '<div class="pd-metric"><div class="pd-val">' + (dataRow.atcPct || 0) + '%</div><div class="pd-lbl">ATC Rate</div></div>'
+          + '<div class="pd-metric"><div class="pd-val">' + (dataRow.bounceRate || 0) + '%</div><div class="pd-lbl">Bounce Rate</div></div>'
+          + '<div class="pd-metric"><div class="pd-val">' + fmt(dataRow.avgDuration || 0) + 's</div><div class="pd-lbl">Avg Session</div></div>'
+          + '<div class="pd-metric"><div class="pd-val">' + (dataRow.ppSession || 0) + '</div><div class="pd-lbl">Pages / Session</div></div>'
+          + '</div>';
+        if (dataRow._topUtm) {
+          html += '<div class="tm" style="margin-top:8px;color:var(--mu2);">Top UTM: <b>' + sh(dataRow._topUtm) + '</b></div>';
+        }
+      } else {
+        html += '<div class="pd-empty">No traffic for this product in the selected range</div>';
+      }
+      html += '</div>';
+
+      // ── Orders attribution (only if ORDERS_DATA loaded) ──
+      if (ORDERS_DATA && ORDERS_DATA.length) {
+        html += '<div class="pd-section"><div class="pd-section-title">⊞ Orders Attribution</div>';
+        html += '<div class="pd-grid">'
+          + '<div class="pd-metric"><div class="pd-val">' + orderUnits + '</div><div class="pd-lbl">Units (from orders)</div></div>'
+          + '<div class="pd-metric"><div class="pd-val">' + fmtRs(orderRevenue) + '</div><div class="pd-lbl">Revenue (from orders)</div></div>'
+          + '</div>';
+        html += '<div class="tm" style="margin-top:8px;color:var(--mu2);">Computed from line items in ' + ORDERS_DATA.length + ' orders, net of proportional refunds & discounts.</div>';
+        html += '</div>';
+      }
+
+      // ── Snapshot detail ──
+      // Compute the per-day average for display alongside the Σ used in the math.
+      const dayCount = dailyDates.length || 1;
+      const avgPerDay = Math.round((availQty || 0) / dayCount);
+      html += '<div class="pd-section"><div class="pd-section-title">📦 Inventory Snapshot</div>';
+      if (productLevel.length || colorLevel.length || dailyDates.length) {
+        html += '<div class="pd-grid">'
+          + '<div class="pd-metric"><div class="pd-val">' + (availQty || 0).toLocaleString() + '</div><div class="pd-lbl">' + (isMultiDay ? 'Σ Available (unit-days)' : 'Available Qty') + '</div></div>'
+          + (isMultiDay ? '<div class="pd-metric"><div class="pd-val">' + avgPerDay.toLocaleString() + '</div><div class="pd-lbl">Avg per day</div></div>' : '')
+          + '<div class="pd-metric"><div class="pd-val">' + ((productLevel[0] && productLevel[0].snapshot_date) ? fmtDate(productLevel[0].snapshot_date) : (dailyDates[dailyDates.length - 1] ? fmtDate(dailyDates[dailyDates.length - 1]) : '—')) + '</div><div class="pd-lbl">Latest Snapshot</div></div>'
+          + '<div class="pd-metric"><div class="pd-val">' + colorLevel.length + '</div><div class="pd-lbl">Color Variants</div></div>'
+          + '</div>';
+        if (colorLevel.length) {
+          html += '<div style="margin-top:12px;">';
+          html += '<div class="pd-lbl" style="margin-bottom:6px;">By Color SKU</div>';
+          html += '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+          colorLevel.forEach(c => {
+            html += '<span style="background:var(--bg-muted);border:1px solid var(--bd);border-radius:4px;padding:4px 10px;font-family:\'JetBrains Mono\',monospace;font-size:.65rem;color:var(--txt-charcoal);">' + sh(c.color_sku) + ' · ' + (c.total_stock || 0) + '</span>';
+          });
+          html += '</div></div>';
+        }
+      } else {
+        html += '<div class="pd-empty">No snapshot rows for this product</div>';
+      }
+      html += '</div>';
+
+      // ── Live inventory (if matched in DATA / INVLIVE) ──
+      if (dataRow && dataRow.hasInvData) {
+        const ssLabel = (typeof SS !== 'undefined' && SS[dataRow.stockStatus]) ? SS[dataRow.stockStatus].l : (dataRow.stockStatus || '—');
+        html += '<div class="pd-section"><div class="pd-section-title">▦ Live Inventory</div>';
+        html += '<div class="pd-grid">'
+          + '<div class="pd-metric"><div class="pd-val">' + sh(ssLabel) + '</div><div class="pd-lbl">Stock Status</div></div>'
+          + '<div class="pd-metric"><div class="pd-val">' + (dataRow.totalStock >= 0 ? dataRow.totalStock.toLocaleString() : '—') + '</div><div class="pd-lbl">Live Total Units</div></div>'
+          + '<div class="pd-metric"><div class="pd-val">' + sh(dataRow.colorSku || '—') + '</div><div class="pd-lbl">SKU</div></div>'
+          + '<div class="pd-metric"><div class="pd-val">' + sh(dataRow.category || '—') + '</div><div class="pd-lbl">Category</div></div>'
+          + '</div>';
+        html += '</div>';
+      }
+
+      html += '</div>';
+      d.innerHTML = html;
+      d.style.display = 'flex';
     }
 
     function copySTRTableSQL(e) {
@@ -5810,7 +6166,6 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
         if (mj.error) throw new Error(mj.error.message);
         const tabs = mj.sheets.map(s => s.properties.title);
         await fetchInvTab(sid, key, tabs[0]);
-        toggleEl('invCpanel');
         try { localStorage.setItem('ops_cfg', JSON.stringify({ sheetId: sid, apiKey: key })); } catch (e) { }
       } catch (e) { document.getElementById('livePip').style.display = 'none'; alert('Error: ' + e.message); }
     }
@@ -6071,7 +6426,6 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
         renderHome();
         renderTraf();
         renderAds();
-        toggleEl('invCpanel');
 
       } catch (err) {
         msgEl.textContent = '✗ ' + err.message;
@@ -6081,7 +6435,7 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
       }
     }
 
-    function loadLocalInv() { INVLIVE = []; toggleEl('invCpanel'); renderInv(); }
+    function loadLocalInv() { INVLIVE = []; renderInv(); }
 
     // ── FILE UPLOAD ──
     function dOver(e) { e.preventDefault(); document.getElementById('dropZone').classList.add('over'); }
@@ -6438,11 +6792,16 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
 
     function fmtRs(n) {
       if (n == null || isNaN(n)) return '₹0';
-      const abs = Math.abs(n);
       const sign = n < 0 ? '-' : '';
-      if (abs >= 100000) return sign + '₹' + (abs / 100000).toFixed(1) + 'L';
-      if (abs >= 1000) return sign + '₹' + (abs / 1000).toFixed(1) + 'k';
-      return sign + '₹' + Math.round(abs);
+      const v = Math.abs(Number(n));
+      // Show the full whole value with Indian-locale grouping. No L/k
+      // abbreviation. Decimals only when there's an actual fractional part —
+      // ₹500 stays clean, ₹2,547,108.70 keeps its paise.
+      const hasFraction = Math.round(v * 100) !== Math.round(v) * 100;
+      return sign + '₹' + v.toLocaleString('en-IN', {
+        minimumFractionDigits: hasFraction ? 2 : 0,
+        maximumFractionDigits: 2,
+      });
     }
 
     // Exact ₹ formatter — full Indian number format (used in Orders KPIs)
@@ -6999,6 +7358,8 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
       document.getElementById('masterDate').value = until;
       try { localStorage.setItem('ops_master_since', since); localStorage.setItem('ops_master_until', until); } catch (e) { }
       _updateDateRangeBtnLabel();
+      const notice = document.getElementById('dateRangeNotice');
+      if (notice) notice.style.display = 'none';
       closeDateRangePicker();
       // Same-origin fetch — no URL required
       fetchAll();
@@ -7037,18 +7398,26 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
       const label = since === until ? fmtDate(since) : (fmtDate(since) + ' → ' + fmtDate(until));
       const errors = [];
       let steps = 0, total = 6;
-      statusEl.textContent = '⏳ 1/' + total + ' Traffic…';
-      try { await fetchShopifyTraffic(); steps++; } catch (e) { errors.push('Traffic: ' + e.message); }
-      statusEl.textContent = '⏳ 2/' + total + ' Inventory…';
+      // Phase 1 — Inventory alone. Traffic's merge iterates DATA by slug to
+      // attach sessions, so DATA has to be populated by Inventory first.
+      statusEl.textContent = '⏳ 1/' + total + ' Inventory…';
       try { await fetchShopifyInventory(); steps++; } catch (e) { errors.push('Inventory: ' + e.message); }
-      statusEl.textContent = '⏳ 3/' + total + ' Orders…';
-      try { await fetchShopifyOrders(); steps++; } catch (e) { errors.push('Orders: ' + e.message); }
-      statusEl.textContent = '⏳ 4/' + total + ' Sales…';
-      try { await fetchShopifySales(); steps++; } catch (e) { errors.push('Sales: ' + e.message); }
-      statusEl.textContent = '⏳ 5/' + total + ' Ads…';
-      try { await fetchSupabaseAds(); steps++; } catch (e) { errors.push('Ads: ' + e.message); }
-      statusEl.textContent = '⏳ 6/' + total + ' Sell-Through Snapshot…';
-      try { await fetchSTRSnapshot(); steps++; } catch (e) { errors.push('STR: ' + e.message); }
+      // Phase 2 — Traffic, Orders, Sales, Supabase Ads, and Sell-Through Snapshot
+      // are independent, so fire them in parallel. Supabase typically dominates
+      // wall-clock here, so concurrency cuts total fetch time noticeably.
+      statusEl.textContent = '⏳ 2/' + total + ' Traffic, Orders, Sales, Ads, Snapshot…';
+      const _phase2 = await Promise.allSettled([
+        fetchShopifyTraffic(),
+        fetchShopifyOrders(),
+        fetchShopifySales(),
+        fetchSupabaseAds(),
+        fetchSTRSnapshot(),
+      ]);
+      const _phase2Labels = ['Traffic', 'Orders', 'Sales', 'Ads', 'STR'];
+      _phase2.forEach((r, i) => {
+        if (r.status === 'fulfilled') steps++;
+        else errors.push(_phase2Labels[i] + ': ' + (r.reason && r.reason.message ? r.reason.message : String(r.reason)));
+      });
       computeProductAttribution();
       renderHome();
       if (errors.length) {
@@ -7366,14 +7735,11 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
       document.getElementById('ordersSince').value = today.toISOString().slice(0, 10);
       const oUrl = localStorage.getItem('ops_orders_url');
       if (oUrl) document.getElementById('ordersServerUrl').value = oUrl;
-      // Master date defaults — yesterday by default (so dashboard auto-loads useful data on open)
-      const todayIso = today.toISOString().slice(0, 10);
-      const yIso = new Date(today.getTime() - 86400000).toISOString().slice(0, 10);
-      document.getElementById('masterDate').value = todayIso;
-      const savedSince = localStorage.getItem('ops_master_since');
-      const savedUntil = localStorage.getItem('ops_master_until');
-      document.getElementById('masterSince').value = savedSince || yIso;
-      document.getElementById('masterUntil').value = savedUntil || yIso;
+      // Master date inputs intentionally left empty: the dashboard does not preload
+      // any range. The user must explicitly pick a range, which fires fetchAll().
+      document.getElementById('masterDate').value = today.toISOString().slice(0, 10);
+      document.getElementById('masterSince').value = '';
+      document.getElementById('masterUntil').value = '';
       _updateDateRangeBtnLabel();
       const mUrl = localStorage.getItem('ops_master_url') || localStorage.getItem('ops_vercel_url') || '';
       if (mUrl) document.getElementById('masterServerUrl').value = mUrl;
@@ -7392,22 +7758,19 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
     populateInvTags();
     populateInvProductTypes();
     populateHomeCats();
-    // Clear any synthetic/embedded sample data so the dashboard starts with live data only
+    // Clear any synthetic/embedded sample data so the dashboard starts EMPTY.
+    // All data arrays are repopulated by fetchAll() once a date range is applied.
     try {
       SALES_DATA = [];
-      // Reset traffic/order metrics seeded from embedded DATA
-      DATA.forEach(r => {
-        r.visitors = 0; r.sessions = 0; r.cartAdds = 0; r.checkout = 0;
-        r.atcPct = 0; r.leakage = 0; r.bounceRate = 0; r.avgDuration = 0; r.ppSession = 0;
-        r._utmSources = {}; r._topUtm = ''; r.isAdLeak = false; r.acqSignal = false;
-        r._lifecycle = getLifecycleEx(r); extendDataModel(r);
-      });
+      DATA.length = 0;
+      if (typeof COLLECTION_DATA !== 'undefined') COLLECTION_DATA.length = 0;
+      if (typeof HOME_DATA !== 'undefined') HOME_DATA.length = 0;
+      if (typeof ORDERS_DATA !== 'undefined') ORDERS_DATA.length = 0;
+      if (typeof META_ADS_DATA !== 'undefined') META_ADS_DATA.length = 0;
     } catch (e) { console.warn('init reset:', e); }
     renderHome();
-    // Auto-fetch live data for the default range (yesterday)
-    setTimeout(function () {
-      try { fetchAll(); } catch (e) { console.warn('auto fetchAll failed:', e); }
-    }, 100);
+    // No auto-fetch on open — user must pick a date range. The empty-state
+    // banner (#dateRangeNotice) is visible by default; applyDateRange() hides it.
 
     // Forward wheel events from anywhere on page-home to the scroll container
     document.getElementById('page-home').addEventListener('wheel', function (e) {
