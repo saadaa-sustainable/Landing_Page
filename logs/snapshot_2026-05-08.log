@@ -1,0 +1,25 @@
+============================================== 
+Snapshot run started at Fri 05/08/2026  0:10:23.47 
+============================================== 
+
+[2026-05-08] Starting inventory snapshot...
+Calling http://localhost:5000/api/inventory ...
+  Got 821 color variants from server
+  Aggregated: 588 products, 593 color variants
+Saving snapshot for 2026-05-08 ...
+  Inserted 500/1181 rows...
+  Inserted 1000/1181 rows...
+  Inserted 1181/1181 rows...
+Traceback (most recent call last):
+  File "D:\landing_page\snapshot_inventory.py", line 187, in <module>
+    main()
+  File "D:\landing_page\snapshot_inventory.py", line 181, in main
+    save_snapshot(supabase, rows, date.today())
+  File "D:\landing_page\snapshot_inventory.py", line 161, in save_snapshot
+    print(f"\u2713 Snapshot saved: {len(rows)} rows for {today_str}")
+  File "C:\Users\Saadaa\AppData\Local\Programs\Python\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2713' in position 0: character maps to <undefined>
+Snapshot run finished at Fri 05/08/2026  0:10:52.42 (exit code 1) 
+ 

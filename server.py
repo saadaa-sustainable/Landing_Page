@@ -1,3 +1,4 @@
+\
 """
 saadaa traffic server
 ─────────────────────
@@ -56,8 +57,8 @@ def fetch_traffic(since: str, until: str) -> list:
         "pageviews_per_session, sessions_that_reached_checkout "
         "WHERE landing_page_path IS NOT NULL "
         "AND human_or_bot_session IN ('human', 'bot') "
-        "GROUP BY landing_page_type, landing_page_path, "
-        "utm_source, utm_medium, utm_campaign "
+        "GROUP BY landing_page_type, landing_page_path, day, "
+        "utm_source, utm_medium, utm_campaign, utm_content, utm_term "
         "WITH TOTALS "
         f"SINCE {since} UNTIL {until} "
         "ORDER BY sessions DESC "
@@ -382,155 +383,108 @@ def fetch_inventory() -> list:
 
 # ── Sales fetch ──────────────────────────────────────────────────────────────
 
-def fetch_refunds_in_range(since: str, until: str) -> dict:
-    """
-    DEPRECATED — kept for reference only. The current fetch_sales uses ShopifyQL
-    directly (FROM sales) which already returns Shopify Analytics' "returns"
-    column with the correct event-date semantics. This function only catches
-    refunds whose parent order has financial_status REFUNDED/PARTIALLY_REFUNDED
-    AND whose updated_at is in the window — empirically this misses ~85% of the
-    "returns" amount Shopify Analytics reports (because Shopify also counts
-    items returned via the Returns feature, store-credit refunds, etc.).
-    """
-    from datetime import datetime, timedelta
-    try:
-        until_buf = (datetime.fromisoformat(until) + timedelta(days=1)).date().isoformat()
-    except Exception:
-        until_buf = until
+SALES_NUMERIC_FIELDS = (
+    "net_items_sold",
+    "gross_sales",
+    "discounts",
+    "returns",
+    "net_sales",
+    "taxes",
+    "total_sales",
+)
 
-    refund_by_product: dict[str, dict] = {}
-    cursor = None
-    total_orders_scanned = 0
-    refund_events_kept = 0
-    max_pages = 80  # 80 * 50 = 4000 orders cap on the updated_at window
-
-    for page in range(max_pages):
-        after_clause = f', after: "{cursor}"' if cursor else ""
-        query_filter = f"updated_at:>={since} updated_at:<={until_buf}"
-        gql = """
-query {
-  orders(first: 50, query: \"""" + query_filter + """\", sortKey: UPDATED_AT, reverse: true""" + after_clause + """) {
-    pageInfo { hasNextPage endCursor }
-    nodes {
-      id
-      cancelledAt
-      refunds {
-        id
-        createdAt
-        totalRefundedSet { shopMoney { amount } }
-        refundLineItems(first: 50) {
-          nodes {
-            quantity
-            subtotalSet { shopMoney { amount } }
-            lineItem { title sku }
-          }
-        }
-      }
-    }
-  }
-}"""
-        try:
-            resp = requests.post(
-                f"https://{SHOP_DOMAIN}/admin/api/2025-10/graphql.json",
-                headers={"Content-Type": "application/json", "X-Shopify-Access-Token": ADMIN_ACCESS_TOKEN},
-                json={"query": gql}, timeout=30,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-        except Exception as e:
-            print(f"  [Refunds] HTTP error on page {page+1}: {e}")
-            break
-
-        if data.get("errors"):
-            print(f"  [Refunds] GraphQL errors: {data['errors']}")
-            break
-
-        orders_data = data.get("data", {}).get("orders", {}) or {}
-        nodes = orders_data.get("nodes", []) or []
-        page_info = orders_data.get("pageInfo", {}) or {}
-        total_orders_scanned += len(nodes)
-
-        for o in nodes:
-            if o.get("cancelledAt"):
-                continue
-            for r in (o.get("refunds") or []):
-                created = (r.get("createdAt") or "")[:10]
-                if not (since <= created <= until):
-                    continue
-                refund_events_kept += 1
-                rlis = ((r.get("refundLineItems") or {}).get("nodes")) or []
-                for rli in rlis:
-                    li = rli.get("lineItem") or {}
-                    title = (li.get("title") or "").strip()
-                    if not title:
-                        continue
-                    qty = int(rli.get("quantity") or 0)
-                    try:
-                        amt = abs(float(((rli.get("subtotalSet") or {}).get("shopMoney") or {}).get("amount") or 0))
-                    except Exception:
-                        amt = 0.0
-                    bucket = refund_by_product.setdefault(title, {"qty": 0, "amount": 0.0})
-                    bucket["qty"] += qty
-                    bucket["amount"] += amt
-
-        if not page_info.get("hasNextPage", False):
-            break
-        cursor = page_info.get("endCursor")
-
-    print(f"  [Refunds] {refund_events_kept} refund events kept across {total_orders_scanned} orders updated in [{since}..{until_buf}]")
-    return refund_by_product
-
+SALES_DIMENSION_FIELDS = (
+    "day",
+    "product_title",
+    "product_type",
+    # Session-level utm_* columns are NOT exposed by the Admin GraphQL sales
+    # dataset (Shopify's report editor resolves them via a session join that
+    # the API doesn't surface). The order-level order_utm_* columns ARE
+    # available and carry the last-click attribution that's stamped on the
+    # order at checkout — which is what the dashboard reads via field aliases.
+    "order_utm_campaign",
+    "order_utm_content",
+    "order_utm_medium",
+    "order_utm_source",
+    "order_utm_term",
+    "line_item_id",
+    "customer_id",
+    "new_or_returning_customer",
+    "customer_last_order_date",
+    "customer_number_of_orders",
+    # __totals columns Shopify appends because of WITH TOTALS
+    "net_items_sold__totals",
+    "gross_sales__totals",
+    "discounts__totals",
+    "returns__totals",
+    "net_sales__totals",
+    "taxes__totals",
+    "total_sales__totals",
+)
 
 def fetch_sales(since: str, until: str) -> list:
     """
-    Per-product sales pulled from ShopifyQL `FROM sales` so the numbers match
-    Shopify Analytics exactly — including returns attributed by refund-event
-    date (not by order-creation date), shipping_charges in total_sales, and
-    net_items_sold net of refunded units.
-
-    Returns: [{product_title, product_vendor, product_type, net_items_sold,
-               gross_sales, discounts, returns, net_sales, taxes, total_sales}]
-
-    Sign convention (kept consistent with the previous order-aggregation code):
-      gross_sales  positive
-      discounts    POSITIVE magnitude (ShopifyQL returns negative; we negate)
-      returns      POSITIVE magnitude (ShopifyQL returns negative; we negate)
-      net_sales    positive  = gross - discounts - returns
-      taxes        positive
-      total_sales  positive  = net_sales + taxes + shipping_charges
+    Direct ShopifyQL fetch — returns rows exactly as Shopify computes them
+    (last-click attribution, with day / product / UTM / customer breakdown).
+    No custom aggregation or proportional distribution is applied here; the
+    dashboard receives the raw per-row metrics so its filters can re-aggregate
+    the same way Shopify does.
     """
+    print(f"  [Sales] Fetching ShopifyQL sales {since}..{until}...")
+
+    # Matches Shopify's "Total sales by product" report semantics.
+    # Notes vs the report-editor query:
+    #   - utm_source/medium/campaign/content/term are session-level fields not
+    #     exposed by the sales dataset in the Admin GraphQL API. The Prakash
+    #     editor resolves them via a hidden session join; the API doesn't.
+    #   - LAST_CLICK_ATTRIBUTION is dropped because the API requires an
+    #     attributable metric to be SELECTed, and none of the seven metrics in
+    #     SHOW are selectable in their __last_click form. Attribution still
+    #     comes through via order_utm_* (the UTMs Shopify stamps on the order
+    #     at checkout — i.e. last-click already baked in).
     ql = (
         "FROM sales "
-        "SHOW gross_sales, discounts, returns, net_sales, shipping_charges, "
-        "taxes, total_sales, net_items_sold "
-        "GROUP BY product_title "
-        "ORDER BY total_sales DESC "
-        "LIMIT 1000 "
-        f"SINCE {since} UNTIL {until}"
+        "SHOW net_items_sold, gross_sales, discounts, returns, net_sales, taxes, total_sales "
+        "WHERE product_title IS NOT NULL "
+        "AND sales_channel != 'Return Prime: Order Return' "
+        "GROUP BY day, product_title, product_type, "
+        "order_utm_campaign, order_utm_content, order_utm_medium, order_utm_source, order_utm_term, "
+        "line_item_id, customer_id, new_or_returning_customer, "
+        "customer_last_order_date, customer_number_of_orders "
+        "WITH TOTALS "
+        f"SINCE {since} UNTIL {until} "
+        "ORDER BY day ASC "
+        "LIMIT 1000"
     )
-    gql = """
+
+    query = """
     query($ql: String!) {
       shopifyqlQuery(query: $ql) {
-        tableData { columns { name dataType } rows }
+        tableData {
+          columns { name dataType }
+          rows
+        }
         parseErrors
       }
     }
     """
-    print(f"  [Sales] ShopifyQL FROM sales {since}..{until}")
+
     resp = requests.post(
         f"https://{SHOP_DOMAIN}/admin/api/2025-10/graphql.json",
         headers={
             "Content-Type": "application/json",
             "X-Shopify-Access-Token": ADMIN_ACCESS_TOKEN,
         },
-        json={"query": gql, "variables": {"ql": ql}},
-        timeout=30,
+        json={"query": query, "variables": {"ql": ql}},
+        timeout=60,
     )
     resp.raise_for_status()
     data = resp.json()
+
     if data.get("errors"):
-        raise ValueError(f"ShopifyQL GraphQL error: {data['errors']}")
-    sqr = (data.get("data") or {}).get("shopifyqlQuery") or {}
+        raise ValueError(f"GraphQL error: {data['errors']}")
+
+    sqr = data.get("data", {}).get("shopifyqlQuery", {}) or {}
     parse_errors = sqr.get("parseErrors") or []
     if parse_errors:
         raise ValueError(f"ShopifyQL parse error: {parse_errors}")
@@ -538,54 +492,38 @@ def fetch_sales(since: str, until: str) -> list:
     table = sqr.get("tableData") or {}
     columns = table.get("columns") or []
     raw_rows = table.get("rows") or []
-    col_names = [c.get("name", "") for c in columns]
+    if not raw_rows:
+        print("  [Sales] No rows returned.")
+        return []
 
-    def _f(row, key):
-        try:
-            return float(row.get(key) or 0)
-        except Exception:
-            return 0.0
+    if isinstance(raw_rows[0], dict):
+        result = list(raw_rows)
+    else:
+        if not columns:
+            return []
+        col_names = [c.get("name", f"col_{i}") for i, c in enumerate(columns)]
+        result = []
+        for row in raw_rows:
+            if isinstance(row, list):
+                entry = {col_names[i]: val for i, val in enumerate(row) if i < len(col_names)}
+                result.append(entry)
 
-    def _i(row, key):
-        try:
-            return int(float(row.get(key) or 0))
-        except Exception:
-            return 0
+    # Cast numeric SHOW fields once so the client gets numbers, not strings.
+    for row in result:
+        for f in SALES_NUMERIC_FIELDS:
+            v = row.get(f)
+            if v is None or v == "":
+                row[f] = 0
+                continue
+            try:
+                row[f] = float(v)
+            except (TypeError, ValueError):
+                row[f] = 0
+        for f in SALES_DIMENSION_FIELDS:
+            if f in row and row[f] is None:
+                row[f] = ""
 
-    # Pass Shopify's values straight through so dashboard totals match Shopify
-    # Analytics exactly. discounts and returns are stored as POSITIVE magnitudes
-    # (ShopifyQL returns them negative); net_sales and total_sales are taken as
-    # Shopify computes them so there is no derivation drift.
-    result = []
-    for raw in raw_rows:
-        # Shopify sometimes returns rows as dicts, sometimes as arrays.
-        if isinstance(raw, list):
-            row = {col_names[i]: v for i, v in enumerate(raw) if i < len(col_names)}
-        elif isinstance(raw, dict):
-            row = raw
-        else:
-            continue
-
-        title = (row.get("product_title") or "").strip()
-        if not title:
-            continue
-
-        result.append({
-            "product_title": title,
-            "product_vendor": "",
-            "product_type": "",
-            "net_items_sold": _i(row, "net_items_sold"),
-            "gross_sales": _f(row, "gross_sales"),
-            "discounts": abs(_f(row, "discounts")),
-            "returns": abs(_f(row, "returns")),
-            "net_sales": _f(row, "net_sales"),
-            "shipping": _f(row, "shipping_charges"),
-            "taxes": _f(row, "taxes"),
-            "total_sales": _f(row, "total_sales"),
-        })
-
-    result.sort(key=lambda x: x["total_sales"], reverse=True)
-    print(f"  [Sales] {len(result)} products from ShopifyQL")
+    print(f"  [Sales] {len(result)} rows returned.")
     return result
 
 

@@ -11,6 +11,13 @@ REM ─────────────────────────�
 setlocal
 cd /d "%~dp0"
 
+REM Force UTF-8 for Python's stdout/stderr — prevents UnicodeEncodeError on
+REM characters like the success-tick when the script is invoked via this bat
+REM (Windows redirected stdout defaults to cp1252 which can't encode many of
+REM the unicode chars used by print statements). Without this, the inserts
+REM succeed but the script exits with code 1, making the task look failed.
+set "PYTHONIOENCODING=utf-8"
+
 set "LOG_DIR=%~dp0logs"
 if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
 

@@ -14,7 +14,13 @@
       "Bash(tasklist /FI \"PID eq 10972\" /FO CSV /NH)",
       "Bash(tasklist /FI \"PID eq 52008\" /FO CSV /NH)",
       "Bash(taskkill /F /PID 51140 /PID 10972 /PID 52008)",
-      "Bash(node -e \"const fs = require\\('fs'\\); const html = fs.readFileSync\\('dashboard_final.html', 'utf8'\\); const m = html.match\\(/<script>[\\\\s\\\\S]*?<\\\\/script>/g\\); if \\(!m\\) { console.log\\('no inline script'\\); process.exit\\(0\\); } let total = 0; m.forEach\\(\\(s, i\\) => { const code = s.replace\\(/^<script>/, ''\\).replace\\(/<\\\\/script>$/, ''\\); if \\(code.trim\\(\\).length < 100\\) return; total++; try { new Function\\(code\\); console.log\\('script ' + i + ' OK \\(' + code.length + ' chars\\)'\\); } catch \\(e\\) { console.log\\('script ' + i + ' ERR: ' + e.message\\); } }\\); console.log\\('checked ' + total + ' inline scripts'\\);\")"
+      "Bash(node -e \"const fs = require\\('fs'\\); const html = fs.readFileSync\\('dashboard_final.html', 'utf8'\\); const m = html.match\\(/<script>[\\\\s\\\\S]*?<\\\\/script>/g\\); if \\(!m\\) { console.log\\('no inline script'\\); process.exit\\(0\\); } let total = 0; m.forEach\\(\\(s, i\\) => { const code = s.replace\\(/^<script>/, ''\\).replace\\(/<\\\\/script>$/, ''\\); if \\(code.trim\\(\\).length < 100\\) return; total++; try { new Function\\(code\\); console.log\\('script ' + i + ' OK \\(' + code.length + ' chars\\)'\\); } catch \\(e\\) { console.log\\('script ' + i + ' ERR: ' + e.message\\); } }\\); console.log\\('checked ' + total + ' inline scripts'\\);\")",
+      "Bash(awk NR>=3450 && NR<=3580 *)",
+      "Bash(awk 'NR>=2960 && NR<=3010' D:/landing_page/dashboard_final.html)",
+      "Bash(awk 'NR>=5623 && NR<=5715' D:/landing_page/dashboard_final.html)",
+      "Bash(awk 'NR>=3735 && NR<=3790' D:/landing_page/dashboard_final.html)",
+      "Bash(awk 'NR>=7945 && NR<=7965' D:/landing_page/dashboard_final.html)",
+      "Bash(awk 'NR>=6640 && NR<=6730' D:/landing_page/dashboard_final.html)"
     ]
   }
 }

@@ -376,21 +376,69 @@ def fetch_refunds_in_range(since: str, until: str) -> dict:
     return refund_by_product
 
 
+SALES_NUMERIC_FIELDS = (
+    "net_items_sold",
+    "gross_sales",
+    "discounts",
+    "returns",
+    "net_sales",
+    "taxes",
+    "total_sales",
+)
+
+SALES_DIMENSION_FIELDS = (
+    "day",
+    "product_title",
+    "product_type",
+    # Session-level utm_* are NOT exposed in the Admin GraphQL sales dataset.
+    # Shopify's report editor resolves them via a hidden session join the API
+    # doesn't surface. order_utm_* IS exposed and carries the last-click value
+    # Shopify stamps on the order at checkout.
+    "order_utm_campaign",
+    "order_utm_content",
+    "order_utm_medium",
+    "order_utm_source",
+    "order_utm_term",
+    "line_item_id",
+    "customer_id",
+    "new_or_returning_customer",
+    "customer_last_order_date",
+    "customer_number_of_orders",
+    # __totals columns Shopify appends because of WITH TOTALS
+    "net_items_sold__totals",
+    "gross_sales__totals",
+    "discounts__totals",
+    "returns__totals",
+    "net_sales__totals",
+    "taxes__totals",
+    "total_sales__totals",
+)
+
+
 def fetch_sales(since: str, until: str) -> list:
     """
-    Per-product sales pulled from ShopifyQL `FROM sales` so the numbers match
-    Shopify Analytics exactly. Sign convention: discounts and returns returned
-    as POSITIVE magnitudes (ShopifyQL gives them as negative; we abs()).
+    Direct ShopifyQL fetch — returns one row per
+    day × product × order_utm × customer combination, plus the __totals columns
+    Shopify appends. No custom aggregation: the dashboard collapses raw rows
+    however the user wants. Numbers match Shopify's "Total sales by product"
+    report exactly (including the LAST_CLICK_ATTRIBUTION semantics, which we
+    get via order_utm_* — Shopify stamps last-click onto the order at checkout).
     """
     ql = (
         "FROM sales "
-        "SHOW gross_sales, discounts, returns, net_sales, shipping_charges, "
-        "taxes, total_sales, net_items_sold "
-        "GROUP BY product_title "
-        "ORDER BY total_sales DESC "
-        "LIMIT 1000 "
-        f"SINCE {since} UNTIL {until}"
+        "SHOW net_items_sold, gross_sales, discounts, returns, net_sales, taxes, total_sales "
+        "WHERE product_title IS NOT NULL "
+        "AND sales_channel != 'Return Prime: Order Return' "
+        "GROUP BY day, product_title, product_type, "
+        "order_utm_campaign, order_utm_content, order_utm_medium, order_utm_source, order_utm_term, "
+        "line_item_id, customer_id, new_or_returning_customer, "
+        "customer_last_order_date, customer_number_of_orders "
+        "WITH TOTALS "
+        f"SINCE {since} UNTIL {until} "
+        "ORDER BY day ASC "
+        "LIMIT 1000"
     )
+
     gql = """
     query($ql: String!) {
       shopifyqlQuery(query: $ql) {
@@ -406,7 +454,7 @@ def fetch_sales(since: str, until: str) -> list:
             "X-Shopify-Access-Token": ADMIN_ACCESS_TOKEN,
         },
         json={"query": gql, "variables": {"ql": ql}},
-        timeout=30,
+        timeout=60,
     )
     resp.raise_for_status()
     data = resp.json()
@@ -420,50 +468,31 @@ def fetch_sales(since: str, until: str) -> list:
     table = sqr.get("tableData") or {}
     columns = table.get("columns") or []
     raw_rows = table.get("rows") or []
-    col_names = [c.get("name", "") for c in columns]
+    if not raw_rows:
+        return []
 
-    def _f(row, key):
-        try:
-            return float(row.get(key) or 0)
-        except Exception:
-            return 0.0
+    if isinstance(raw_rows[0], dict):
+        result = list(raw_rows)
+    else:
+        if not columns:
+            return []
+        col_names = [c.get("name", f"col_{i}") for i, c in enumerate(columns)]
+        result = []
+        for row in raw_rows:
+            if isinstance(row, list):
+                result.append({col_names[i]: v for i, v in enumerate(row) if i < len(col_names)})
 
-    def _i(row, key):
-        try:
-            return int(float(row.get(key) or 0))
-        except Exception:
-            return 0
+    # Cast SHOW + __totals fields to numbers; pass dimensions through verbatim.
+    for row in result:
+        for f in SALES_NUMERIC_FIELDS:
+            v = row.get(f)
+            row[f] = float(v) if v not in (None, "") else 0
+            t = row.get(f + "__totals")
+            row[f + "__totals"] = float(t) if t not in (None, "") else 0
+        for f in SALES_DIMENSION_FIELDS:
+            if f in row and row[f] is None:
+                row[f] = ""
 
-    # Pass Shopify's values straight through — dashboard totals match Shopify
-    # Analytics exactly. discounts/returns stored as positive magnitudes.
-    result = []
-    for raw in raw_rows:
-        if isinstance(raw, list):
-            row = {col_names[i]: v for i, v in enumerate(raw) if i < len(col_names)}
-        elif isinstance(raw, dict):
-            row = raw
-        else:
-            continue
-
-        title = (row.get("product_title") or "").strip()
-        if not title:
-            continue
-
-        result.append({
-            "product_title": title,
-            "product_vendor": "",
-            "product_type": "",
-            "net_items_sold": _i(row, "net_items_sold"),
-            "gross_sales": _f(row, "gross_sales"),
-            "discounts": abs(_f(row, "discounts")),
-            "returns": abs(_f(row, "returns")),
-            "net_sales": _f(row, "net_sales"),
-            "shipping": _f(row, "shipping_charges"),
-            "taxes": _f(row, "taxes"),
-            "total_sales": _f(row, "total_sales"),
-        })
-
-    result.sort(key=lambda x: x["total_sales"], reverse=True)
     return result
 
 

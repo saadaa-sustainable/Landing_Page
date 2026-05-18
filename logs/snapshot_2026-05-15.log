@@ -1,0 +1,40 @@
+============================================== 
+Snapshot run started at Fri 05/15/2026  0:10:24.00 
+============================================== 
+
+[2026-05-15] Starting inventory snapshot...
+Calling http://localhost:5000/api/inventory ...
+  Local server unavailable (HTTPConnectionPool(host='localhost', port=5000): Max retries exceeded with url: /api/inventory (Caused by NewConnectionError("HTTPConnection(host='localhost', port=5000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))); falling back to direct fetch.
+Fetching inventory directly from Shopify (no local server needed)...
+  [Inventory] Page 1: 50 products (total: 50)
+  [Inventory] Page 2: 50 products (total: 100)
+  [Inventory] Page 3: 50 products (total: 150)
+  [Inventory] Page 4: 50 products (total: 200)
+  [Inventory] Page 5: 50 products (total: 250)
+  [Inventory] Page 6: 50 products (total: 300)
+  [Inventory] Page 7: 50 products (total: 350)
+  [Inventory] Page 8: 50 products (total: 400)
+  [Inventory] Page 9: 50 products (total: 450)
+  [Inventory] Page 10: 50 products (total: 500)
+  [Inventory] Page 11: 50 products (total: 550)
+  [Inventory] Page 12: 50 products (total: 600)
+  [Inventory] Page 13: 50 products (total: 650)
+  [Inventory] Page 14: 50 products (total: 700)
+  [Inventory] Page 15: 50 products (total: 750)
+  [Inventory] Page 16: 50 products (total: 800)
+  [Inventory] Page 17: 50 products (total: 850)
+  [Inventory] Page 18: 50 products (total: 900)
+  [Inventory] Page 19: 36 products (total: 936)
+  [Inventory] Done. 936 products → 939 color variants.
+  Got 939 color variants from Shopify
+  Aggregated: 597 products, 705 color variants
+Saving snapshot for 2026-05-15 ...
+  Inserted 500/1302 rows...
+  Inserted 1000/1302 rows...
+  Inserted 1302/1302 rows...
+✓ Snapshot saved: 1302 rows for 2026-05-15
+
+Done ✓
+
+Snapshot run finished at Fri 05/15/2026  0:10:58.26 (exit code 0) 
+ 

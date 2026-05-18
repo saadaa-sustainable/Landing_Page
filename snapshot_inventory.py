@@ -126,7 +126,10 @@ def aggregate_by_product(variants: list) -> list:
     product_rows = [
         {
             "product_title": title.lower().strip(),
-            "color_sku": None,
+            # Product-level rows use an empty string (not NULL) so the table
+            # view doesn't show "null" cells. Frontend's STR computation reads
+            # `color_sku || ''` so both null and "" are treated as product-level.
+            "color_sku": "",
             "total_stock": total,
         }
         for title, total in product_totals.items()
