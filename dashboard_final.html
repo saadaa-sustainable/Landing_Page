@@ -5047,14 +5047,23 @@
           }
 
           if (ads.length > 0) {
-            // Expand per-ad rows, inherit account-level metrics proportionally
+            // Expand per-ad rows. ads_json uses Supabase's compact camelCase
+            // convention (adId / adName / adLink / spend / clicks / impr /
+            // convV / thru / vid3 / campName); we accept both that and the
+            // flat Postgres-snake_case form (ad_id, ad_name, amount_spent_inr,
+            // outbound_clicks, …) so either source shape works.
             ads.forEach(ad => {
-              const adSpend = parseFloat(ad.spend || ad.total_spend || 0);
-              const adImpr = parseInt(ad.impressions || ad.total_impr || 0);
-              const adConvValue = parseFloat(ad.conv_value || ad.purchase_value || ad.total_conv_value || 0);
-              const adClicks = parseInt(ad.outbound_clicks || ad.clicks || 0);
-              const adThruPlays = parseInt(ad.thru_plays || ad.total_thru_plays || 0);
-              const adVideoPlays = parseInt(ad.video_plays || ad.total_video_plays || 0);
+              const _ad_id = String(ad.adId || ad.ad_id || ad.id || '');
+              const _ad_name = String(ad.adName || ad.ad_name || ad.name || '');
+              const _ad_link = String(ad.adLink || ad.ad_link || ad.link || row.ad_link || '');
+              const _camp_name = String(ad.campName || ad.campaign_name || ad.campaignName || row.campaign_name || '');
+              const _camp_id = String(ad.campaignId || ad.campaign_id || ad.campId || row.campaign_id || '');
+              const adSpend = parseFloat(ad.spend || ad.amount_spent_inr || ad.total_spend || 0);
+              const adImpr = parseInt(ad.impr || ad.impressions || ad.total_impr || 0);
+              const adConvValue = parseFloat(ad.convV || ad.conversion_value || ad.conv_value || ad.purchase_value || ad.total_conv_value || 0);
+              const adClicks = parseInt(ad.clicks || ad.outbound_clicks || 0);
+              const adThruPlays = parseInt(ad.thru || ad.thruplays || ad.thru_plays || ad.total_thru_plays || 0);
+              const adVideoPlays = parseInt(ad.vid3 || ad.three_sec_video_plays || ad.video_plays || ad.total_video_plays || 0);
               const adReach = parseInt(ad.reach || ad.total_reach || 0);
 
               // Derive product mapping: match ad id/name to product_breakdown keys
@@ -5062,8 +5071,8 @@
               let productRevenue = 0;
               if (Object.keys(productBreakdown).length > 0) {
                 // product_breakdown keys may be ad IDs or product names
-                const adId = String(ad.id || '');
-                const adName = String(ad.name || '');
+                const adId = _ad_id;
+                const adName = _ad_name;
                 if (productBreakdown[adId]) {
                   const pb = productBreakdown[adId];
                   productName = pb.product_title || pb.product || adName || '—';
@@ -5081,11 +5090,11 @@
               }
 
               META_ADS_DATA.push({
-                adId: String(ad.id || ''),
-                adName: String(ad.name || ad.ad_name || ''),
-                adLink: String(ad.ad_link || ad.adLink || ad.link || row.ad_link || ''),
-                campaignName: String(ad.campaign_name || ad.campaignName || row.campaign_name || ''),
-                campaignId: String(ad.campaign_id || ad.campaignId || row.campaign_id || ''),
+                adId: _ad_id,
+                adName: _ad_name,
+                adLink: _ad_link,
+                campaignName: _camp_name,
+                campaignId: _camp_id,
                 account: row.account_name || '',
                 dateFrom: row.data_date_from || '',
                 dateTo: row.data_date_to || '',
@@ -8969,7 +8978,10 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
       (COLLECTION_DATA || []).forEach(c => (c._utmRows || []).forEach(r => _accSessions(c.path, r)));
       (HOME_DATA || []).forEach(h => (h._utmRows || []).forEach(r => _accSessions(h.path || '/', r)));
 
-      // Group ads by landing_page (from ad_link)
+      // Group ads by landing_page (from ad_link). Spend / clicks / impressions
+      // sum across every row (one ad can appear on multiple days), but the
+      // "# Ads" column reports UNIQUE ad_ids so the count matches Supabase's
+      // distinct-ad view rather than the row-instance count.
       const byLanding = new Map();
       (META_ADS_DATA || []).forEach(ad => {
         const path = _adLinkToPath(ad.adLink);
@@ -8977,7 +8989,6 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
         if (!byLanding.has(path)) {
           byLanding.set(path, {
             path,
-            adCount: 0,
             adClicks: 0,
             spend: 0,
             impressions: 0,
@@ -8989,7 +9000,6 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
           });
         }
         const b = byLanding.get(path);
-        b.adCount++;
         b.adClicks += +ad.clicks || 0;
         b.spend += +ad.spend || 0;
         b.impressions += +ad.impressions || 0;
@@ -8999,6 +9009,9 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
         if (ad.campaignName) b.campaigns.add(ad.campaignName);
         b.ads.push(ad);
       });
+      // Promote unique-ad count off the adIds Set so the table reports
+      // distinct ads (matches Supabase row count when one row = one ad).
+      byLanding.forEach(b => { b.adCount = b.adIds.size || b.ads.length; });
 
       // For each landing page, attach sessions + last-click sales
       const joined = [];
