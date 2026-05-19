@@ -59,7 +59,7 @@ def preflight(**_):
 
 # ── Shopify helpers ───────────────────────────────────────────────────────────
 
-SHOPIFY_GQL = f"https://{SHOP_DOMAIN}/admin/api/2024-10/graphql.json"
+SHOPIFY_GQL = f"https://{SHOP_DOMAIN}/admin/api/2025-10/graphql.json"
 SHOPIFY_HEADERS = lambda: {
     "Content-Type": "application/json",
     "X-Shopify-Access-Token": ADMIN_ACCESS_TOKEN,
