@@ -5039,14 +5039,54 @@
         }
         const rows = await resp.json();
         if (rows && rows.error) throw new Error(rows.error);
-        if (!Array.isArray(rows) || !rows.length) throw new Error('No ad rows. Check Supabase env vars and results_table.');
+        if (!Array.isArray(rows) || !rows.length) throw new Error('No ad rows. Check Supabase env vars and the primary_table.');
 
         console.log('[Supabase] fetched', rows.length, 'rows. First row keys:', Object.keys(rows[0]));
 
-        // Normalize rows: expand ads_json and product_breakdown into flat ad objects
+        // Normalize rows. Two shapes are supported:
+        //   (A) FLAT — each row is one ad per day with columns like ad_id,
+        //       ad_name, ad_link, amount_spent_inr, outbound_clicks, … (this
+        //       is what primary_table returns).
+        //   (B) NESTED — row has ads_json: [{...}, ...] and product_breakdown
+        //       columns (the old results_table shape).
+        // We detect (A) when the row carries ad_id at the root; otherwise we
+        // fall through to the existing ads_json expansion path.
         META_ADS_DATA = [];
         rows.forEach(row => {
-          // ads_json is a jsonb array of individual ad objects [{id, name, ...}, ...]
+          // ── Flat row from primary_table ──
+          if (row.ad_id || row.ad_link || row.amount_spent_inr != null) {
+            META_ADS_DATA.push({
+              adId: String(row.ad_id || ''),
+              adName: String(row.ad_name || ''),
+              adLink: String(row.ad_link || ''),
+              campaignName: String(row.campaign_name || ''),
+              campaignId: String(row.campaign_id || ''),
+              account: String(row.account_name || ''),
+              dateFrom: row.date || '',
+              dateTo: row.date_stop || row.date || '',
+              impressions: parseInt(row.impressions || 0),
+              spend: parseFloat(row.amount_spent_inr || 0),
+              clicks: parseInt(row.outbound_clicks || 0),
+              thruPlays: parseInt(row.thruplays || 0),
+              videoPlays: parseInt(row.three_sec_video_plays || 0),
+              reach: parseInt(row.reach || 0),
+              convValue: parseFloat(row.conversion_value || 0),
+              hookRate: parseFloat(row.three_sec_video_plays && row.thruplays ? row.thruplays / row.three_sec_video_plays : 0),
+              holdRate: 0,
+              thruplayRate: 0,
+              outboundCtr: parseFloat(row.ctr || 0),
+              engagementRate: 0,
+              cfRoas: parseFloat(row.purchase_roas || 0),
+              productName: '—',
+              productRevenue: parseFloat(row.conversion_value || 0),
+              _adStatus: String(row.ad_status || ''),
+              _previewLink: String(row.preview_link || ''),
+              _rowId: row.id,
+            });
+            return;
+          }
+
+          // ── Nested row from results_table ──
           let ads = [];
           if (row.ads_json) {
             try { ads = Array.isArray(row.ads_json) ? row.ads_json : JSON.parse(row.ads_json); } catch (e) { ads = []; }

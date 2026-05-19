@@ -179,7 +179,6 @@ def fetch_traffic(since: str, until: str) -> list:
         "WITH TOTALS "
         f"SINCE {since} UNTIL {until} "
         "ORDER BY sessions DESC "
-        "LIMIT 10000"
     )
     query = """
     query($ql: String!) {
@@ -468,7 +467,7 @@ def fetch_sales(since: str, until: str) -> dict:
     Returns BOTH the per-(day × product × order_utm × customer × line_item)
     detail rows AND a separate server-aggregated per-product totals array.
     The detail rows feed UTM Analysis / raw-row mode and are capped at
-    LIMIT 10000; byProduct is one row per product (no cap issue) so the
+    no LIMIT cap; byProduct is one row per product (no cap issue) so the
     main Sales tab always matches Shopify "Total sales by product" exactly.
     """
     ql_detail = (
@@ -483,7 +482,6 @@ def fetch_sales(since: str, until: str) -> dict:
         "WITH TOTALS "
         f"SINCE {since} UNTIL {until} "
         "ORDER BY day ASC "
-        "LIMIT 10000"
     )
     ql_byproduct = (
         "FROM sales "
@@ -494,7 +492,6 @@ def fetch_sales(since: str, until: str) -> dict:
         "WITH TOTALS "
         f"SINCE {since} UNTIL {until} "
         "ORDER BY total_sales DESC "
-        "LIMIT 1000"
     )
 
     detail_rows = _table_to_rows(_shopifyql_table(ql_detail))
@@ -647,20 +644,18 @@ def _supabase_get(table: str, params: list) -> list:
 
 
 def fetch_ads(since: str = "", until: str = "") -> list:
-    params = [
-        ("select", "*"),
-        ("order", "total_spend.desc"),
-        ("limit", "500"),
-    ]
+    """Flat per-ad-per-day rows from Supabase primary_table, filtered on `date`.
+    No LIMIT cap — Supabase REST handles paging; we surface everything that
+    matches the requested range so the Ads × Landing Page join is complete.
+    """
+    params = [("select", "*"), ("order", "amount_spent_inr.desc")]
     if since:
-        params.append(("computed_at", f"gte.{since}T00:00:00"))
+        params.append(("date", f"gte.{since}"))
     if until:
-        params.append(("computed_at", f"lte.{until}T23:59:59"))
-    rows = _supabase_get("results_table", params)
+        params.append(("date", f"lte.{until}"))
+    rows = _supabase_get("primary_table", params)
     if (not rows) and (since or until):
-        rows = _supabase_get("results_table", [
-            ("select", "*"), ("order", "total_spend.desc"), ("limit", "500"),
-        ])
+        rows = _supabase_get("primary_table", [("select", "*"), ("order", "amount_spent_inr.desc")])
     return rows
 
 

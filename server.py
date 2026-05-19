@@ -63,7 +63,6 @@ def fetch_traffic(since: str, until: str) -> list:
         "WITH TOTALS "
         f"SINCE {since} UNTIL {until} "
         "ORDER BY sessions DESC "
-        "LIMIT 10000"
     )
 
     query = """
@@ -474,7 +473,7 @@ def fetch_sales(since: str, until: str) -> dict:
     """
     Direct ShopifyQL fetch — returns BOTH:
       * rows: per-(day × product × order_utm × customer × line_item) detail
-        (the granularity the user wants for UTM Analysis + raw breakdown). Subject to LIMIT 10000.
+        (the granularity the user wants for UTM Analysis + raw breakdown).
       * byProduct: server-aggregated per-product totals (one row per product,
         no LIMIT issues — matches Shopify's "Total sales by product" report exactly).
     Dashboard uses byProduct for the unfiltered per-product table so the numbers
@@ -505,7 +504,6 @@ def fetch_sales(since: str, until: str) -> dict:
         "WITH TOTALS "
         f"SINCE {since} UNTIL {until} "
         "ORDER BY day ASC "
-        "LIMIT 10000"
     )
 
     # Per-product totals query — server-aggregates so the per-product table
@@ -519,7 +517,6 @@ def fetch_sales(since: str, until: str) -> dict:
         "WITH TOTALS "
         f"SINCE {since} UNTIL {until} "
         "ORDER BY total_sales DESC "
-        "LIMIT 1000"
     )
 
     detail_rows = _shopifyql_rows(_shopifyql(ql_detail))
@@ -567,17 +564,17 @@ def fetch_orders(since: str, until: str) -> list:
     """
     all_orders = []
     current_cursor = None
-    max_pages = 40  # 50 * 40 = 2000 orders max
+    max_pages = 100  # 50 * 100 = 5000 orders max
 
     for page in range(max_pages):
         after_clause = f', after: "{current_cursor}"' if current_cursor else ""
-
+    
         # Shopify query filter: use simple date strings
         query_filter = f"created_at:>={since} created_at:<={until}"
 
         gql = """
 query {
-  orders(first: 50, query: \"""" + query_filter + """\", sortKey: CREATED_AT, reverse: true""" + after_clause + """) {
+  orders(first: 100, query: \"""" + query_filter + """\", sortKey: CREATED_AT, reverse: true""" + after_clause + """) {
     pageInfo { hasNextPage endCursor }
     nodes {
       id
@@ -711,22 +708,22 @@ def _supabase_get(table: str, params: list) -> list:
 
 
 def fetch_ads(since: str = "", until: str = "") -> list:
-    """Fetch ad rows from Supabase results_table, optionally filtered by computed_at range."""
-    params = [
-        ("select", "*"),
-        ("order", "total_spend.desc"),
-        ("limit", "500"),
-    ]
+    """Fetch ad rows from Supabase primary_table — one row per ad per day with
+    flat columns (ad_id, ad_name, ad_link, amount_spent_inr, outbound_clicks,
+    impressions, …). Filters by the `date` column when since/until are passed.
+    No LIMIT — Supabase REST will still page if needed, but the dashboard now
+    receives every ad matching the range.
+    """
+    params = [("select", "*"), ("order", "amount_spent_inr.desc")]
     if since:
-        params.append(("computed_at", f"gte.{since}T00:00:00"))
+        params.append(("date", f"gte.{since}"))
     if until:
-        params.append(("computed_at", f"lte.{until}T23:59:59"))
-    rows = _supabase_get("results_table", params)
-    # If date filter returned nothing, retry without filter so the dashboard at least shows something
+        params.append(("date", f"lte.{until}"))
+    rows = _supabase_get("primary_table", params)
     if (not rows) and (since or until):
-        rows = _supabase_get("results_table", [
-            ("select", "*"), ("order", "total_spend.desc"), ("limit", "500"),
-        ])
+        # If the date filter wiped everything, fall back to unfiltered so the
+        # dashboard still has something to show.
+        rows = _supabase_get("primary_table", [("select", "*"), ("order", "amount_spent_inr.desc")])
     return rows
 
 
