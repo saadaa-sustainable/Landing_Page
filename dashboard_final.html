@@ -3574,6 +3574,7 @@
           <div class="vtog">
             <button class="vb on" id="utm-prod" onclick="setUtmView('products')">Products</button>
             <button class="vb" id="utm-coll" onclick="setUtmView('collections')">Collections</button>
+            <button class="vb" id="utm-ads" onclick="setUtmView('ads')">Ads × Landing Page</button>
           </div>
         </div>
         <input class="srch" id="utmSrch" placeholder="Search…" oninput="renderUtmAnalysis()"
@@ -5082,6 +5083,9 @@
               META_ADS_DATA.push({
                 adId: String(ad.id || ''),
                 adName: String(ad.name || ad.ad_name || ''),
+                adLink: String(ad.ad_link || ad.adLink || ad.link || row.ad_link || ''),
+                campaignName: String(ad.campaign_name || ad.campaignName || row.campaign_name || ''),
+                campaignId: String(ad.campaign_id || ad.campaignId || row.campaign_id || ''),
                 account: row.account_name || '',
                 dateFrom: row.data_date_from || '',
                 dateTo: row.data_date_to || '',
@@ -5113,6 +5117,9 @@
             META_ADS_DATA.push({
               adId: String(row.id || ''),
               adName: row.account_name || ('Row ' + row.id),
+              adLink: String(row.ad_link || ''),
+              campaignName: String(row.campaign_name || ''),
+              campaignId: String(row.campaign_id || ''),
               account: row.account_name || '',
               dateFrom: row.data_date_from || '',
               dateTo: row.data_date_to || '',
@@ -8731,22 +8738,23 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
 
     function setUtmView(v) {
       utmViewMode = v;
-      ['products', 'collections'].forEach(k => {
-        const el = document.getElementById('utm-' + (k === 'products' ? 'prod' : 'coll'));
+      const idMap = { products: 'utm-prod', collections: 'utm-coll', ads: 'utm-ads' };
+      Object.entries(idMap).forEach(([k, id]) => {
+        const el = document.getElementById(id);
         if (el) el.classList.toggle('on', k === v);
       });
-      // Collections now also have a last-click side (matched by UTM tuple),
-      // so the Show filter is useful here too — keep it visible.
       const showWrap = document.getElementById('utmShowWrap');
-      if (showWrap) showWrap.style.display = '';
-      // Update search placeholder
+      if (showWrap) showWrap.style.display = v === 'ads' ? 'none' : '';
       const s = document.getElementById('utmSrch');
-      if (s) s.placeholder = v === 'collections' ? 'Search collection…' : 'Search product…';
+      if (s) s.placeholder = v === 'collections' ? 'Search collection…'
+        : v === 'ads' ? 'Search landing page or ad…'
+          : 'Search product…';
       renderUtmAnalysis();
     }
 
     function renderUtmAnalysis() {
       if (utmViewMode === 'collections') return renderUtmCollections();
+      if (utmViewMode === 'ads') return renderUtmAds();
       return renderUtmProducts();
     }
 
@@ -8899,6 +8907,297 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
       viewEl.innerHTML = html;
 
       if (metaEl) metaEl.textContent = rows.length + ' products · ' + (rows.length > 300 ? 'showing top 300' : 'all shown');
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // ADS × LANDING PAGE — joins three datasets at the landing-page level:
+    //   • Meta ads (META_ADS_DATA)  → ad_link's pathname is the landing page
+    //   • Sessions (DATA._utmRows + COLLECTION_DATA._utmRows + HOME_DATA._utmRows)
+    //                               → match on landing_page_path
+    //   • Sales (SALES_RAW)         → match on utm_content (= ad_name or ad_id)
+    // ════════════════════════════════════════════════════════════════════════
+
+    // Parse an ad_link URL → the path (e.g. "/collections/cotton-trousers").
+    function _adLinkToPath(link) {
+      if (!link) return '';
+      try {
+        const u = new URL(link);
+        // Strip trailing slash, lowercase for stable matching
+        return (u.pathname || '/').replace(/\/$/, '').toLowerCase() || '/';
+      } catch (e) {
+        // Not a full URL — treat as already a path
+        return String(link).split('?')[0].split('#')[0].replace(/\/$/, '').toLowerCase() || '/';
+      }
+    }
+
+    // Cache for the row-click handler
+    let _utmAdsJoined = [];
+
+    function renderUtmAds() {
+      const emptyEl = document.getElementById('utmEmpty');
+      const viewEl = document.getElementById('utmView');
+      const kpiEl = document.getElementById('utmKpis');
+      const metaEl = document.getElementById('utmRowMeta');
+
+      if (!META_ADS_DATA.length) {
+        emptyEl.style.display = 'block';
+        emptyEl.textContent = 'No Meta ads loaded. Fetch ads from the navbar to populate this view.';
+        viewEl.innerHTML = '';
+        kpiEl.innerHTML = '';
+        if (metaEl) metaEl.textContent = '';
+        return;
+      }
+      emptyEl.style.display = 'none';
+
+      // Build landing-page → sessions lookup from every UTM-aware source we have
+      const sessionsByPath = {};
+      function _accSessions(path, row) {
+        const k = String(path || '').toLowerCase().replace(/\/$/, '') || '/';
+        if (!sessionsByPath[k]) sessionsByPath[k] = { sessions: 0, visitors: 0, cartAdds: 0, checkout: 0, byUtmContent: {} };
+        const b = sessionsByPath[k];
+        b.sessions += +row.sessions || 0;
+        b.visitors += +row.visitors || 0;
+        b.cartAdds += +row.cartAdds || 0;
+        b.checkout += +row.checkout || 0;
+        const uc = String(row.utmContent || '').toLowerCase().trim();
+        if (uc) b.byUtmContent[uc] = (b.byUtmContent[uc] || 0) + (+row.sessions || 0);
+      }
+      (DATA || []).forEach(p => {
+        const path = p._pagePath || ('/products/' + p.slug);
+        (p._utmRows || []).forEach(r => _accSessions(path, r));
+      });
+      (COLLECTION_DATA || []).forEach(c => (c._utmRows || []).forEach(r => _accSessions(c.path, r)));
+      (HOME_DATA || []).forEach(h => (h._utmRows || []).forEach(r => _accSessions(h.path || '/', r)));
+
+      // Group ads by landing_page (from ad_link)
+      const byLanding = new Map();
+      (META_ADS_DATA || []).forEach(ad => {
+        const path = _adLinkToPath(ad.adLink);
+        if (!path) return;
+        if (!byLanding.has(path)) {
+          byLanding.set(path, {
+            path,
+            adCount: 0,
+            adClicks: 0,
+            spend: 0,
+            impressions: 0,
+            reach: 0,
+            adNames: new Set(),
+            adIds: new Set(),
+            campaigns: new Set(),
+            ads: [],
+          });
+        }
+        const b = byLanding.get(path);
+        b.adCount++;
+        b.adClicks += +ad.clicks || 0;
+        b.spend += +ad.spend || 0;
+        b.impressions += +ad.impressions || 0;
+        b.reach += +ad.reach || 0;
+        if (ad.adName) b.adNames.add(ad.adName);
+        if (ad.adId) b.adIds.add(String(ad.adId));
+        if (ad.campaignName) b.campaigns.add(ad.campaignName);
+        b.ads.push(ad);
+      });
+
+      // For each landing page, attach sessions + last-click sales
+      const joined = [];
+      byLanding.forEach(b => {
+        const sess = sessionsByPath[b.path] || { sessions: 0, visitors: 0, cartAdds: 0, checkout: 0, byUtmContent: {} };
+        // Last-click sales: any SALES_RAW row whose utm_content (= order_utm_content
+        // aliased to utm_content client-side) matches one of this landing page's
+        // ad names or ad ids (case-insensitive).
+        const adNameSet = new Set([...b.adNames].map(s => String(s).toLowerCase().trim()));
+        const adIdSet = new Set([...b.adIds].map(s => String(s).toLowerCase().trim()));
+        let orders = 0, units = 0, totalSales = 0, netSales = 0, discounts = 0;
+        const matchedRows = [];
+        (SALES_RAW || []).forEach(s => {
+          const uc = String(s.utm_content || '').toLowerCase().trim();
+          if (!uc) return;
+          if (adNameSet.has(uc) || adIdSet.has(uc)) {
+            orders++;
+            units += +s.net_items_sold || 0;
+            totalSales += +s.total_sales || 0;
+            netSales += +s.net_sales || 0;
+            discounts += +s.discounts || 0;
+            matchedRows.push(s);
+          }
+        });
+        const roas = b.spend > 0 ? totalSales / b.spend : 0;
+        const cpc = b.adClicks > 0 ? b.spend / b.adClicks : 0;
+        joined.push({
+          path: b.path,
+          adCount: b.adCount,
+          adClicks: b.adClicks,
+          spend: b.spend,
+          impressions: b.impressions,
+          reach: b.reach,
+          campaigns: [...b.campaigns],
+          ads: b.ads,
+          sessions: sess.sessions,
+          visitors: sess.visitors,
+          cartAdds: sess.cartAdds,
+          checkout: sess.checkout,
+          atcPct: sess.sessions > 0 ? Math.round(sess.cartAdds / sess.sessions * 1000) / 10 : 0,
+          orders,
+          units,
+          totalSales,
+          netSales,
+          discounts,
+          roas,
+          cpc,
+          _matchedSales: matchedRows,
+        });
+      });
+
+      // Filter + sort
+      const q = (document.getElementById('utmSrch').value || '').toLowerCase();
+      const sortKey = document.getElementById('utmSortSelect').value;
+      let rows = joined.filter(r => {
+        if (!q) return true;
+        if ((r.path || '').toLowerCase().includes(q)) return true;
+        return r.ads.some(a => (a.adName || '').toLowerCase().includes(q));
+      });
+      const sorter = {
+        lastTotal: (a, b) => b.totalSales - a.totalSales,
+        firstSessions: (a, b) => b.sessions - a.sessions,
+        firstAtc: (a, b) => b.atcPct - a.atcPct,
+        lastUnits: (a, b) => b.units - a.units,
+        alpha: (a, b) => String(a.path).localeCompare(String(b.path)),
+      }[sortKey] || ((a, b) => b.totalSales - a.totalSales);
+      rows.sort(sorter);
+      _utmAdsJoined = rows;
+
+      // KPIs
+      const totSpend = rows.reduce((a, r) => a + r.spend, 0);
+      const totClicks = rows.reduce((a, r) => a + r.adClicks, 0);
+      const totSessions = rows.reduce((a, r) => a + r.sessions, 0);
+      const totSales = rows.reduce((a, r) => a + r.totalSales, 0);
+      const totOrders = rows.reduce((a, r) => a + r.orders, 0);
+      const blendRoas = totSpend > 0 ? totSales / totSpend : 0;
+      kpiEl.innerHTML =
+        kpi('ca', 'Landing pages', rows.length, rows.reduce((a, r) => a + r.adCount, 0) + ' ads tracked')
+        + kpi('out', 'Ad Spend', fmtRs(totSpend), fmt(totClicks) + ' outbound clicks')
+        + kpi('ct', 'Sessions', fmt(totSessions), 'first-click on landing path')
+        + kpi('in', 'Last-Click Sales', fmtRs(totSales), totOrders + ' orders matched by utm_content')
+        + kpi('ca', 'Blended ROAS', blendRoas ? (Math.round(blendRoas * 100) / 100) + 'x' : '—', 'sales / spend');
+
+      // Charts: top landing pages by spend (left) and by total sales (right)
+      const firstTitle = document.querySelector('#page-utm .crow .ch:nth-child(1) .cht');
+      const lastTitle = document.querySelector('#page-utm .crow .ch:nth-child(2) .cht');
+      if (firstTitle) firstTitle.textContent = 'Top Landing Pages by Ad Spend';
+      if (lastTitle) lastTitle.textContent = 'Top Landing Pages by Total Sales';
+      const topSpend = [...rows].sort((a, b) => b.spend - a.spend).slice(0, 10);
+      const topSales = [...rows].sort((a, b) => b.totalSales - a.totalSales).slice(0, 10);
+      ch('utmFirstSourceBar', 'bar',
+        { labels: topSpend.map(r => r.path), datasets: [{ label: 'Spend ₹', data: topSpend.map(r => r.spend), backgroundColor: 'rgba(224,117,85,.7)', borderRadius: 3 }] },
+        { indexAxis: 'y', plugins: { legend: { display: false } }, scales: hbar(false) });
+      ch('utmLastSourceBar', 'bar',
+        { labels: topSales.map(r => r.path), datasets: [{ label: 'Total Sales ₹', data: topSales.map(r => r.totalSales), backgroundColor: 'rgba(94,203,143,.7)', borderRadius: 3 }] },
+        { indexAxis: 'y', plugins: { legend: { display: false } }, scales: hbar(false) });
+
+      // Table
+      let html = '<div class="tbl-wrap"><div class="tbl-hdr"><span class="tbl-title">' + rows.length + ' landing pages</span>'
+        + '<span class="sec-meta" style="margin-left:8px;" title="Each row groups every Meta ad whose ad_link points to this landing page. Sessions come from sessions data matched on landing_page_path. Orders / total sales are from sales data matched on utm_content equal to one of the ads\' names (or IDs). Multiple ads to the same page collapse into one row.">click for ad-level + UTM detail · ⓘ</span></div>'
+        + '<div class="tbl-scr"><table class="dtbl"><thead><tr>'
+        + '<th>Landing Page</th><th># Ads</th><th>Spend</th><th>Outbound Clicks</th><th>Sessions</th><th>ATC%</th><th>Orders</th><th>Units</th><th>Total Sales</th><th>ROAS</th>'
+        + '</tr></thead><tbody>';
+      const maxSpend = Math.max(...rows.map(r => r.spend), 1);
+      rows.slice(0, 300).forEach((r, i) => {
+        const matchCls = (r.sessions > 0 && r.totalSales > 0) ? '' : 'opacity:.7';
+        const roasColor = r.roas >= 2 ? 'color:#4ade80' : r.roas >= 1 ? 'color:var(--low)' : r.roas > 0 ? 'color:var(--out)' : '';
+        const atcColor = r.atcPct >= 10 ? 'color:#4ade80' : r.atcPct >= 5 ? 'color:var(--low)' : '';
+        const spendW = Math.min(100, Math.round(r.spend / maxSpend * 100));
+        html += '<tr onclick="openUtmAdsDetail(' + i + ')" style="cursor:pointer;' + matchCls + '" title="Click to see every ad + matched sales for this landing page">'
+          + '<td><div class="tn" data-tip="' + attrEsc(r.path) + '">' + sh(r.path) + '</div><div class="tm">' + (r.campaigns.slice(0, 2).join(', ') || '—') + (r.campaigns.length > 2 ? ' +' + (r.campaigns.length - 2) : '') + '</div></td>'
+          + '<td><div class="tnum">' + r.adCount + '</div></td>'
+          + '<td><div class="tnum" style="color:var(--out);">' + fmtRs(r.spend) + '</div><div class="mbar-bg"><div class="mbar-f" style="width:' + spendW + '%;background:rgba(224,117,85,.7);"></div></div></td>'
+          + '<td><div class="tnum">' + fmt(r.adClicks) + '</div></td>'
+          + '<td><div class="tnum">' + fmt(r.sessions) + '</div></td>'
+          + '<td><div class="tnum" style="' + atcColor + '">' + r.atcPct + '%</div></td>'
+          + '<td><div class="tnum">' + r.orders + '</div></td>'
+          + '<td><div class="tnum">' + r.units + '</div></td>'
+          + '<td><div class="tnum" style="color:#4ade80;">' + fmtRs(r.totalSales) + '</div></td>'
+          + '<td><div class="tnum" style="' + roasColor + '">' + (r.roas ? (Math.round(r.roas * 100) / 100) + 'x' : '—') + '</div></td>'
+          + '</tr>';
+      });
+      html += '</tbody></table></div></div>';
+      viewEl.innerHTML = html;
+      if (metaEl) metaEl.textContent = rows.length + ' landing pages · ' + rows.reduce((a, r) => a + r.adCount, 0) + ' ads · click for breakdown';
+    }
+
+    function openUtmAdsDetail(idx) {
+      const r = _utmAdsJoined[idx];
+      if (!r) return;
+      const d = document.getElementById('productDetailOverlay');
+      if (!d) return;
+
+      let html = '<div class="pd-modal" style="max-width:1100px;max-height:90vh;overflow-y:auto;">';
+      html += '<div class="pd-header"><div class="pd-title">' + sh(r.path) + '<div class="tm" style="font-size:.62rem;font-weight:400;margin-top:2px;">Ads × Landing Page · ' + r.adCount + ' ads · ' + r.campaigns.length + ' campaign' + (r.campaigns.length === 1 ? '' : 's') + '</div></div>';
+      html += '<button class="pd-close" onclick="closeProductDetail()">✕</button></div>';
+
+      // Top-line metrics
+      html += '<div class="pd-section"><div class="pd-section-title">Side-by-Side · Ads → Sessions → Sales</div>';
+      html += '<div class="pd-grid">'
+        + '<div class="pd-metric"><div class="pd-val" style="color:var(--out)">' + fmtRs(r.spend) + '</div><div class="pd-lbl">Ad Spend</div></div>'
+        + '<div class="pd-metric"><div class="pd-val">' + fmt(r.adClicks) + '</div><div class="pd-lbl">Outbound Clicks</div></div>'
+        + '<div class="pd-metric"><div class="pd-val">' + fmt(r.impressions) + '</div><div class="pd-lbl">Impressions</div></div>'
+        + '<div class="pd-metric"><div class="pd-val" style="color:var(--traf)">' + fmt(r.sessions) + '</div><div class="pd-lbl">Sessions (first-click)</div></div>'
+        + '<div class="pd-metric"><div class="pd-val">' + r.cartAdds + '</div><div class="pd-lbl">Cart Adds</div></div>'
+        + '<div class="pd-metric"><div class="pd-val">' + r.atcPct + '%</div><div class="pd-lbl">ATC%</div></div>'
+        + '<div class="pd-metric"><div class="pd-val" style="color:#4ade80">' + fmtRs(r.totalSales) + '</div><div class="pd-lbl">Total Sales</div></div>'
+        + '<div class="pd-metric"><div class="pd-val">' + r.orders + '</div><div class="pd-lbl">Orders</div></div>'
+        + '<div class="pd-metric"><div class="pd-val">' + r.units + '</div><div class="pd-lbl">Units Sold</div></div>'
+        + '<div class="pd-metric"><div class="pd-val">' + (r.roas ? (Math.round(r.roas * 100) / 100) + 'x' : '—') + '</div><div class="pd-lbl">ROAS</div></div>'
+        + '<div class="pd-metric"><div class="pd-val">' + (r.cpc ? '₹' + (Math.round(r.cpc * 100) / 100) : '—') + '</div><div class="pd-lbl">CPC</div></div>'
+        + '</div></div>';
+
+      // Per-ad table
+      const ads = [...r.ads].sort((a, b) => (b.spend || 0) - (a.spend || 0));
+      html += '<div class="pd-section"><div class="pd-section-title">Ads pointing to this landing page (' + ads.length + ')</div>';
+      html += '<div style="overflow-x:auto;"><table class="dtbl" style="font-size:.7rem;min-width:880px;"><thead><tr>'
+        + '<th>Ad Name</th><th>Campaign</th><th>Spend</th><th>Outbound</th><th>Impressions</th><th>ROAS</th>'
+        + '</tr></thead><tbody>';
+      ads.forEach(a => {
+        const ar = (a.spend > 0) ? (a.convValue || 0) / a.spend : 0;
+        html += '<tr>'
+          + '<td><div class="tn" data-tip="' + attrEsc(a.adName) + '" title="' + attrEsc(a.adName) + '">' + sh(a.adName || a.adId || '—') + '</div><div class="tm">' + sh(a.adId || '') + '</div></td>'
+          + '<td><div class="tm">' + sh(a.campaignName || '—') + '</div></td>'
+          + '<td><div class="tnum" style="color:var(--out);">' + fmtRs(a.spend || 0) + '</div></td>'
+          + '<td><div class="tnum">' + fmt(a.clicks || 0) + '</div></td>'
+          + '<td><div class="tnum">' + fmt(a.impressions || 0) + '</div></td>'
+          + '<td><div class="tnum">' + (ar ? (Math.round(ar * 100) / 100) + 'x' : '—') + '</div></td>'
+          + '</tr>';
+      });
+      html += '</tbody></table></div></div>';
+
+      // Matched sales rows (utm_content matched)
+      const matched = r._matchedSales || [];
+      if (matched.length) {
+        const sorted = [...matched].sort((a, b) => (+b.total_sales || 0) - (+a.total_sales || 0)).slice(0, 200);
+        html += '<div class="pd-section"><div class="pd-section-title">Matched sales · ' + matched.length + ' rows (utm_content ↔ ad name / id)</div>';
+        html += '<div style="overflow-x:auto;"><table class="dtbl" style="font-size:.68rem;min-width:920px;"><thead><tr>'
+          + '<th>Day</th><th>Product</th><th>UTM Content</th><th>UTM Source</th><th>Customer</th><th>Units</th><th>Total Sales</th>'
+          + '</tr></thead><tbody>';
+        sorted.forEach(s => {
+          html += '<tr>'
+            + '<td><div class="tm">' + sh(s.day || '—') + '</div></td>'
+            + '<td><div class="tm" data-tip="' + attrEsc(s.product_title) + '">' + sh(s.product_title || '—') + '</div></td>'
+            + '<td><div class="tm" data-tip="' + attrEsc(s.utm_content) + '" title="' + attrEsc(s.utm_content) + '">' + sh(s.utm_content || '—') + '</div></td>'
+            + '<td><div class="tm">' + sh(s.utm_source || '—') + '</div></td>'
+            + '<td><div class="tm">' + sh(s.new_or_returning_customer || '—') + '</div></td>'
+            + '<td><div class="tnum">' + (+s.net_items_sold || 0) + '</div></td>'
+            + '<td><div class="tnum" style="color:#4ade80;">' + fmtRs(s.total_sales) + '</div></td>'
+            + '</tr>';
+        });
+        html += '</tbody></table></div></div>';
+      } else {
+        html += '<div class="pd-section"><div class="pd-empty">No sales matched on utm_content. Check that the ad name in the order matches one of the ads above.</div></div>';
+      }
+
+      html += '</div>';
+      d.innerHTML = html;
+      d.style.display = 'flex';
     }
 
     // ── COLLECTION-level UTM analysis (first-click only) ──
