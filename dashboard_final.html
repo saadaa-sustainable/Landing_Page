@@ -1615,6 +1615,13 @@
       font-weight: 500;
       line-height: 1.3;
       color: var(--txt);
+      /* Show the whole name. Wrap at word boundaries (hyphens, underscores,
+         slashes count as soft breaks via overflow-wrap), only split a
+         character as a last resort. */
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: normal;
+      hyphens: auto;
     }
 
     .tm {
@@ -1622,7 +1629,13 @@
       font-size: .58rem;
       color: var(--mu);
       margin-top: 1px;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: normal;
     }
+
+    /* Cells that explicitly opt into single-line via inline style="white-space:nowrap"
+       (e.g. Date cells) still win because inline styles beat the class. */
 
     .tnum {
       font-family: 'Roboto', sans-serif;
@@ -3928,7 +3941,7 @@
           + '<td><label class="set-switch" title="' + (off ? 'Inactive — excluded from counts' : 'Active — counted in inventory') + '">'
             + '<input type="checkbox" ' + (off ? '' : 'checked') + ' onchange="setUserDisabled(\'' + slugEsc + '\', !this.checked)" />'
             + '<span class="set-slider"></span></label></td>'
-          + '<td><div class="tn" data-tip="' + attrEsc(r.name) + '">' + sh(r.name) + '</div><div class="tm">' + (r.slug || '').slice(0, 40) + '</div></td>'
+          + '<td><div class="tn" data-tip="' + attrEsc(r.name) + '">' + sh(r.name) + '</div><div class="tm">' + sh(r.slug || '') + '</div></td>'
           + '<td><div class="tm">' + sh(r.colorSku || '—') + '</div></td>'
           + '<td><div class="tm">' + sh(r.category || '—') + '</div></td>'
           + '<td><div class="tm" style="color:' + stockColor + ';text-transform:capitalize;">' + String(r.stockStatus || 'unknown').replace(/_/g, ' ') + '</div></td>'
@@ -4199,10 +4212,15 @@
 
     // ── HELPERS ──
     const fmt = n => n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n);
-    const sh = s => s && s.length > 26 ? s.slice(0, 25) + '…' : s || '';
+    // Visible cell text: always render the whole value. We used to truncate
+    // here ("name…") but that hid information the user needed; long values
+    // now wrap onto the next line via .tn / .tm CSS, breaking at word
+    // boundaries first and only splitting characters when a single unbroken
+    // run is wider than the column.
+    const sh = s => s == null ? '' : String(s);
     // HTML-attribute-safe escape that preserves the FULL value (no truncation).
-    // Use this for data-tip / title where we want the entire string to surface
-    // on hover; reserve sh() for the visible cell text where truncation matters.
+    // Use this for data-tip / title attributes — same intent as sh() now, but
+    // also escapes &, <, >, " so it's safe to drop into an HTML attribute.
     const attrEsc = s => String(s == null ? '' : s)
       .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
       .replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -4698,7 +4716,7 @@
           + '<td><div class="tnum" style="' + atcColor + '">' + atcVal + '</div></td>'
           + '<td>' + unitsHtml + '</td>'
           + '<td>' + saleHtml + '</td>'
-          + '<td><div class="tm" style="max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" data-tip="' + (typeof topUtm === 'string' ? topUtm.replace(/"/g, '&quot;').replace(/<[^>]*>/g, '') : '') + '">' + topUtm + '</div></td>'
+          + '<td><div class="tm" style="max-width:90px;" data-tip="' + (typeof topUtm === 'string' ? topUtm.replace(/"/g, '&quot;').replace(/<[^>]*>/g, '') : '') + '">' + topUtm + '</div></td>'
           + '</tr>';
       }).join('');
     }
@@ -4987,7 +5005,7 @@
           + '<td><div class="tnum" style="' + atcColor + '">' + atcVal + '</div></td>'
           + '<td>' + unitsHtml + '</td>'
           + '<td>' + saleHtml + '</td>'
-          + '<td><div class="tm" style="max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + topUtm + '</div></td>'
+          + '<td><div class="tm" style="max-width:90px;">' + topUtm + '</div></td>'
           + '</tr>';
       }).join('');
     }
@@ -5348,9 +5366,9 @@
           : (r.productName || '—').replace(/"/g, '&quot;');
 
         html += '<tr>'
-          + '<td><div class="tn" style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" data-tip="' + prodTip.replace(/"/g, '&quot;') + '">' + sh(r.productName) + '</div></td>'
-          + '<td><div class="tm" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" data-tip="' + (r.adName || '').replace(/"/g, '&quot;') + ' · ID: ' + (r.adId || '') + '">' + sh(r.adName) + '</div></td>'
-          + '<td><div class="tm" style="max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + sh(r.account || '—') + '</div></td>'
+          + '<td><div class="tn" style="max-width:150px;" data-tip="' + prodTip.replace(/"/g, '&quot;') + '">' + sh(r.productName) + '</div></td>'
+          + '<td><div class="tm" style="max-width:180px;" data-tip="' + (r.adName || '').replace(/"/g, '&quot;') + ' · ID: ' + (r.adId || '') + '">' + sh(r.adName) + '</div></td>'
+          + '<td><div class="tm" style="max-width:110px;">' + sh(r.account || '—') + '</div></td>'
           + '<td><div class="tnum">' + fmt(r.impressions) + '</div></td>'
           + '<td><div class="tnum">' + fmtRs(r.spend) + '</div><div class="mbar-bg"><div class="mbar-f" style="width:' + Math.min(100, Math.round(r.spend / maxSpend * 100)) + '%;background:var(--out);opacity:.5;"></div></div></td>'
           + '<td><div class="tnum ' + (hookPct >= 15 ? 'sk-in' : hookPct >= 8 ? 'sk-low' : hookPct > 0 ? 'sk-out' : '') + '" style="' + hookColor + ';">' + (r.hookRate > 0 ? hookPct.toFixed(1) + '%' : '—') + '</div></td>'
@@ -5788,7 +5806,7 @@
       rows.forEach((r, idx) => {
         const strColor = r.str >= 70 ? '#4ade80' : r.str >= 40 ? 'var(--low)' : r.str > 0 ? 'var(--out)' : 'var(--mu2)';
         html += '<tr style="cursor:pointer;" onclick="openSTRDetail(' + idx + ')" title="Click for STR calculation and product metrics">'
-          + '<td><div class="tn" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" data-tip="' + (r.title || '').replace(/"/g, '&quot;') + '">' + sh(r.title) + '</div></td>'
+          + '<td><div class="tn" style="max-width:260px;" data-tip="' + (r.title || '').replace(/"/g, '&quot;') + '">' + sh(r.title) + '</div></td>'
           + '<td><div class="tnum">' + r.availQty.toLocaleString() + '</div></td>'
           + '<td><div class="tnum">' + (r.soldQty > 0 ? r.soldQty.toLocaleString() : '—') + '</div></td>'
           + '<td><div class="tnum" style="color:' + strColor + ';font-weight:600;">' + r.str + '%</div>'
@@ -6527,8 +6545,8 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
             + '<td><div class="tnum">' + r.atcPct + '%</div></td>'
             + '<td><div class="tnum">' + r.checkout + '</div></td>'
             + '<td>' + (((r._utmRows || []).length > 0)
-                ? '<div onclick="event.stopPropagation();openLandingPageUtmDetail(\'collection\',' + i + ')" style="cursor:pointer;color:var(--traf);text-decoration:underline dotted;" title="View ' + r._utmRows.length + ' UTM row' + (r._utmRows.length === 1 ? '' : 's') + '"><div class="tm" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--traf);">' + sh(r._topUtm || 'direct') + '</div><div class="tm" style="font-size:.55rem;opacity:.7;">' + r._utmRows.length + ' row' + (r._utmRows.length === 1 ? '' : 's') + ' ▸</div></div>'
-                : '<div class="tm" style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + sh(r._topUtm || 'direct') + '</div>')
+                ? '<div onclick="event.stopPropagation();openLandingPageUtmDetail(\'collection\',' + i + ')" style="cursor:pointer;color:var(--traf);text-decoration:underline dotted;" title="View ' + r._utmRows.length + ' UTM row' + (r._utmRows.length === 1 ? '' : 's') + '"><div class="tm" style="color:var(--traf);">' + sh(r._topUtm || 'direct') + '</div><div class="tm" style="font-size:.55rem;opacity:.7;">' + r._utmRows.length + ' row' + (r._utmRows.length === 1 ? '' : 's') + ' ▸</div></div>'
+                : '<div class="tm">' + sh(r._topUtm || 'direct') + '</div>')
               + '</td></tr>';
         }).join('');
         collEl.innerHTML = '<div class="tbl-wrap"><div class="tbl-hdr"><span class="tbl-title">' + COLLECTION_DATA.length + ' collection pages</span><span class="sec-meta" style="margin-left:8px;">click row for details · click UTM cell for per-source breakdown</span></div><div class="tbl-scr"><table class="dtbl"><thead><tr><th>Collection</th><th>Visitors</th><th>Sessions</th><th>Bounce</th><th>Pg/Sess</th><th>Cart Adds</th><th>ATC%</th><th>Checkout</th><th>Top UTM</th></tr></thead><tbody>' + chtml + '</tbody></table></div></div>';
@@ -6547,8 +6565,8 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
           const brColor = r.bounceRate > 70 ? 'color:var(--out)' : r.bounceRate > 50 ? 'color:var(--low)' : r.bounceRate > 0 ? 'color:#4ade80' : '';
           const utmCount = (r._utmRows || []).length;
           const utmCell = utmCount > 0
-            ? '<div onclick="openLandingPageUtmDetail(\'home\',' + i + ')" style="cursor:pointer;color:var(--traf);text-decoration:underline dotted;" title="View ' + utmCount + ' UTM row' + (utmCount === 1 ? '' : 's') + '"><div class="tm" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--traf);">' + sh(r._topUtm || 'direct') + '</div><div class="tm" style="font-size:.55rem;opacity:.7;">' + utmCount + ' row' + (utmCount === 1 ? '' : 's') + ' ▸</div></div>'
-            : '<div class="tm" style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + sh(r._topUtm || 'direct') + '</div>';
+            ? '<div onclick="openLandingPageUtmDetail(\'home\',' + i + ')" style="cursor:pointer;color:var(--traf);text-decoration:underline dotted;" title="View ' + utmCount + ' UTM row' + (utmCount === 1 ? '' : 's') + '"><div class="tm" style="color:var(--traf);">' + sh(r._topUtm || 'direct') + '</div><div class="tm" style="font-size:.55rem;opacity:.7;">' + utmCount + ' row' + (utmCount === 1 ? '' : 's') + ' ▸</div></div>'
+            : '<div class="tm">' + sh(r._topUtm || 'direct') + '</div>';
           return '<tr><td><div class="tn" data-tip="' + String(r.name || '').replace(/"/g, '&quot;') + '">' + r.name + '</div><div class="tm">' + (r.path || '/') + '</div></td>'
             + '<td><div class="tnum">' + fmt(r.visitors) + '</div></td>'
             + '<td><div class="tnum">' + fmt(r.sessions) + '</div></td>'
@@ -6627,10 +6645,10 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
           const brColor = r.bounceRate > 70 ? 'color:var(--out)' : r.bounceRate > 50 ? 'color:var(--low)' : r.bounceRate > 0 ? 'color:#4ade80' : '';
           const utmCount = (r._utmRows || []).length;
           const utmCell = utmCount > 0
-            ? '<div onclick="event.stopPropagation();openLandingPageUtmDetail(\'pdp\',' + gi + ')" style="cursor:pointer;color:var(--traf);text-decoration:underline dotted;" title="View ' + utmCount + ' UTM row' + (utmCount === 1 ? '' : 's') + '"><div class="tm" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--traf);">' + sh(r._topUtm || 'direct') + '</div><div class="tm" style="font-size:.55rem;opacity:.7;">' + utmCount + ' row' + (utmCount === 1 ? '' : 's') + ' ▸</div></div>'
-            : '<div class="tm" style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + sh(r._topUtm || 'direct') + '</div>';
+            ? '<div onclick="event.stopPropagation();openLandingPageUtmDetail(\'pdp\',' + gi + ')" style="cursor:pointer;color:var(--traf);text-decoration:underline dotted;" title="View ' + utmCount + ' UTM row' + (utmCount === 1 ? '' : 's') + '"><div class="tm" style="color:var(--traf);">' + sh(r._topUtm || 'direct') + '</div><div class="tm" style="font-size:.55rem;opacity:.7;">' + utmCount + ' row' + (utmCount === 1 ? '' : 's') + ' ▸</div></div>'
+            : '<div class="tm">' + sh(r._topUtm || 'direct') + '</div>';
           html += '<tr class="' + (r.isAdLeak ? 'tr-pause' : '') + '" onclick="onRow(' + gi + ')">'
-            + '<td><div class="tn" data-tip="' + (r.name || '').replace(/"/g, '&quot;') + '">' + sh(r.name) + '</div><div class="tm">' + r.slug.slice(0, 30) + '</div></td>'
+            + '<td><div class="tn" data-tip="' + attrEsc(r.name) + '">' + sh(r.name) + '</div><div class="tm">' + sh(r.slug || '') + '</div></td>'
             + '<td><div class="tnum">' + fmt(r.visitors) + '</div><div class="mbar-bg"><div class="mbar-f" style="width:' + Math.min(100, r.visitors / 10) + '%;background:var(--traf);"></div></div></td>'
             + '<td><div class="tnum">' + fmt(r.sessions) + '</div></td>'
             + '<td><div class="tnum" style="' + brColor + '">' + (r.bounceRate || 0) + '%</div></td>'
@@ -6811,7 +6829,7 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
           html += '<div style="margin-bottom:10px;"><div style="font-size:.65rem;color:var(--mu2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Top Campaigns</div>';
           campEntries.forEach(([k, v]) => {
             const barW = Math.round(v / campEntries[0][1] * 100);
-            html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;"><div class="mbar-bg" style="flex:1;"><div class="mbar-f" style="width:' + barW + '%;background:var(--traf);"></div></div><div style="font-size:.65rem;color:var(--tx);min-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + k + '</div><div style="font-size:.65rem;color:var(--mu2);min-width:24px;text-align:right;">' + v + '</div></div>';
+            html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;"><div class="mbar-bg" style="flex:1;"><div class="mbar-f" style="width:' + barW + '%;background:var(--traf);"></div></div><div style="font-size:.65rem;color:var(--tx);min-width:160px;">' + k + '</div><div style="font-size:.65rem;color:var(--mu2);min-width:24px;text-align:right;">' + v + '</div></div>';
           });
           html += '</div>';
         }
@@ -6821,7 +6839,7 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
         if (contEntries.length) {
           html += '<div><div style="font-size:.65rem;color:var(--mu2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Top Content</div>';
           contEntries.forEach(([k, v]) => {
-            html += '<div style="font-size:.65rem;color:var(--tx);margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + k + ' <span style="color:var(--mu2);">(' + v + ')</span></div>';
+            html += '<div style="font-size:.65rem;color:var(--tx);margin-bottom:2px;">' + k + ' <span style="color:var(--mu2);">(' + v + ')</span></div>';
           });
           html += '</div>';
         }
@@ -7764,7 +7782,7 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
         + '<span><span class="pc-lbl">Items</span>' + (o.itemCount || 0) + '</span>'
         + '<span><span class="pc-lbl">Status</span>' + (o.financialStatus || '—') + '</span>'
         + '</div>'
-        + (items ? '<div class="pc-meta" style="margin-top:8px;margin-bottom:0;font-size:.55rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + sh(items) + '</div>' : '')
+        + (items ? '<div class="pc-meta" style="margin-top:8px;margin-bottom:0;font-size:.55rem;">' + sh(items) + '</div>' : '')
         + '</div>';
     }
 
@@ -8897,8 +8915,8 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
           : '<div class="tm" style="opacity:.5;">—</div>';
         const slugCount = (r._mergedSlugs || []).length;
         const slugLabel = slugCount > 1
-          ? (r.slug || '').slice(0, 26) + ' +' + (slugCount - 1) + ' more'
-          : (r.slug || '').slice(0, 30);
+          ? (r.slug || '') + ' +' + (slugCount - 1) + ' more'
+          : (r.slug || '');
         const slugTip = slugCount > 1 ? (r._mergedSlugs || []).join(', ') : (r.slug || '');
         html += '<tr onclick="openUtmProductDetail(' + i + ')" style="cursor:pointer;' + matchClass + '" title="Click for per-source breakdown">'
           + '<td><div class="tn" data-tip="' + attrEsc(r.name) + '">' + sh(r.name) + '</div><div class="tm" data-tip="' + attrEsc(slugTip) + '" title="' + attrEsc(slugTip) + '">' + sh(slugLabel) + '</div></td>'
