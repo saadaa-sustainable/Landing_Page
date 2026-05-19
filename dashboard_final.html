@@ -3365,39 +3365,6 @@
 
   <!-- ===== SALES PAGE ===== -->
   <div class="page" id="page-sales">
-    <div class="cpanel hidden" id="salesCpanel">
-      <div style="display:flex;align-items:center;gap:8px;">
-        <span
-          style="font-family:'JetBrains Mono',monospace;font-size:.58rem;color:#4ade80;text-transform:uppercase;letter-spacing:.08em;">₹
-          Sales Data Source</span>
-        <button class="ibtn" onclick="toggleEl('salesCpanel')" style="margin-left:auto;">✕</button>
-      </div>
-      <!-- Fetch from Shopify -->
-      <div
-        style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;padding:8px 0 4px;border-top:1px solid var(--bd);margin-top:6px;">
-        <div
-          style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--traf);text-transform:uppercase;letter-spacing:.08em;flex-shrink:0;align-self:center;">
-          🔗 Fetch from Shopify</div>
-        <div class="cp-field" style="flex:2;min-width:200px;">
-          <div class="cp-lbl">Server URL</div>
-          <input class="cp-inp" id="salesServerUrl" placeholder="http://localhost:5000" />
-        </div>
-        <div class="cp-field" style="flex:0 0 130px;">
-          <div class="cp-lbl">Since</div>
-          <input class="cp-inp" type="date" id="salesSince" />
-        </div>
-        <div class="cp-field" style="flex:0 0 130px;">
-          <div class="cp-lbl">Until</div>
-          <input class="cp-inp" type="date" id="salesUntil" />
-        </div>
-        <button class="ibtn acc" onclick="fetchShopifySales()" style="flex-shrink:0;">Fetch Sales →</button>
-        <button class="ibtn" onclick="fetchSalesData()" style="flex-shrink:0;">Use Embedded</button>
-        <span class="shopify-status" id="salesFetchStatus">Loaded</span>
-      </div>
-      <div id="salesFetchMsg"
-        style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--in);min-height:14px;">✓ Embedded data
-      </div>
-    </div>
     <div class="toolbar" style="flex-direction:column;align-items:stretch;gap:0;padding:0;">
       <!-- Row 1: Shopify-style dimension filters -->
       <div
@@ -7420,8 +7387,10 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
       const totRet = st ? (st.returns || 0) : all.reduce((a, r) => a + (r.returns || 0), 0);
       const totNet = st ? (st.net_sales || 0) : all.reduce((a, r) => a + (r.net_sales || 0), 0);
 
-      const rangeLabel = document.getElementById('salesSince').value && document.getElementById('salesUntil').value
-        ? document.getElementById('salesSince').value + ' → ' + document.getElementById('salesUntil').value
+      const _ms = document.getElementById('masterSince');
+      const _mu = document.getElementById('masterUntil');
+      const rangeLabel = (_ms && _ms.value && _mu && _mu.value)
+        ? _ms.value + ' → ' + _mu.value
         : 'all time';
 
       document.getElementById('salesKpis').innerHTML =
@@ -7471,13 +7440,13 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
     }
 
     // ── SALES data status ──
+    // The sales panel was removed; status now just routes to console + the
+    // optional `salesRowMeta` label in the toolbar so the user still sees
+    // load progress without a dedicated status pill.
     function _salesMsg(state, text) {
-      const tagEl = document.getElementById('salesFetchStatus');
-      const msgEl = document.getElementById('salesFetchMsg');
-      tagEl.className = 'shopify-status ' + (state === 'loading' ? 'loading' : state === 'err' ? 'err' : 'live');
-      tagEl.textContent = state === 'live' ? 'Loaded' : state;
-      msgEl.style.color = state === 'live' ? 'var(--in)' : 'var(--mu2)';
-      msgEl.textContent = text;
+      const meta = document.getElementById('salesRowMeta');
+      if (meta) meta.textContent = text || '';
+      if (state === 'err') console.error('[Sales]', text); else console.log('[Sales]', text);
     }
 
     function fetchSalesData() {
@@ -7506,8 +7475,8 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
     }
 
     async function fetchShopifySales() {
-      const since = document.getElementById('masterSince').value || document.getElementById('salesSince').value;
-      const until = document.getElementById('masterUntil').value || document.getElementById('salesUntil').value;
+      const since = document.getElementById('masterSince').value;
+      const until = document.getElementById('masterUntil').value;
 
       if (!since || !until) { _salesMsg('err', '⚠ Pick a date range in the navbar'); return; }
 
@@ -7582,7 +7551,6 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
         rebuildSalesData();
 
         _salesMsg('live', '✓ ' + rows.length + ' rows · ' + (new Set(rows.map(r => r.product_title)).size) + ' products · ' + fmtDate(since) + ' → ' + fmtDate(until));
-        toggleEl('salesCpanel');
         renderSales();
       } catch (err) {
         _salesMsg('err', '✗ ' + err.message);
@@ -8064,11 +8032,9 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
       const until = document.getElementById('masterUntil').value;
       const statusEl = document.getElementById('masterFetchStatus');
       if (!since || !until) { statusEl.textContent = '⚠ Pick a date range'; return; }
-      // Sync date to legacy per-panel inputs (so individual panel rerenders still work)
+      // Sync date to legacy per-panel inputs (so any remaining panel rerenders still work).
       const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
       setVal('shopifyFetchDate', until);
-      setVal('salesSince', since); setVal('salesUntil', until);
-      setVal('ordersSince', since); setVal('ordersUntil', until);
       const label = since === until ? fmtDate(since) : (fmtDate(since) + ' → ' + fmtDate(until));
       const errors = [];
       let steps = 0, total = 6;
@@ -8817,15 +8783,9 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
       if (url) document.getElementById('shopifyBackendUrl').value = url;
       const invUrl = localStorage.getItem('ops_inv_url');
       if (invUrl) document.getElementById('invShopifyUrl').value = invUrl;
-      const sUrl = localStorage.getItem('ops_sales_url');
-      if (sUrl) document.getElementById('salesServerUrl').value = sUrl;
       document.getElementById('shopifyFetchDate').value = new Date().toISOString().slice(0, 10);
-      // Default sales date range: last 365 days
       const today = new Date();
-      document.getElementById('salesUntil').value = today.toISOString().slice(0, 10);
-      const yearAgo = new Date(today); yearAgo.setFullYear(yearAgo.getFullYear() - 1);
-      document.getElementById('salesSince').value = yearAgo.toISOString().slice(0, 10);
-      // Orders panel was removed; legacy inputs may be gone. Read-only init now.
+      // Sales / Orders cpanels were removed; legacy inputs may be gone. Read-only init now.
       // Master date inputs intentionally left empty: the dashboard does not preload
       // any range. The user must explicitly pick a range, which fires fetchAll().
       document.getElementById('masterDate').value = today.toISOString().slice(0, 10);
