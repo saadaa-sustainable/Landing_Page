@@ -721,7 +721,7 @@ def fetch_ads(since: str = "", until: str = "") -> list:
     No LIMIT — Supabase REST will still page if needed, but the dashboard now
     receives every ad matching the range.
     """
-    params = [("select", "*"), ("order", "amount_spent_inr.desc")]
+    params = [("select", "*"), ("order", "amount_spent_inr.desc"), ("limit", "99999")]
     if since:
         params.append(("date", f"gte.{since}"))
     if until:
@@ -730,7 +730,7 @@ def fetch_ads(since: str = "", until: str = "") -> list:
     if (not rows) and (since or until):
         # If the date filter wiped everything, fall back to unfiltered so the
         # dashboard still has something to show.
-        rows = _supabase_get("primary_table", [("select", "*"), ("order", "amount_spent_inr.desc")])
+        rows = _supabase_get("primary_table", [("select", "*"), ("order", "amount_spent_inr.desc"), ("limit", "99999")])
     return rows
 
 

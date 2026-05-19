@@ -649,17 +649,17 @@ def _supabase_get(table: str, params: list) -> list:
 
 def fetch_ads(since: str = "", until: str = "") -> list:
     """Flat per-ad-per-day rows from Supabase primary_table, filtered on `date`.
-    No LIMIT cap — Supabase REST handles paging; we surface everything that
-    matches the requested range so the Ads × Landing Page join is complete.
+    We pass an explicit ?limit=99999 alongside the Range header in
+    _supabase_get so PostgREST cannot fall back to its 1000-row default.
     """
-    params = [("select", "*"), ("order", "amount_spent_inr.desc")]
+    params = [("select", "*"), ("order", "amount_spent_inr.desc"), ("limit", "99999")]
     if since:
         params.append(("date", f"gte.{since}"))
     if until:
         params.append(("date", f"lte.{until}"))
     rows = _supabase_get("primary_table", params)
     if (not rows) and (since or until):
-        rows = _supabase_get("primary_table", [("select", "*"), ("order", "amount_spent_inr.desc")])
+        rows = _supabase_get("primary_table", [("select", "*"), ("order", "amount_spent_inr.desc"), ("limit", "99999")])
     return rows
 
 
