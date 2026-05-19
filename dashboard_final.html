@@ -3570,7 +3570,13 @@
   <div class="page" id="page-utm">
     <div class="toolbar" style="flex-direction:column;align-items:stretch;gap:0;padding:0;">
       <div style="display:flex;align-items:center;gap:8px;padding:6px 20px;flex-wrap:wrap;">
-        <input class="srch" id="utmSrch" placeholder="Search product…" oninput="renderUtmAnalysis()"
+        <div class="tg"><span class="tb-lbl">Level</span>
+          <div class="vtog">
+            <button class="vb on" id="utm-prod" onclick="setUtmView('products')">Products</button>
+            <button class="vb" id="utm-coll" onclick="setUtmView('collections')">Collections</button>
+          </div>
+        </div>
+        <input class="srch" id="utmSrch" placeholder="Search…" oninput="renderUtmAnalysis()"
           style="flex:1;min-width:160px;max-width:280px;" />
         <div class="tg"><span class="tb-lbl">Sort</span>
           <select class="filter-select" id="utmSortSelect" onchange="renderUtmAnalysis()">
@@ -3578,10 +3584,10 @@
             <option value="firstSessions">First-Click Sessions ↓</option>
             <option value="firstAtc">First-Click ATC% ↓</option>
             <option value="lastUnits">Units Sold ↓</option>
-            <option value="alpha">Product (A→Z)</option>
+            <option value="alpha">Name (A→Z)</option>
           </select>
         </div>
-        <div class="tg"><span class="tb-lbl">Show</span>
+        <div class="tg" id="utmShowWrap"><span class="tb-lbl">Show</span>
           <select class="filter-select" id="utmShowSelect" onchange="renderUtmAnalysis()">
             <option value="both">First & Last Click</option>
             <option value="onlyMatched">Only products with both</option>
@@ -8639,17 +8645,46 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
 
     // Cache the joined rows so the row-click handler can re-open the modal.
     let _utmJoinedRows = [];
+    let _utmCollJoined = [];
+    let utmViewMode = 'products';
+
+    function setUtmView(v) {
+      utmViewMode = v;
+      ['products', 'collections'].forEach(k => {
+        const el = document.getElementById('utm-' + (k === 'products' ? 'prod' : 'coll'));
+        if (el) el.classList.toggle('on', k === v);
+      });
+      // Collections don't have a last-click side — hide the "Show" filter
+      const showWrap = document.getElementById('utmShowWrap');
+      if (showWrap) showWrap.style.display = v === 'collections' ? 'none' : '';
+      // Update search placeholder
+      const s = document.getElementById('utmSrch');
+      if (s) s.placeholder = v === 'collections' ? 'Search collection…' : 'Search product…';
+      renderUtmAnalysis();
+    }
 
     function renderUtmAnalysis() {
+      if (utmViewMode === 'collections') return renderUtmCollections();
+      return renderUtmProducts();
+    }
+
+    function renderUtmProducts() {
       const emptyEl = document.getElementById('utmEmpty');
       const viewEl = document.getElementById('utmView');
       const kpiEl = document.getElementById('utmKpis');
       const metaEl = document.getElementById('utmRowMeta');
 
+      // Reset chart titles in case we just came from Collections mode
+      const firstTitle = document.querySelector('#page-utm .crow .ch:nth-child(1) .cht');
+      const lastTitle = document.querySelector('#page-utm .crow .ch:nth-child(2) .cht');
+      if (firstTitle) firstTitle.textContent = 'First-Click Sources (sessions)';
+      if (lastTitle) lastTitle.textContent = 'Last-Click Sources (total sales ₹)';
+
       const hasTraf = (DATA || []).some(p => (p._utmRows || []).length);
       const hasSales = (SALES_RAW || []).length > 0;
       if (!hasTraf && !hasSales) {
         emptyEl.style.display = 'block';
+        emptyEl.textContent = 'Fetch Traffic + Sales from the navbar to see first-click vs last-click attribution.';
         viewEl.innerHTML = '';
         kpiEl.innerHTML = '';
         if (metaEl) metaEl.textContent = '';
@@ -8757,6 +8792,158 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
       viewEl.innerHTML = html;
 
       if (metaEl) metaEl.textContent = rows.length + ' products · ' + (rows.length > 300 ? 'showing top 300' : 'all shown');
+    }
+
+    // ── COLLECTION-level UTM analysis (first-click only) ──
+    // Orders aren't tied to a collection so there's no last-click side here;
+    // we show the sessions-side UTM breakdown per /collections/* landing page.
+    function _buildUtmCollectionRow(c, idx) {
+      const utmRows = c._utmRows || [];
+      const bySrc = {};
+      let totals = { sessions: 0, visitors: 0, cartAdds: 0, checkout: 0, brW: 0, durW: 0, ppsW: 0, w: 0 };
+      utmRows.forEach(r => {
+        const k = _utmSrcNorm(r.utmSource);
+        if (!bySrc[k]) bySrc[k] = { display: _utmSrcDisplay(r.utmSource), sessions: 0, visitors: 0, cartAdds: 0, checkout: 0 };
+        const b = bySrc[k];
+        b.sessions += +r.sessions || 0;
+        b.visitors += +r.visitors || 0;
+        b.cartAdds += +r.cartAdds || 0;
+        b.checkout += +r.checkout || 0;
+        totals.sessions += +r.sessions || 0;
+        totals.visitors += +r.visitors || 0;
+        totals.cartAdds += +r.cartAdds || 0;
+        totals.checkout += +r.checkout || 0;
+        totals.brW += (+r.bounceRate || 0) * (+r.sessions || 0);
+        totals.durW += (+r.avgDuration || 0) * (+r.sessions || 0);
+        totals.ppsW += (+r.ppSession || 0) * (+r.sessions || 0);
+        totals.w += (+r.sessions || 0);
+      });
+      const w = totals.w || 1;
+      totals.bounceRate = Math.round(totals.brW / w * 10) / 10;
+      totals.avgDuration = Math.round(totals.durW / w);
+      totals.ppSession = Math.round(totals.ppsW / w * 10) / 10;
+      const top = Object.entries(bySrc).sort((a, b) => b[1].sessions - a[1].sessions)[0];
+      const atc = totals.sessions > 0 ? Math.round(totals.cartAdds / totals.sessions * 1000) / 10 : 0;
+      return {
+        _collIdx: idx,
+        name: c.name || c.path || 'Collection',
+        path: c.path || '',
+        firstRowCount: utmRows.length,
+        firstBySrc: bySrc,
+        firstTotals: totals,
+        firstAtc: atc,
+        topFirstSrc: top ? top[1].display : '',
+      };
+    }
+
+    function renderUtmCollections() {
+      const emptyEl = document.getElementById('utmEmpty');
+      const viewEl = document.getElementById('utmView');
+      const kpiEl = document.getElementById('utmKpis');
+      const metaEl = document.getElementById('utmRowMeta');
+
+      const coll = COLLECTION_DATA || [];
+      if (!coll.length) {
+        emptyEl.style.display = 'block';
+        emptyEl.textContent = 'No collection traffic loaded yet. Fetch Traffic from the navbar.';
+        viewEl.innerHTML = '';
+        kpiEl.innerHTML = '';
+        if (metaEl) metaEl.textContent = '';
+        return;
+      }
+      emptyEl.style.display = 'none';
+
+      const joined = coll.map((c, i) => _buildUtmCollectionRow(c, i));
+
+      // Filters + sort
+      const q = (document.getElementById('utmSrch').value || '').toLowerCase();
+      const sortKey = document.getElementById('utmSortSelect').value;
+      let rows = joined.filter(r => !q || (r.name || '').toLowerCase().includes(q) || (r.path || '').toLowerCase().includes(q));
+      const sorter = {
+        firstSessions: (a, b) => b.firstTotals.sessions - a.firstTotals.sessions,
+        firstAtc: (a, b) => b.firstAtc - a.firstAtc,
+        alpha: (a, b) => String(a.name).localeCompare(String(b.name)),
+        // No last-click side at the collection level — alias these sorts to sessions/cart so the dropdown stays useful.
+        lastTotal: (a, b) => b.firstTotals.sessions - a.firstTotals.sessions,
+        lastUnits: (a, b) => b.firstTotals.cartAdds - a.firstTotals.cartAdds,
+      }[sortKey] || ((a, b) => b.firstTotals.sessions - a.firstTotals.sessions);
+      rows.sort(sorter);
+      _utmCollJoined = rows;
+
+      // KPIs
+      const tSessions = rows.reduce((a, r) => a + r.firstTotals.sessions, 0);
+      const tVisitors = rows.reduce((a, r) => a + r.firstTotals.visitors, 0);
+      const tCart = rows.reduce((a, r) => a + r.firstTotals.cartAdds, 0);
+      const tChk = rows.reduce((a, r) => a + r.firstTotals.checkout, 0);
+      const avgAtc = tSessions > 0 ? Math.round(tCart / tSessions * 1000) / 10 : 0;
+      kpiEl.innerHTML =
+        kpi('ca', 'Collections in view', rows.length, '')
+        + kpi('ct', 'Sessions', fmt(tSessions), fmt(tVisitors) + ' visitors')
+        + kpi('cc', 'Cart Adds', fmt(tCart), '')
+        + kpi('ca', 'Checkouts', fmt(tChk), '')
+        + kpi('in', 'Avg ATC%', avgAtc + '%', 'across collections in view');
+
+      // Charts: aggregate first-click sources across all collections.
+      // Right chart re-purposed to show ATC% per source (no last-click side).
+      const srcAgg = {};
+      rows.forEach(r => {
+        Object.entries(r.firstBySrc).forEach(([k, v]) => {
+          srcAgg[k] = srcAgg[k] || { display: v.display, sessions: 0, cartAdds: 0 };
+          srcAgg[k].sessions += v.sessions;
+          srcAgg[k].cartAdds += v.cartAdds;
+        });
+      });
+      const topSessions = Object.values(srcAgg).sort((a, b) => b.sessions - a.sessions).slice(0, 10);
+      const topAtc = Object.values(srcAgg)
+        .filter(s => s.sessions >= 10)
+        .map(s => ({ ...s, atc: s.sessions > 0 ? Math.round(s.cartAdds / s.sessions * 1000) / 10 : 0 }))
+        .sort((a, b) => b.atc - a.atc)
+        .slice(0, 10);
+      ch('utmFirstSourceBar', 'bar',
+        { labels: topSessions.map(s => s.display), datasets: [{ label: 'Sessions', data: topSessions.map(s => s.sessions), backgroundColor: 'rgba(107,163,214,.7)', borderRadius: 3 }] },
+        { indexAxis: 'y', plugins: { legend: { display: false } }, scales: hbar(false) });
+      ch('utmLastSourceBar', 'bar',
+        { labels: topAtc.map(s => s.display), datasets: [{ label: 'ATC%', data: topAtc.map(s => s.atc), backgroundColor: 'rgba(166,125,212,.7)', borderRadius: 3 }] },
+        { indexAxis: 'y', plugins: { legend: { display: false } }, scales: hbar(true) });
+
+      // Chart titles need flipping for collection mode
+      const lastChartTitle = document.querySelector('#page-utm .crow .ch:nth-child(2) .cht');
+      if (lastChartTitle) lastChartTitle.textContent = 'First-Click Sources by ATC% (≥10 sessions)';
+      const firstChartTitle = document.querySelector('#page-utm .crow .ch:nth-child(1) .cht');
+      if (firstChartTitle) firstChartTitle.textContent = 'First-Click Sources (sessions)';
+
+      // Table
+      let html = '<div class="tbl-wrap"><div class="tbl-hdr"><span class="tbl-title">' + rows.length + ' collections</span>'
+        + '<span class="sec-meta" style="margin-left:8px;">click a row to see per-source UTM breakdown</span></div>'
+        + '<div class="tbl-scr"><table class="dtbl"><thead><tr>'
+        + '<th>Collection</th><th>Top Source</th><th>Visitors</th><th>Sessions</th><th>Cart Adds</th><th>ATC%</th><th>Bounce</th><th>Pgs/Sess</th><th>Checkouts</th>'
+        + '</tr></thead><tbody>';
+      rows.slice(0, 300).forEach((r, i) => {
+        const atcColor = r.firstAtc >= 10 ? 'color:#4ade80' : r.firstAtc >= 5 ? 'color:var(--low)' : '';
+        const br = r.firstTotals.bounceRate || 0;
+        const brColor = br > 70 ? 'color:var(--out)' : br > 50 ? 'color:var(--low)' : br > 0 ? 'color:#4ade80' : '';
+        html += '<tr onclick="openUtmCollectionDetail(' + i + ')" style="cursor:pointer;" title="Click for per-source breakdown">'
+          + '<td><div class="tn" data-tip="' + attrEsc(r.name) + '">' + sh(r.name) + '</div><div class="tm">' + sh(r.path) + '</div></td>'
+          + '<td><div class="tm" style="color:var(--traf);">' + sh(r.topFirstSrc || 'direct') + '</div><div class="tm" style="font-size:.55rem;opacity:.6;">' + r.firstRowCount + ' rows</div></td>'
+          + '<td><div class="tnum">' + fmt(r.firstTotals.visitors) + '</div></td>'
+          + '<td><div class="tnum">' + fmt(r.firstTotals.sessions) + '</div></td>'
+          + '<td><div class="tnum">' + fmt(r.firstTotals.cartAdds) + '</div></td>'
+          + '<td><div class="tnum" style="' + atcColor + '">' + r.firstAtc + '%</div></td>'
+          + '<td><div class="tnum" style="' + brColor + '">' + br + '%</div></td>'
+          + '<td><div class="tnum">' + (r.firstTotals.ppSession || 0) + '</div></td>'
+          + '<td><div class="tnum">' + fmt(r.firstTotals.checkout) + '</div></td>'
+          + '</tr>';
+      });
+      html += '</tbody></table></div></div>';
+      viewEl.innerHTML = html;
+      if (metaEl) metaEl.textContent = rows.length + ' collections · ' + (rows.length > 300 ? 'showing top 300' : 'all shown');
+    }
+
+    function openUtmCollectionDetail(idx) {
+      const r = _utmCollJoined[idx];
+      if (!r) return;
+      // Reuse the existing landing-page UTM modal that already groups rows by source.
+      openLandingPageUtmDetail('collection', r._collIdx);
     }
 
     // ── Per-product first-click vs last-click drill-down modal ──
