@@ -1554,10 +1554,10 @@
       border: 1px solid var(--bd-strong);
       box-shadow: 0 6px 20px rgba(0, 0, 0, .12);
       white-space: pre-wrap;
-      word-break: break-word;
-      max-width: 360px;
+      word-break: break-all;
+      max-width: 480px;
       min-width: 120px;
-      z-index: 999;
+      z-index: 10001;
       pointer-events: none;
       opacity: 0;
       transform: translateY(-2px);
@@ -3877,6 +3877,12 @@
     // ── HELPERS ──
     const fmt = n => n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n);
     const sh = s => s && s.length > 26 ? s.slice(0, 25) + '…' : s || '';
+    // HTML-attribute-safe escape that preserves the FULL value (no truncation).
+    // Use this for data-tip / title where we want the entire string to surface
+    // on hover; reserve sh() for the visible cell text where truncation matters.
+    const attrEsc = s => String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;').replace(/>/g, '&gt;');
     function dH(v) { if (v == null) return ''; return '<span class="tdelta ' + (+v >= 0 ? 'up' : 'dn') + '">' + (+v >= 0 ? '↑' : '↓') + Math.abs(v) + '%</span>'; }
     const SS = {
       in_stock: { bg: 'var(--in-bg)', c: 'var(--in)', b: 'var(--in-bd)', l: 'In Stock', cls: 'sk-in' },
@@ -5909,11 +5915,11 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
             const widthPct = Math.min(100, Math.round((r.sessions || 0) / maxS * 100));
             html += '<tr style="border-left:2px solid ' + c + ';">'
               + '<td><div class="tm" style="white-space:nowrap;">' + sh(r.day || '—') + '</div></td>'
-              + '<td><div class="tm" style="opacity:.55;" data-tip="' + sh(r.utmSource || '').replace(/"/g, '&quot;') + '">' + sh(r.utmSource || '—') + '</div></td>'
-              + '<td><div class="tm">' + sh(r.utmMedium || '—') + '</div></td>'
-              + '<td><div class="tm" data-tip="' + sh(r.utmCampaign || '').replace(/"/g, '&quot;') + '">' + sh(r.utmCampaign || '—') + '</div></td>'
-              + '<td><div class="tm" data-tip="' + sh(r.utmContent || '').replace(/"/g, '&quot;') + '">' + sh(r.utmContent || '—') + '</div></td>'
-              + '<td><div class="tm">' + sh(r.utmTerm || '—') + '</div></td>'
+              + '<td><div class="tm" style="opacity:.55;" data-tip="' + attrEsc(r.utmSource) + '" title="' + attrEsc(r.utmSource) + '">' + sh(r.utmSource || '—') + '</div></td>'
+              + '<td><div class="tm" data-tip="' + attrEsc(r.utmMedium) + '" title="' + attrEsc(r.utmMedium) + '">' + sh(r.utmMedium || '—') + '</div></td>'
+              + '<td><div class="tm" data-tip="' + attrEsc(r.utmCampaign) + '" title="' + attrEsc(r.utmCampaign) + '">' + sh(r.utmCampaign || '—') + '</div></td>'
+              + '<td><div class="tm" data-tip="' + attrEsc(r.utmContent) + '" title="' + attrEsc(r.utmContent) + '">' + sh(r.utmContent || '—') + '</div></td>'
+              + '<td><div class="tm" data-tip="' + attrEsc(r.utmTerm) + '" title="' + attrEsc(r.utmTerm) + '">' + sh(r.utmTerm || '—') + '</div></td>'
               + '<td><div class="tnum">' + fmt(r.visitors || 0) + '</div></td>'
               + '<td><div class="tnum">' + fmt(r.sessions || 0) + '</div><div class="mbar-bg"><div class="mbar-f" style="width:' + widthPct + '%;background:' + c + ';"></div></div></td>'
               + '<td><div class="tnum">' + (r.cartAdds || 0) + '</div></td>'
@@ -7724,11 +7730,11 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
         sortedRows.forEach(r => {
           html += '<tr>'
             + '<td><div class="tm" style="white-space:nowrap;">' + sh(r.day || '—') + '</div></td>'
-            + '<td><div class="tm">' + sh(r.utm_source || '—') + '</div></td>'
-            + '<td><div class="tm">' + sh(r.utm_medium || '—') + '</div></td>'
-            + '<td><div class="tm" data-tip="' + sh(r.utm_campaign || '').replace(/"/g, '&quot;') + '">' + sh(r.utm_campaign || '—') + '</div></td>'
-            + '<td><div class="tm" data-tip="' + sh(r.utm_content || '').replace(/"/g, '&quot;') + '">' + sh(r.utm_content || '—') + '</div></td>'
-            + '<td><div class="tm">' + sh(r.utm_term || '—') + '</div></td>'
+            + '<td><div class="tm" data-tip="' + attrEsc(r.utm_source) + '" title="' + attrEsc(r.utm_source) + '">' + sh(r.utm_source || '—') + '</div></td>'
+            + '<td><div class="tm" data-tip="' + attrEsc(r.utm_medium) + '" title="' + attrEsc(r.utm_medium) + '">' + sh(r.utm_medium || '—') + '</div></td>'
+            + '<td><div class="tm" data-tip="' + attrEsc(r.utm_campaign) + '" title="' + attrEsc(r.utm_campaign) + '">' + sh(r.utm_campaign || '—') + '</div></td>'
+            + '<td><div class="tm" data-tip="' + attrEsc(r.utm_content) + '" title="' + attrEsc(r.utm_content) + '">' + sh(r.utm_content || '—') + '</div></td>'
+            + '<td><div class="tm" data-tip="' + attrEsc(r.utm_term) + '" title="' + attrEsc(r.utm_term) + '">' + sh(r.utm_term || '—') + '</div></td>'
             + '<td><div class="tm">' + sh(r.new_or_returning_customer || '—') + '</div></td>'
             + '<td><div class="tnum">' + (+r.net_items_sold || 0) + '</div></td>'
             + '<td><div class="tnum">' + fmtRs(r.gross_sales) + '</div></td>'
