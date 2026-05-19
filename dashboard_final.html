@@ -7544,13 +7544,24 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
           return norm;
         });
 
-        // Drop any inline TOTALS row (no product_title) but keep it as the totals summary.
+        // Drop any inline TOTALS row (no product_title) — sometimes Shopify
+        // returns one, sometimes it just sprinkles __totals columns on every row.
         const totalsRow = rows.find(r => !r.product_title || r.product_title === '' || r.product_title === 'TOTALS' || r.product_title === 'Total');
         rows = rows.filter(r => r.product_title && r.product_title !== 'TOTALS' && r.product_title !== 'Total');
-        if (totalsRow) {
-          numFields.forEach(f => { if (totalsRow[f] != null) totalsRow[f] = parseFloat(totalsRow[f]) || 0; });
-          window._salesTotals = totalsRow;
+
+        // Build authoritative day-level totals. Prefer Shopify's __totals
+        // columns (server-computed, NOT affected by LIMIT row truncation).
+        // Fall back to the inline TOTALS row, then to summing detail rows.
+        let totals = null;
+        const sample = rows[0] || totalsRow;
+        if (sample && sample.gross_sales__totals !== undefined) {
+          totals = {};
+          numFields.forEach(f => { totals[f] = parseFloat(sample[f + '__totals']) || 0; });
+        } else if (totalsRow) {
+          totals = {};
+          numFields.forEach(f => { totals[f] = parseFloat(totalsRow[f]) || 0; });
         }
+        window._salesTotals = totals;
 
         SALES_RAW = rows;
         populateSalesFilters();

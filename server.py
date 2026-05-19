@@ -454,7 +454,7 @@ def fetch_sales(since: str, until: str) -> list:
         "WITH TOTALS "
         f"SINCE {since} UNTIL {until} "
         "ORDER BY day ASC "
-        "LIMIT 1000"
+        "LIMIT 10000"
     )
 
     query = """
