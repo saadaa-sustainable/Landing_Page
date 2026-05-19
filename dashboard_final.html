@@ -8616,6 +8616,9 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
     const _utmSrcNorm = s => String(s || '').trim().toLowerCase() || '(direct)';
     const _utmSrcDisplay = s => (String(s || '').trim() || '(direct)');
 
+    // `p` can be a single DATA entry or a synthetic merged entry produced by
+    // the grouping pass below (carries name + an aggregated _utmRows + first
+    // member's slug for display). The function doesn't care which.
     function _buildUtmProductRow(p) {
       const titleLc = (p.name || '').toLowerCase().trim();
       const sales = (SALES_RAW || []).filter(r => (r.product_title || '').toLowerCase().trim() === titleLc);
@@ -8672,6 +8675,8 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
         lastBySrc, lastTotals,
         topLastSrc: topLastSrcKey ? topLastSrcKey[1].display : '',
         lastRowCount: sales.length,
+        // Shopify-duplicate slugs (e.g. -2 suffix) folded into this row
+        _mergedSlugs: p._mergedSlugs || (p.slug ? [p.slug] : []),
       };
     }
 
@@ -8724,14 +8729,34 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
       }
       emptyEl.style.display = 'none';
 
-      // Join all products that have either first-click rows or last-click rows
+      // Join all products that have either first-click rows or last-click rows.
+      // Group DATA by lowercased product name first so Shopify-duplicate handles
+      // (e.g. "men-black-cotton-pant" + "men-black-cotton-pant-2", same name)
+      // merge into a single row. The first-click _utmRows from every duplicate
+      // slug get concatenated; last-click is keyed off product_title which is
+      // already shared, so it stays single-counted.
       const titlesWithSales = new Set((SALES_RAW || []).map(r => (r.product_title || '').toLowerCase().trim()));
-      const joined = [];
+      const byName = new Map();
       (DATA || []).forEach(p => {
         const has1 = (p._utmRows || []).length > 0;
         const has2 = titlesWithSales.has((p.name || '').toLowerCase().trim());
-        if (has1 || has2) joined.push(_buildUtmProductRow(p));
+        if (!has1 && !has2) return;
+        const key = (p.name || p.slug || '').toLowerCase().trim();
+        if (!byName.has(key)) {
+          // Synthetic merged entry — preserves the first-encountered display name + slug
+          byName.set(key, {
+            name: p.name,
+            slug: p.slug,
+            stockStatus: p.stockStatus,
+            _utmRows: [],
+            _mergedSlugs: [],
+          });
+        }
+        const m = byName.get(key);
+        if (p._utmRows && p._utmRows.length) m._utmRows.push(...p._utmRows);
+        if (p.slug && !m._mergedSlugs.includes(p.slug)) m._mergedSlugs.push(p.slug);
       });
+      const joined = [...byName.values()].map(_buildUtmProductRow);
 
       // Filters / sort
       const q = (document.getElementById('utmSrch').value || '').toLowerCase();
@@ -8808,8 +8833,13 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
         const lastSrcCell = r.lastRowCount > 0
           ? '<div class="tm" style="color:#4ade80;">' + sh(r.topLastSrc || '(direct)') + '</div><div class="tm" style="font-size:.55rem;opacity:.6;">' + r.lastRowCount + ' rows</div>'
           : '<div class="tm" style="opacity:.5;">—</div>';
+        const slugCount = (r._mergedSlugs || []).length;
+        const slugLabel = slugCount > 1
+          ? (r.slug || '').slice(0, 26) + ' +' + (slugCount - 1) + ' more'
+          : (r.slug || '').slice(0, 30);
+        const slugTip = slugCount > 1 ? (r._mergedSlugs || []).join(', ') : (r.slug || '');
         html += '<tr onclick="openUtmProductDetail(' + i + ')" style="cursor:pointer;' + matchClass + '" title="Click for per-source breakdown">'
-          + '<td><div class="tn" data-tip="' + (r.name || '').replace(/"/g, '&quot;') + '">' + sh(r.name) + '</div><div class="tm">' + (r.slug || '').slice(0, 30) + '</div></td>'
+          + '<td><div class="tn" data-tip="' + attrEsc(r.name) + '">' + sh(r.name) + '</div><div class="tm" data-tip="' + attrEsc(slugTip) + '" title="' + attrEsc(slugTip) + '">' + sh(slugLabel) + '</div></td>'
           + '<td>' + firstSrcCell + '</td>'
           + '<td><div class="tnum">' + fmt(r.firstTotals.sessions) + '</div></td>'
           + '<td><div class="tnum">' + fmt(r.firstTotals.cartAdds) + '</div></td>'
