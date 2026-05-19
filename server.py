@@ -693,7 +693,11 @@ query {
 
 def _supabase_get(table: str, params: list) -> list:
     """GET from Supabase REST. `params` is a list of (key, value) tuples
-    so the same key (e.g. computed_at) can appear multiple times."""
+    so the same key (e.g. computed_at) can appear multiple times.
+
+    PostgREST defaults to 1000-row responses — we override via Range/Prefer
+    so wide date ranges return everything that matches the filter.
+    """
     if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
         raise ValueError("Supabase not configured. Add SUPABASE_URL and SUPABASE_SERVICE_KEY to .env")
     url = f"{SUPABASE_URL}/rest/v1/{table}"
@@ -701,8 +705,11 @@ def _supabase_get(table: str, params: list) -> list:
         "apikey": SUPABASE_SERVICE_KEY,
         "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
         "Content-Type": "application/json",
+        "Range-Unit": "items",
+        "Range": "0-99999",
+        "Prefer": "count=exact",
     }
-    r = requests.get(url, headers=headers, params=params, timeout=30)
+    r = requests.get(url, headers=headers, params=params, timeout=60)
     r.raise_for_status()
     return r.json()
 
