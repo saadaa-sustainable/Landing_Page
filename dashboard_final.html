@@ -8691,9 +8691,10 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
         const el = document.getElementById('utm-' + (k === 'products' ? 'prod' : 'coll'));
         if (el) el.classList.toggle('on', k === v);
       });
-      // Collections don't have a last-click side — hide the "Show" filter
+      // Collections now also have a last-click side (matched by UTM tuple),
+      // so the Show filter is useful here too — keep it visible.
       const showWrap = document.getElementById('utmShowWrap');
-      if (showWrap) showWrap.style.display = v === 'collections' ? 'none' : '';
+      if (showWrap) showWrap.style.display = '';
       // Update search placeholder
       const s = document.getElementById('utmSrch');
       if (s) s.placeholder = v === 'collections' ? 'Search collection…' : 'Search product…';
@@ -8859,10 +8860,20 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
     // ── COLLECTION-level UTM analysis (first-click only) ──
     // Orders aren't tied to a collection so there's no last-click side here;
     // we show the sessions-side UTM breakdown per /collections/* landing page.
+    // Helper: stable lowercase tuple key for matching session UTMs to order UTMs.
+    function _utmTupleKey(src, med, camp) {
+      return String(src || '').toLowerCase().trim()
+        + '|' + String(med || '').toLowerCase().trim()
+        + '|' + String(camp || '').toLowerCase().trim();
+    }
+
     function _buildUtmCollectionRow(c, idx) {
       const utmRows = c._utmRows || [];
+
+      // ── First-click roll-up by session utm_source ──
       const bySrc = {};
       let totals = { sessions: 0, visitors: 0, cartAdds: 0, checkout: 0, brW: 0, durW: 0, ppsW: 0, w: 0 };
+      const collTuples = new Set();
       utmRows.forEach(r => {
         const k = _utmSrcNorm(r.utmSource);
         if (!bySrc[k]) bySrc[k] = { display: _utmSrcDisplay(r.utmSource), sessions: 0, visitors: 0, cartAdds: 0, checkout: 0 };
@@ -8879,6 +8890,8 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
         totals.durW += (+r.avgDuration || 0) * (+r.sessions || 0);
         totals.ppsW += (+r.ppSession || 0) * (+r.sessions || 0);
         totals.w += (+r.sessions || 0);
+        // Record this (source, medium, campaign) tuple for last-click matching
+        collTuples.add(_utmTupleKey(r.utmSource, r.utmMedium, r.utmCampaign));
       });
       const w = totals.w || 1;
       totals.bounceRate = Math.round(totals.brW / w * 10) / 10;
@@ -8886,6 +8899,36 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
       totals.ppSession = Math.round(totals.ppsW / w * 10) / 10;
       const top = Object.entries(bySrc).sort((a, b) => b[1].sessions - a[1].sessions)[0];
       const atc = totals.sessions > 0 ? Math.round(totals.cartAdds / totals.sessions * 1000) / 10 : 0;
+
+      // ── Last-click roll-up: orders whose (source, medium, campaign) tuple
+      //    matches any tuple this collection's first-click rows brought in.
+      //    NOTE: a UTM that drove sessions to multiple collections will have
+      //    its orders attributed to each — sum across collections can exceed
+      //    grand total. The table header flags this.
+      const lastBySrc = {};
+      let lastTotals = { units: 0, gross: 0, total: 0, discounts: 0, net: 0 };
+      let lastRowCount = 0;
+      (SALES_RAW || []).forEach(s => {
+        const key = _utmTupleKey(s.utm_source, s.utm_medium, s.utm_campaign);
+        if (!collTuples.has(key)) return;
+        const k = _utmSrcNorm(s.utm_source);
+        if (!lastBySrc[k]) lastBySrc[k] = { display: _utmSrcDisplay(s.utm_source), units: 0, gross: 0, total: 0, discounts: 0, net: 0, rows: 0 };
+        const b = lastBySrc[k];
+        b.units += +s.net_items_sold || 0;
+        b.gross += +s.gross_sales || 0;
+        b.total += +s.total_sales || 0;
+        b.discounts += +s.discounts || 0;
+        b.net += +s.net_sales || 0;
+        b.rows++;
+        lastTotals.units += +s.net_items_sold || 0;
+        lastTotals.gross += +s.gross_sales || 0;
+        lastTotals.total += +s.total_sales || 0;
+        lastTotals.discounts += +s.discounts || 0;
+        lastTotals.net += +s.net_sales || 0;
+        lastRowCount++;
+      });
+      const topLast = Object.entries(lastBySrc).sort((a, b) => b[1].total - a[1].total)[0];
+
       return {
         _collIdx: idx,
         name: c.name || c.path || 'Collection',
@@ -8895,6 +8938,10 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
         firstTotals: totals,
         firstAtc: atc,
         topFirstSrc: top ? top[1].display : '',
+        lastBySrc,
+        lastTotals,
+        topLastSrc: topLast ? topLast[1].display : '',
+        lastRowCount,
       };
     }
 
@@ -8920,15 +8967,21 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
       // Filters + sort
       const q = (document.getElementById('utmSrch').value || '').toLowerCase();
       const sortKey = document.getElementById('utmSortSelect').value;
-      let rows = joined.filter(r => !q || (r.name || '').toLowerCase().includes(q) || (r.path || '').toLowerCase().includes(q));
+      const showMode = (document.getElementById('utmShowSelect') || { value: 'both' }).value;
+      let rows = joined.filter(r => {
+        if (q && !((r.name || '').toLowerCase().includes(q) || (r.path || '').toLowerCase().includes(q))) return false;
+        if (showMode === 'onlyMatched' && (r.firstRowCount === 0 || r.lastRowCount === 0)) return false;
+        if (showMode === 'firstOnly' && r.lastRowCount > 0) return false;
+        if (showMode === 'lastOnly' && r.firstRowCount > 0) return false;
+        return true;
+      });
       const sorter = {
         firstSessions: (a, b) => b.firstTotals.sessions - a.firstTotals.sessions,
         firstAtc: (a, b) => b.firstAtc - a.firstAtc,
         alpha: (a, b) => String(a.name).localeCompare(String(b.name)),
-        // No last-click side at the collection level — alias these sorts to sessions/cart so the dropdown stays useful.
-        lastTotal: (a, b) => b.firstTotals.sessions - a.firstTotals.sessions,
-        lastUnits: (a, b) => b.firstTotals.cartAdds - a.firstTotals.cartAdds,
-      }[sortKey] || ((a, b) => b.firstTotals.sessions - a.firstTotals.sessions);
+        lastTotal: (a, b) => b.lastTotals.total - a.lastTotals.total,
+        lastUnits: (a, b) => b.lastTotals.units - a.lastTotals.units,
+      }[sortKey] || ((a, b) => b.lastTotals.total - a.lastTotals.total);
       rows.sort(sorter);
       _utmCollJoined = rows;
 
@@ -8938,62 +8991,75 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
       const tCart = rows.reduce((a, r) => a + r.firstTotals.cartAdds, 0);
       const tChk = rows.reduce((a, r) => a + r.firstTotals.checkout, 0);
       const avgAtc = tSessions > 0 ? Math.round(tCart / tSessions * 1000) / 10 : 0;
+      const tLastUnits = rows.reduce((a, r) => a + r.lastTotals.units, 0);
+      const tLastSales = rows.reduce((a, r) => a + r.lastTotals.total, 0);
       kpiEl.innerHTML =
         kpi('ca', 'Collections in view', rows.length, '')
-        + kpi('ct', 'Sessions', fmt(tSessions), fmt(tVisitors) + ' visitors')
-        + kpi('cc', 'Cart Adds', fmt(tCart), '')
-        + kpi('ca', 'Checkouts', fmt(tChk), '')
-        + kpi('in', 'Avg ATC%', avgAtc + '%', 'across collections in view');
+        + kpi('ct', 'First-Click Sessions', fmt(tSessions), fmt(tVisitors) + ' visitors')
+        + kpi('cc', 'Cart Adds', fmt(tCart), avgAtc + '% ATC')
+        + kpi('in', 'Last-Click Sales', fmtRs(tLastSales), tLastUnits + ' units · UTM-tuple matched')
+        + kpi('ca', 'Checkouts', fmt(tChk), '');
 
-      // Charts: aggregate first-click sources across all collections.
-      // Right chart re-purposed to show ATC% per source (no last-click side).
-      const srcAgg = {};
+      // Charts: first-click sessions on the left, last-click sales on the right.
+      const firstSrcAgg = {}, lastSrcAgg = {};
       rows.forEach(r => {
         Object.entries(r.firstBySrc).forEach(([k, v]) => {
-          srcAgg[k] = srcAgg[k] || { display: v.display, sessions: 0, cartAdds: 0 };
-          srcAgg[k].sessions += v.sessions;
-          srcAgg[k].cartAdds += v.cartAdds;
+          firstSrcAgg[k] = firstSrcAgg[k] || { display: v.display, sessions: 0 };
+          firstSrcAgg[k].sessions += v.sessions;
+        });
+        Object.entries(r.lastBySrc).forEach(([k, v]) => {
+          lastSrcAgg[k] = lastSrcAgg[k] || { display: v.display, total: 0 };
+          lastSrcAgg[k].total += v.total;
         });
       });
-      const topSessions = Object.values(srcAgg).sort((a, b) => b.sessions - a.sessions).slice(0, 10);
-      const topAtc = Object.values(srcAgg)
-        .filter(s => s.sessions >= 10)
-        .map(s => ({ ...s, atc: s.sessions > 0 ? Math.round(s.cartAdds / s.sessions * 1000) / 10 : 0 }))
-        .sort((a, b) => b.atc - a.atc)
-        .slice(0, 10);
+      const firstTopC = Object.values(firstSrcAgg).sort((a, b) => b.sessions - a.sessions).slice(0, 10);
+      const lastTopC = Object.values(lastSrcAgg).sort((a, b) => b.total - a.total).slice(0, 10);
       ch('utmFirstSourceBar', 'bar',
-        { labels: topSessions.map(s => s.display), datasets: [{ label: 'Sessions', data: topSessions.map(s => s.sessions), backgroundColor: 'rgba(107,163,214,.7)', borderRadius: 3 }] },
+        { labels: firstTopC.map(s => s.display), datasets: [{ label: 'Sessions', data: firstTopC.map(s => s.sessions), backgroundColor: 'rgba(107,163,214,.7)', borderRadius: 3 }] },
         { indexAxis: 'y', plugins: { legend: { display: false } }, scales: hbar(false) });
       ch('utmLastSourceBar', 'bar',
-        { labels: topAtc.map(s => s.display), datasets: [{ label: 'ATC%', data: topAtc.map(s => s.atc), backgroundColor: 'rgba(166,125,212,.7)', borderRadius: 3 }] },
-        { indexAxis: 'y', plugins: { legend: { display: false } }, scales: hbar(true) });
+        { labels: lastTopC.map(s => s.display), datasets: [{ label: 'Total Sales', data: lastTopC.map(s => s.total), backgroundColor: 'rgba(94,203,143,.7)', borderRadius: 3 }] },
+        { indexAxis: 'y', plugins: { legend: { display: false } }, scales: hbar(false) });
 
-      // Chart titles need flipping for collection mode
+      // Reset chart titles to match (we share canvases with the Products view)
       const lastChartTitle = document.querySelector('#page-utm .crow .ch:nth-child(2) .cht');
-      if (lastChartTitle) lastChartTitle.textContent = 'First-Click Sources by ATC% (≥10 sessions)';
+      if (lastChartTitle) lastChartTitle.textContent = 'Last-Click Sources (total sales ₹)';
       const firstChartTitle = document.querySelector('#page-utm .crow .ch:nth-child(1) .cht');
       if (firstChartTitle) firstChartTitle.textContent = 'First-Click Sources (sessions)';
 
-      // Table
+      // Table — first-click | last-click side by side (collections version)
       let html = '<div class="tbl-wrap"><div class="tbl-hdr"><span class="tbl-title">' + rows.length + ' collections</span>'
-        + '<span class="sec-meta" style="margin-left:8px;">click a row to see per-source UTM breakdown</span></div>'
+        + '<span class="sec-meta" style="margin-left:8px;" title="Orders aren\'t directly linked to a collection page in Shopify. Last-click here = sales whose (utm_source, utm_medium, utm_campaign) match a tuple that drove sessions to this collection. UTMs shared across collections will appear on each — sum across rows can exceed grand total.">last-click matched by (source, medium, campaign) tuple · ⓘ</span></div>'
         + '<div class="tbl-scr"><table class="dtbl"><thead><tr>'
-        + '<th>Collection</th><th>Top Source</th><th>Visitors</th><th>Sessions</th><th>Cart Adds</th><th>ATC%</th><th>Bounce</th><th>Pgs/Sess</th><th>Checkouts</th>'
+        + '<th rowspan="2">Collection</th>'
+        + '<th colspan="5" style="text-align:center;color:var(--traf);border-bottom:2px solid var(--traf);">↗ First-Click (sessions)</th>'
+        + '<th colspan="4" style="text-align:center;color:#4ade80;border-bottom:2px solid #4ade80;">₹ Last-Click (orders, UTM-tuple matched)</th>'
+        + '</tr><tr>'
+        + '<th>Top Src</th><th>Sessions</th><th>Cart Adds</th><th>ATC%</th><th>Bounce</th>'
+        + '<th>Top Src</th><th>Units</th><th>Total Sales</th><th>Net Sales</th>'
         + '</tr></thead><tbody>';
       rows.slice(0, 300).forEach((r, i) => {
         const atcColor = r.firstAtc >= 10 ? 'color:#4ade80' : r.firstAtc >= 5 ? 'color:var(--low)' : '';
         const br = r.firstTotals.bounceRate || 0;
         const brColor = br > 70 ? 'color:var(--out)' : br > 50 ? 'color:var(--low)' : br > 0 ? 'color:#4ade80' : '';
-        html += '<tr onclick="openUtmCollectionDetail(' + i + ')" style="cursor:pointer;" title="Click for per-source breakdown">'
+        const firstSrcCell = r.firstRowCount > 0
+          ? '<div class="tm" style="color:var(--traf);">' + sh(r.topFirstSrc || 'direct') + '</div><div class="tm" style="font-size:.55rem;opacity:.6;">' + r.firstRowCount + ' rows</div>'
+          : '<div class="tm" style="opacity:.5;">—</div>';
+        const lastSrcCell = r.lastRowCount > 0
+          ? '<div class="tm" style="color:#4ade80;">' + sh(r.topLastSrc || '(direct)') + '</div><div class="tm" style="font-size:.55rem;opacity:.6;">' + r.lastRowCount + ' rows</div>'
+          : '<div class="tm" style="opacity:.5;">—</div>';
+        const matchClass = (r.firstRowCount > 0 && r.lastRowCount > 0) ? '' : 'opacity:.65';
+        html += '<tr onclick="openUtmCollectionDetail(' + i + ')" style="cursor:pointer;' + matchClass + '" title="Click for per-source breakdown">'
           + '<td><div class="tn" data-tip="' + attrEsc(r.name) + '">' + sh(r.name) + '</div><div class="tm">' + sh(r.path) + '</div></td>'
-          + '<td><div class="tm" style="color:var(--traf);">' + sh(r.topFirstSrc || 'direct') + '</div><div class="tm" style="font-size:.55rem;opacity:.6;">' + r.firstRowCount + ' rows</div></td>'
-          + '<td><div class="tnum">' + fmt(r.firstTotals.visitors) + '</div></td>'
+          + '<td>' + firstSrcCell + '</td>'
           + '<td><div class="tnum">' + fmt(r.firstTotals.sessions) + '</div></td>'
           + '<td><div class="tnum">' + fmt(r.firstTotals.cartAdds) + '</div></td>'
           + '<td><div class="tnum" style="' + atcColor + '">' + r.firstAtc + '%</div></td>'
           + '<td><div class="tnum" style="' + brColor + '">' + br + '%</div></td>'
-          + '<td><div class="tnum">' + (r.firstTotals.ppSession || 0) + '</div></td>'
-          + '<td><div class="tnum">' + fmt(r.firstTotals.checkout) + '</div></td>'
+          + '<td>' + lastSrcCell + '</td>'
+          + '<td><div class="tnum">' + fmt(r.lastTotals.units) + '</div></td>'
+          + '<td><div class="tnum" style="color:#4ade80;">' + fmtRs(r.lastTotals.total) + '</div></td>'
+          + '<td><div class="tnum">' + fmtRs(r.lastTotals.net) + '</div></td>'
           + '</tr>';
       });
       html += '</tbody></table></div></div>';
