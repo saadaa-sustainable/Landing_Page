@@ -6202,9 +6202,38 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
         const palette = ['#6ba3d6', '#a67dd4', '#4ade80', '#f0be50', '#e07555', '#c9b99a', '#5ecb8f', '#9a9cb0'];
         const groupColor = (i) => palette[i % palette.length];
 
+        // ── Top Cities roll-up (added when session_city is present) ──
+        const cityAgg = {};
+        rows.forEach(r => {
+          const k = (r.city && String(r.city).trim()) || '(unknown)';
+          if (!cityAgg[k]) cityAgg[k] = { name: k, sessions: 0, visitors: 0, cartAdds: 0 };
+          cityAgg[k].sessions += +r.sessions || 0;
+          cityAgg[k].visitors += +r.visitors || 0;
+          cityAgg[k].cartAdds += +r.cartAdds || 0;
+        });
+        const cities = Object.values(cityAgg).sort((a, b) => b.sessions - a.sessions);
+        const hasCityData = cities.some(c => c.name !== '(unknown)' && c.sessions > 0);
+        if (hasCityData) {
+          const totCS = cities.reduce((a, c) => a + c.sessions, 0) || 1;
+          const topCities = cities.slice(0, 8);
+          html += '<div class="pd-section"><div class="pd-section-title">📍 Top Cities · ' + cities.length + '</div>';
+          html += '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+          topCities.forEach((c, i) => {
+            const pct = Math.round(c.sessions / totCS * 100);
+            const atc = c.sessions > 0 ? Math.round(c.cartAdds / c.sessions * 1000) / 10 : 0;
+            const col = palette[i % palette.length];
+            html += '<div style="border:1px solid ' + col + '40;background:' + col + '14;border-radius:6px;padding:6px 10px;min-width:120px;flex:1 1 auto;max-width:200px;">'
+              + '<div style="font-weight:600;font-size:.7rem;color:' + col + ';text-transform:uppercase;letter-spacing:.4px;">' + sh(c.name) + '</div>'
+              + '<div style="font-size:.85rem;color:var(--tx);font-weight:600;">' + fmt(c.sessions) + ' <span style="color:var(--mu2);font-size:.6rem;font-weight:400;">sessions · ' + pct + '%</span></div>'
+              + '<div style="font-size:.6rem;color:var(--mu2);">' + c.cartAdds + ' carts · ' + atc + '% ATC</div>'
+              + '</div>';
+          });
+          html += '</div></div>';
+        }
+
         html += '<div class="pd-section"><div class="pd-section-title">UTM Breakdown · grouped by source · ' + groupList.length + ' source' + (groupList.length === 1 ? '' : 's') + '</div>';
-        html += '<div style="overflow-x:auto;"><table class="dtbl" style="font-size:.72rem;min-width:980px;"><thead><tr>'
-          + '<th>Day</th><th>UTM Source</th><th>UTM Medium</th><th>UTM Campaign</th><th>UTM Content</th><th>UTM Term</th>'
+        html += '<div style="overflow-x:auto;"><table class="dtbl" style="font-size:.72rem;min-width:1060px;"><thead><tr>'
+          + '<th>Day</th><th>UTM Source</th><th>UTM Medium</th><th>UTM Campaign</th><th>UTM Content</th><th>UTM Term</th><th>City</th>'
           + '<th>Visitors</th><th>Sessions</th><th>Cart Adds</th><th>ATC%</th><th>Bounce</th><th>Avg Dur</th><th>Pgs/Sess</th>'
           + '</tr></thead><tbody>';
         groupList.forEach((g, gi) => {
@@ -6219,7 +6248,7 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
           const atcColor = gAtc >= 10 ? 'color:#4ade80' : gAtc >= 5 ? 'color:var(--low)' : '';
           // Group header row — spans the dimension columns then mirrors metrics as totals
           html += '<tr style="background:rgba(255,255,255,.04);border-top:2px solid ' + c + ';">'
-            + '<td colspan="6" style="padding:8px 10px;">'
+            + '<td colspan="7" style="padding:8px 10px;">'
               + '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + c + ';margin-right:8px;vertical-align:middle;"></span>'
               + '<span style="font-weight:600;color:' + c + ';text-transform:uppercase;letter-spacing:.4px;">' + sh(g.display) + '</span>'
               + '<span style="font-size:.6rem;color:var(--mu2);margin-left:8px;">' + g.rows.length + ' row' + (g.rows.length === 1 ? '' : 's') + '</span>'
@@ -6244,6 +6273,7 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
               + '<td><div class="tm" data-tip="' + attrEsc(r.utmCampaign) + '" title="' + attrEsc(r.utmCampaign) + '">' + sh(r.utmCampaign || '—') + '</div></td>'
               + '<td><div class="tm" data-tip="' + attrEsc(r.utmContent) + '" title="' + attrEsc(r.utmContent) + '">' + sh(r.utmContent || '—') + '</div></td>'
               + '<td><div class="tm" data-tip="' + attrEsc(r.utmTerm) + '" title="' + attrEsc(r.utmTerm) + '">' + sh(r.utmTerm || '—') + '</div></td>'
+              + '<td><div class="tm" data-tip="' + attrEsc(r.city) + '" title="' + attrEsc(r.city) + '">' + sh(r.city || '—') + '</div></td>'
               + '<td><div class="tnum">' + fmt(r.visitors || 0) + '</div></td>'
               + '<td><div class="tnum">' + fmt(r.sessions || 0) + '</div><div class="mbar-bg"><div class="mbar-f" style="width:' + widthPct + '%;background:' + c + ';"></div></div></td>'
               + '<td><div class="tnum">' + (r.cartAdds || 0) + '</div></td>'
@@ -7292,6 +7322,7 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
           const utmCampaign = rv(r, 'utm_campaign', 'UTM campaign') || '';
           const utmContent = rv(r, 'utm_content', 'UTM content') || '';
           const utmTerm = rv(r, 'utm_term', 'UTM term') || '';
+          const city = rv(r, 'session_city', 'Session city', 'city', 'City') || '';
           const day = rv(r, 'day', 'Day') || '';
           const lpUrl = rv(r, 'landing_page_url', 'Landing page URL') || '';
           const atc = s > 0 ? Math.round(c / s * 1000) / 10 : 0;
@@ -7303,6 +7334,7 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
             utmCampaign: String(utmCampaign || ''),
             utmContent: String(utmContent || ''),
             utmTerm: String(utmTerm || ''),
+            city: String(city || ''),
             visitors: v, sessions: s, cartAdds: c, checkout: ck,
             bounceRate: bounceRate, avgDuration: avgDuration, ppSession: ppSession,
             atcPct: atc,
