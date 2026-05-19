@@ -162,8 +162,10 @@ def rows_to_dicts(columns: list, raw_rows: list) -> list:
 # ── Fetch functions ───────────────────────────────────────────────────────────
 
 def fetch_traffic(since: str, until: str) -> list:
-    """Fetch page sessions for a date range. Aggregated across the range
-    (no `day` in GROUP BY); single-day fetches use since == until."""
+    """Fetch page sessions for a date range. Each returned row carries the full
+    UTM breakdown (source/medium/campaign/content/term) plus the day, so the
+    dashboard can build per-landing-page UTM detail tables without a re-fetch.
+    """
     ql = (
         "FROM sessions "
         "SHOW online_store_visitors, sessions, sessions_with_cart_additions, "
@@ -171,8 +173,8 @@ def fetch_traffic(since: str, until: str) -> list:
         "pageviews_per_session, sessions_that_reached_checkout "
         "WHERE landing_page_path IS NOT NULL "
         "AND human_or_bot_session IN ('human', 'bot') "
-        "GROUP BY landing_page_type, landing_page_path, "
-        "utm_source, utm_medium, utm_campaign "
+        "GROUP BY landing_page_type, landing_page_path, day, "
+        "utm_source, utm_medium, utm_campaign, utm_content, utm_term "
         "WITH TOTALS "
         f"SINCE {since} UNTIL {until} "
         "ORDER BY sessions DESC "
