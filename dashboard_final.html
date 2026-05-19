@@ -3833,12 +3833,14 @@
       const metaEl = document.getElementById('setMeta');
       if (!viewEl) return;
 
-      // Universe: every product that has inventory data, regardless of any
-      // exclusion tag — the user wants to SEE all 707 here even if some are
-      // already archived in Shopify. We still flag _excluded visually.
-      const src = INVLIVE.length ? INVLIVE : DATA.filter(r => r.hasInvData);
-      // Decorate lifecycle for the filter
-      src.forEach(r => { r._lifecycle = getLifecycleEx(r); });
+      // Universe: same population that produces the "Total Products: 707"
+      // KPI on Overview — hasInvData, not _excluded (Shopify-archived), known
+      // stock status, and not a combo. We deliberately do NOT exclude
+      // isUserDisabled products here, otherwise once toggled OFF they would
+      // vanish from this page and the user couldn't toggle them back on.
+      const pool = INVLIVE.length ? INVLIVE : DATA.filter(r => r.hasInvData);
+      pool.forEach(r => { r._lifecycle = getLifecycleEx(r); });
+      const src = pool.filter(r => r.hasInvData && !r._excluded && r.stockStatus !== 'unknown' && !isCombo(r));
 
       if (!src.length) {
         emptyEl.style.display = 'block';
