@@ -2754,6 +2754,8 @@
       <button class="ntab" id="nt-sales" onclick="goPage('sales')"><span class="ntab-icon">₹</span> Sales</button>
       <button class="ntab" id="nt-orders" onclick="goPage('orders')"><span class="ntab-icon">🛒</span> Orders</button>
       <button class="ntab" id="nt-utm" onclick="goPage('utm')"><span class="ntab-icon">⇄</span> UTM Analysis</button>
+      <div style="height:1px;background:var(--bd);margin:12px 14px;"></div>
+      <button class="ntab" id="nt-settings" onclick="goPage('settings')"><span class="ntab-icon">⚙</span> Settings</button>
     </div>
   </aside>
 
@@ -3613,6 +3615,80 @@
     </div>
   </div>
 
+  <!-- ===== SETTINGS PAGE ===== -->
+  <div class="page" id="page-settings">
+    <div class="toolbar" style="flex-direction:column;align-items:stretch;gap:0;padding:0;">
+      <!-- Row 1: filters (mirrors Inventory/Overview) -->
+      <div style="display:flex;align-items:center;gap:6px;padding:8px 20px;flex-wrap:wrap;border-bottom:1px solid var(--bd2);">
+        <div class="tg"><span class="tb-lbl">Stock</span>
+          <select class="filter-select" id="setStockSelect" onchange="setSettingsFilter('stock', this.value)">
+            <option value="all">All</option>
+            <option value="in_stock">In Stock</option>
+            <option value="broken_stock">Low / Broken</option>
+            <option value="out_of_stock">OOS</option>
+            <option value="unknown">Unknown</option>
+          </select>
+        </div>
+        <div class="tg"><span class="tb-lbl">Lifecycle</span>
+          <select class="filter-select" id="setLcSelect" onchange="setSettingsFilter('lifecycle', this.value)">
+            <option value="all">All</option>
+            <option value="npd">NPD (≤45d)</option>
+            <option value="active">Active</option>
+            <option value="discontinued">Discontinued</option>
+          </select>
+        </div>
+        <div class="tg"><span class="tb-lbl">Status</span>
+          <select class="filter-select" id="setStatusSelect" onchange="setSettingsFilter('status', this.value)">
+            <option value="all">All</option>
+            <option value="ACTIVE">Shopify Active</option>
+            <option value="DRAFT">Shopify Draft</option>
+          </select>
+        </div>
+        <div class="tg"><span class="tb-lbl">Category</span>
+          <select class="filter-select" id="setCatSelect" onchange="setSettingsFilter('category', this.value)">
+            <option value="all">All Categories</option>
+          </select>
+        </div>
+        <div class="tg"><span class="tb-lbl">Tag</span>
+          <select class="filter-select" id="setTagSelect" onchange="setSettingsFilter('tag', this.value)">
+            <option value="all">All Tags</option>
+          </select>
+        </div>
+        <div class="tg"><span class="tb-lbl">Type</span>
+          <select class="filter-select" id="setTypeSelect" onchange="setSettingsFilter('type', this.value)">
+            <option value="all">All Types</option>
+          </select>
+        </div>
+        <div class="tg"><span class="tb-lbl">Toggle</span>
+          <select class="filter-select" id="setToggleSelect" onchange="setSettingsFilter('toggle', this.value)">
+            <option value="all">All</option>
+            <option value="active">Active only</option>
+            <option value="inactive">Inactive only</option>
+          </select>
+        </div>
+        <button class="ibtn" onclick="resetSettingsFilters()" style="margin-left:auto;font-size:.6rem;" title="Clear filters">✕ Clear</button>
+      </div>
+      <!-- Row 2: search + bulk actions -->
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 20px;flex-wrap:wrap;">
+        <input class="srch" id="setSrch" placeholder="Search by name or SKU…" oninput="renderSettings()"
+          style="flex:1;min-width:200px;max-width:340px;" />
+        <span class="sec-meta" id="setMeta" style="font-size:.6rem;color:var(--mu2);"></span>
+        <div style="flex:1;"></div>
+        <button class="ibtn" onclick="bulkSetUserDisabled(false)" style="font-size:.6rem;">Enable all in view</button>
+        <button class="ibtn" onclick="bulkSetUserDisabled(true)" style="font-size:.6rem;color:var(--out);">Disable all in view</button>
+      </div>
+    </div>
+    <div class="scroll" id="setScroll">
+      <div class="krow" id="setKpis"
+        style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;padding:10px 16px;"></div>
+      <div id="setView"></div>
+      <div style="text-align:center;color:var(--mu2);padding:40px;font-family:'JetBrains Mono',monospace;font-size:.7rem;"
+        id="setEmpty">
+        No products loaded yet. Fetch inventory from the navbar.
+      </div>
+    </div>
+  </div>
+
   <!-- DETAIL PANEL -->
   <div class="detail" id="detailPanel">
     <div class="dhdr">
@@ -3655,6 +3731,206 @@
       if (!r.colorSku && !r.productStatus) return true;
       const n = (r.name || '').toLowerCase();
       return /pack of|combo|co.?ord|coord set|pick any|mystery box|tote bag/i.test(n);
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // SETTINGS — master inventory product activation toggle
+    // Inactive products are excluded from every "counted in inventory" filter
+    // (Total Products KPI, stock breakdowns, lifecycle splits…). Stored as a
+    // Set of lowercased slugs persisted in localStorage so the toggles survive
+    // refreshes and re-fetches.
+    // ════════════════════════════════════════════════════════════════════════
+    const _USER_DISABLED_KEY = 'ops_user_disabled_slugs';
+    let _userDisabled = new Set();
+    try { _userDisabled = new Set(JSON.parse(localStorage.getItem(_USER_DISABLED_KEY) || '[]')); } catch (e) { _userDisabled = new Set(); }
+
+    function _saveUserDisabled() {
+      try { localStorage.setItem(_USER_DISABLED_KEY, JSON.stringify([..._userDisabled])); } catch (e) { }
+    }
+    function isUserDisabled(r) {
+      return r && r.slug && _userDisabled.has(String(r.slug).toLowerCase());
+    }
+    function setUserDisabled(slug, disabled) {
+      const k = String(slug || '').toLowerCase();
+      if (!k) return;
+      if (disabled) _userDisabled.add(k); else _userDisabled.delete(k);
+      _saveUserDisabled();
+      // Re-render every surface that displays inventory counts. Settings
+      // re-render is the cheapest, do it last so the toggle visually flips
+      // immediately after the user clicks.
+      try { renderHome(); } catch (e) { }
+      try { renderInv(); } catch (e) { }
+      try { renderSettings(); } catch (e) { }
+    }
+    function bulkSetUserDisabled(disabled) {
+      const rows = _settingsRowsInView || [];
+      rows.forEach(r => {
+        const k = String(r.slug || '').toLowerCase();
+        if (!k) return;
+        if (disabled) _userDisabled.add(k); else _userDisabled.delete(k);
+      });
+      _saveUserDisabled();
+      renderHome();
+      renderInv();
+      renderSettings();
+    }
+
+    // Filter state (mirrors Inventory toolbar)
+    const _setFilters = { stock: 'all', lifecycle: 'all', status: 'all', category: 'all', tag: 'all', type: 'all', toggle: 'all' };
+    let _settingsRowsInView = [];
+
+    function setSettingsFilter(k, v) {
+      _setFilters[k] = v;
+      const idMap = { stock: 'setStockSelect', lifecycle: 'setLcSelect', status: 'setStatusSelect', category: 'setCatSelect', tag: 'setTagSelect', type: 'setTypeSelect', toggle: 'setToggleSelect' };
+      if (idMap[k]) styleDropdown(idMap[k], v);
+      renderSettings();
+    }
+    function resetSettingsFilters() {
+      Object.keys(_setFilters).forEach(k => _setFilters[k] = 'all');
+      ['setStockSelect', 'setLcSelect', 'setStatusSelect', 'setCatSelect', 'setTagSelect', 'setTypeSelect', 'setToggleSelect'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.value = 'all'; styleDropdown(id, 'all'); }
+      });
+      const s = document.getElementById('setSrch'); if (s) s.value = '';
+      renderSettings();
+    }
+
+    // Populate the dropdowns from the live product universe.
+    function _populateSettingsDropdowns(src) {
+      const cats = new Set(), tags = new Set(), types = new Set();
+      src.forEach(r => {
+        if (r.category && r.category.trim()) cats.add(r.category.trim());
+        (r._tags || r.tags || []).forEach(t => {
+          if (typeof t === 'string' && /^(SD|SM|SU)/i.test(t.trim())) tags.add(t.trim());
+        });
+        if (r.product_type || r.category) types.add(r.product_type || r.category);
+      });
+      // Tag fallback — derive from colorSku prefix when no SD/SM/SU tags exist.
+      if (!tags.size) {
+        src.forEach(r => {
+          const sku = (r.colorSku || '').replace(/[^A-Z0-9]/g, '');
+          if (sku.length > 2) tags.add(sku.slice(0, -2));
+        });
+      }
+      function fill(id, header, vals) {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        const prev = sel.value || 'all';
+        const sorted = [...vals].sort((a, b) => String(a).localeCompare(String(b)));
+        sel.innerHTML = '<option value="all">' + header + '</option>'
+          + sorted.map(v => '<option value="' + v + '">' + v + '</option>').join('');
+        sel.value = sorted.includes(prev) ? prev : 'all';
+      }
+      fill('setCatSelect', 'All Categories', cats);
+      fill('setTagSelect', 'All Tags', tags);
+      fill('setTypeSelect', 'All Types', types);
+    }
+
+    function renderSettings() {
+      const emptyEl = document.getElementById('setEmpty');
+      const viewEl = document.getElementById('setView');
+      const kpiEl = document.getElementById('setKpis');
+      const metaEl = document.getElementById('setMeta');
+      if (!viewEl) return;
+
+      // Universe: every product that has inventory data, regardless of any
+      // exclusion tag — the user wants to SEE all 707 here even if some are
+      // already archived in Shopify. We still flag _excluded visually.
+      const src = INVLIVE.length ? INVLIVE : DATA.filter(r => r.hasInvData);
+      // Decorate lifecycle for the filter
+      src.forEach(r => { r._lifecycle = getLifecycleEx(r); });
+
+      if (!src.length) {
+        emptyEl.style.display = 'block';
+        viewEl.innerHTML = '';
+        kpiEl.innerHTML = '';
+        if (metaEl) metaEl.textContent = '';
+        return;
+      }
+      emptyEl.style.display = 'none';
+
+      _populateSettingsDropdowns(src);
+
+      // Apply filters
+      const q = (document.getElementById('setSrch').value || '').toLowerCase().trim();
+      const f = _setFilters;
+      let rows = src.filter(r => {
+        if (f.stock !== 'all') {
+          if (f.stock === 'broken_stock') { if (!['low_stock', 'broken_stock'].includes(r.stockStatus)) return false; }
+          else if (r.stockStatus !== f.stock) return false;
+        }
+        if (f.lifecycle !== 'all' && r._lifecycle !== f.lifecycle) return false;
+        if (f.status !== 'all' && (r.productStatus || '').toUpperCase() !== f.status) return false;
+        if (f.category !== 'all') {
+          if ((r.category || '').toLowerCase() !== f.category.toLowerCase()) return false;
+        }
+        if (f.tag !== 'all') {
+          const tagL = f.tag.toLowerCase();
+          const has = ((r._tags || r.tags || []).some(t => String(t).toLowerCase() === tagL))
+            || ((r.colorSku || '').toLowerCase().startsWith(tagL));
+          if (!has) return false;
+        }
+        if (f.type !== 'all' && (r.product_type || r.category || '') !== f.type) return false;
+        if (f.toggle === 'active' && isUserDisabled(r)) return false;
+        if (f.toggle === 'inactive' && !isUserDisabled(r)) return false;
+        if (q) {
+          const hay = ((r.name || '') + ' ' + (r.colorSku || '') + ' ' + (r.slug || '')).toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      });
+      // Sort: disabled first inside each category? No — alphabetical by name keeps it predictable.
+      rows.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+      _settingsRowsInView = rows;
+
+      // KPIs
+      const total = src.length;
+      const disabled = src.filter(r => isUserDisabled(r)).length;
+      const active = total - disabled;
+      const filteredActive = rows.filter(r => !isUserDisabled(r)).length;
+      const filteredDisabled = rows.length - filteredActive;
+      kpiEl.innerHTML =
+        kpi('ca', 'Total Products', total, 'with inventory data')
+        + kpi('in', 'Active', active, 'counted in inventory KPIs')
+        + kpi('out', 'Inactive', disabled, 'excluded from counts')
+        + kpi('ca', 'In view', rows.length, filteredActive + ' active · ' + filteredDisabled + ' inactive');
+
+      // Table
+      const maxView = 1000;
+      const slice = rows.slice(0, maxView);
+      const truncated = rows.length > maxView;
+      const SS = { in_stock: '#4ade80', low_stock: 'var(--low)', broken_stock: 'var(--low)', out_of_stock: 'var(--out)', unknown: 'var(--mu2)' };
+      let html = '<div class="tbl-wrap"><div class="tbl-hdr"><span class="tbl-title">' + rows.length + ' products' + (truncated ? ' · showing first ' + maxView : '') + '</span>'
+        + '<span class="sec-meta" style="margin-left:8px;">toggle the switch to include / exclude from inventory counts</span></div>'
+        + '<div class="tbl-scr"><table class="dtbl"><thead><tr>'
+        + '<th style="width:60px;">Active</th>'
+        + '<th>Product</th><th>SKU</th><th>Category</th><th>Stock</th><th>Units</th><th>Lifecycle</th><th>Shopify</th>'
+        + '</tr></thead><tbody>';
+      slice.forEach(r => {
+        const off = isUserDisabled(r);
+        const slugEsc = String(r.slug || '').replace(/'/g, "\\'");
+        const stockColor = SS[r.stockStatus] || 'var(--mu2)';
+        const lc = r._lifecycle || '—';
+        const lcPill = lc === 'npd' ? '<span class="status-pill" style="background:rgba(74,222,128,.1);color:#4ade80;border:1px solid rgba(74,222,128,.3);">🌱 NPD</span>'
+          : lc === 'discontinued' ? '<span class="status-pill s-disc">Disc.</span>'
+            : '<span class="status-pill s-active">Active</span>';
+        const rowStyle = off ? 'opacity:.55;background:rgba(224,85,85,.04);' : '';
+        html += '<tr style="' + rowStyle + '">'
+          + '<td><label class="set-switch" title="' + (off ? 'Inactive — excluded from counts' : 'Active — counted in inventory') + '">'
+            + '<input type="checkbox" ' + (off ? '' : 'checked') + ' onchange="setUserDisabled(\'' + slugEsc + '\', !this.checked)" />'
+            + '<span class="set-slider"></span></label></td>'
+          + '<td><div class="tn" data-tip="' + attrEsc(r.name) + '">' + sh(r.name) + '</div><div class="tm">' + (r.slug || '').slice(0, 40) + '</div></td>'
+          + '<td><div class="tm">' + sh(r.colorSku || '—') + '</div></td>'
+          + '<td><div class="tm">' + sh(r.category || '—') + '</div></td>'
+          + '<td><div class="tm" style="color:' + stockColor + ';text-transform:capitalize;">' + String(r.stockStatus || 'unknown').replace(/_/g, ' ') + '</div></td>'
+          + '<td><div class="tnum">' + (r.totalStock >= 0 ? r.totalStock : '—') + '</div></td>'
+          + '<td>' + lcPill + '</td>'
+          + '<td><div class="tm">' + sh((r.productStatus || '').toLowerCase() || '—') + '</div></td>'
+          + '</tr>';
+      });
+      html += '</tbody></table></div></div>';
+      viewEl.innerHTML = html;
+      if (metaEl) metaEl.textContent = rows.length + ' / ' + src.length + ' products in view';
     }
 
     let trafF = 'all', trafV = 'table', trafLC = 'all', trafPT = 'all';
@@ -3886,7 +4162,7 @@
     let _currentPage = 'home';
     function goPage(p) {
       _currentPage = p;
-      ['home', 'inv', 'traf', 'ads', 'sales', 'orders', 'utm'].forEach(k => {
+      ['home', 'inv', 'traf', 'ads', 'sales', 'orders', 'utm', 'settings'].forEach(k => {
         const pg = document.getElementById('page-' + k);
         const nt = document.getElementById('nt-' + k);
         if (pg) pg.classList.toggle('on', k === p);
@@ -3899,6 +4175,7 @@
       if (p === 'sales') renderSales();
       if (p === 'orders') renderOrders();
       if (p === 'utm') renderUtmAnalysis();
+      if (p === 'settings') renderSettings();
     }
     function toggleEl(id) { const el = document.getElementById(id); el.style.display = el.style.display === 'none' || el.style.display === '' ? 'block' : 'none'; }
     function toggleAnalytics() {
@@ -4264,7 +4541,7 @@
       setProductThead();
       // Use INVLIVE if available (Shopify fetch data), otherwise fall back to embedded DATA
       const invSrc = INVLIVE.length ? INVLIVE : DATA.filter(r => r.hasInvData);
-      const invFiltered = invSrc.filter(r => !r._excluded && r.stockStatus !== 'unknown' && !isCombo(r));
+      const invFiltered = invSrc.filter(r => !r._excluded && r.stockStatus !== 'unknown' && !isCombo(r) && !isUserDisabled(r));
       // For KPI panels, use inventory source for stock metrics
       const inStock = invFiltered.filter(r => r.stockStatus === 'in_stock');
       const lowStock = invFiltered.filter(r => ['low_stock', 'broken_stock'].includes(r.stockStatus));
@@ -5096,6 +5373,8 @@
       d = d.filter(r => r.stockStatus !== 'unknown');
       // Exclude combos/sets from inventory
       d = d.filter(r => !isCombo(r));
+      // Exclude products the user has switched off in the Settings tab
+      d = d.filter(r => !isUserDisabled(r));
       // Gender filter
       if (invGender !== 'all') d = d.filter(r => r._gender === invGender);
       // Lifecycle filter
@@ -5737,7 +6016,7 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
     function renderInv() {
       const src = INVLIVE.length ? INVLIVE : DATA.filter(r => r.hasInvData);
       // Exclude old/archived products from all counts
-      const all = src.filter(r => !r._excluded && r.stockStatus !== 'unknown' && !isCombo(r));
+      const all = src.filter(r => !r._excluded && r.stockStatus !== 'unknown' && !isCombo(r) && !isUserDisabled(r));
       all.forEach(r => { r._lifecycle = getLifecycleEx(r); extendDataModel(r); });
       const inS = all.filter(r => r.stockStatus === 'in_stock');
       const lowS = all.filter(r => ['low_stock', 'broken_stock'].includes(r.stockStatus));
@@ -5982,7 +6261,7 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
       if (!coll) return;
       const prods = getCollectionProducts(coll.path);
       const sorted = [...prods].sort((a, b) => (b.visitors || 0) - (a.visitors || 0));
-      const invProds = prods.filter(r => r.hasInvData && !r._excluded && !isCombo(r) && r.stockStatus !== 'unknown');
+      const invProds = prods.filter(r => r.hasInvData && !r._excluded && !isCombo(r) && r.stockStatus !== 'unknown' && !isUserDisabled(r));
       const inStock = invProds.filter(r => r.stockStatus === 'in_stock').length;
       const lowStock = invProds.filter(r => ['low_stock', 'broken_stock'].includes(r.stockStatus)).length;
       const outStock = invProds.filter(r => r.stockStatus === 'out_of_stock').length;
@@ -7846,7 +8125,8 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
       ads: { title: 'Ad Intelligence', body: 'Meta ads (from Supabase) joined with product traffic and sales. Adjust Target Impressions / Target ROAS in Definitions to recolor winners and losers. Hook rate = thru-plays ÷ video plays. Hold = avg watch ÷ length.' },
       sales: { title: 'Sales', body: 'Revenue by product over the selected date range (aggregated from orders). Net sales = gross sales − discounts − returns. Units = net_items_sold. Discounts and returns shown as positive values in the table.' },
       orders: { title: 'Orders', body: 'Raw Shopify orders with line items, customer, payment & fulfillment. Cross-sell attribution counts orders where 2+ products were purchased together. Excludes orders tagged return_prime, inf, or cancelled by default.' },
-      utm: { title: 'UTM Analysis', body: 'Per-product first-click vs last-click attribution. First-click comes from sessions data — which UTM brought the visitor to the PDP (utm_source/medium/campaign on landing_page_path). Last-click comes from order data — the order_utm_* Shopify stamped on the order at checkout. Click a product row to see the per-source side-by-side comparison.' }
+      utm: { title: 'UTM Analysis', body: 'Per-product first-click vs last-click attribution. First-click comes from sessions data — which UTM brought the visitor to the PDP (utm_source/medium/campaign on landing_page_path). Last-click comes from order data — the order_utm_* Shopify stamped on the order at checkout. Click a product row to see the per-source side-by-side comparison.' },
+      settings: { title: 'Settings', body: 'Master inventory toggle. Every product with inventory data is listed here with an active/inactive switch. Inactive products are excluded from Total Products, stock breakdowns, and the Overview / Inventory KPIs everywhere — without changing anything in Shopify. The selection is persisted to this browser via localStorage.' }
     };
 
     function openTabInfo(tab) {
@@ -8994,6 +9274,41 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
       .pd-grid {
         grid-template-columns: repeat(2, 1fr);
       }
+    }
+
+    /* Settings tab toggle switch */
+    .set-switch {
+      position: relative;
+      display: inline-block;
+      width: 34px;
+      height: 18px;
+      cursor: pointer;
+    }
+    .set-switch input { opacity: 0; width: 0; height: 0; }
+    .set-slider {
+      position: absolute;
+      inset: 0;
+      background: var(--bd-strong, #d0c8b8);
+      border-radius: 12px;
+      transition: background .15s;
+    }
+    .set-slider::before {
+      content: '';
+      position: absolute;
+      left: 2px;
+      top: 2px;
+      width: 14px;
+      height: 14px;
+      background: #fff;
+      border-radius: 50%;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, .25);
+      transition: transform .15s;
+    }
+    .set-switch input:checked + .set-slider {
+      background: #4ade80;
+    }
+    .set-switch input:checked + .set-slider::before {
+      transform: translateX(16px);
     }
   </style>
 
