@@ -423,13 +423,63 @@ SALES_DIMENSION_FIELDS = (
     "total_sales__totals",
 )
 
-def fetch_sales(since: str, until: str) -> list:
+def _shopifyql(ql: str) -> dict:
+    """Run a ShopifyQL query through the GraphQL Admin API and return tableData."""
+    query = """
+    query($ql: String!) {
+      shopifyqlQuery(query: $ql) {
+        tableData { columns { name dataType } rows }
+        parseErrors
+      }
+    }
     """
-    Direct ShopifyQL fetch — returns rows exactly as Shopify computes them
-    (last-click attribution, with day / product / UTM / customer breakdown).
-    No custom aggregation or proportional distribution is applied here; the
-    dashboard receives the raw per-row metrics so its filters can re-aggregate
-    the same way Shopify does.
+    resp = requests.post(
+        f"https://{SHOP_DOMAIN}/admin/api/2025-10/graphql.json",
+        headers={
+            "Content-Type": "application/json",
+            "X-Shopify-Access-Token": ADMIN_ACCESS_TOKEN,
+        },
+        json={"query": query, "variables": {"ql": ql}},
+        timeout=60,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    if data.get("errors"):
+        raise ValueError(f"GraphQL error: {data['errors']}")
+    sqr = (data.get("data") or {}).get("shopifyqlQuery") or {}
+    parse_errors = sqr.get("parseErrors") or []
+    if parse_errors:
+        raise ValueError(f"ShopifyQL parse error: {parse_errors}")
+    return sqr.get("tableData") or {}
+
+
+def _shopifyql_rows(table: dict) -> list:
+    columns = table.get("columns") or []
+    raw_rows = table.get("rows") or []
+    if not raw_rows:
+        return []
+    if isinstance(raw_rows[0], dict):
+        return list(raw_rows)
+    if not columns:
+        return []
+    col_names = [c.get("name", f"col_{i}") for i, c in enumerate(columns)]
+    out = []
+    for row in raw_rows:
+        if isinstance(row, list):
+            out.append({col_names[i]: v for i, v in enumerate(row) if i < len(col_names)})
+    return out
+
+
+def fetch_sales(since: str, until: str) -> dict:
+    """
+    Direct ShopifyQL fetch — returns BOTH:
+      * rows: per-(day × product × order_utm × customer × line_item) detail
+        (the granularity the user wants for UTM Analysis + raw breakdown). Subject to LIMIT 10000.
+      * byProduct: server-aggregated per-product totals (one row per product,
+        no LIMIT issues — matches Shopify's "Total sales by product" report exactly).
+    Dashboard uses byProduct for the unfiltered per-product table so the numbers
+    always match the Shopify Analytics screen; raw rows feed UTM Analysis and
+    re-aggregation when the user applies dimension filters.
     """
     print(f"  [Sales] Fetching ShopifyQL sales {since}..{until}...")
 
@@ -443,7 +493,7 @@ def fetch_sales(since: str, until: str) -> list:
     #     SHOW are selectable in their __last_click form. Attribution still
     #     comes through via order_utm_* (the UTMs Shopify stamps on the order
     #     at checkout — i.e. last-click already baked in).
-    ql = (
+    ql_detail = (
         "FROM sales "
         "SHOW net_items_sold, gross_sales, discounts, returns, net_sales, taxes, total_sales "
         "WHERE product_title IS NOT NULL "
@@ -458,74 +508,52 @@ def fetch_sales(since: str, until: str) -> list:
         "LIMIT 10000"
     )
 
-    query = """
-    query($ql: String!) {
-      shopifyqlQuery(query: $ql) {
-        tableData {
-          columns { name dataType }
-          rows
-        }
-        parseErrors
-      }
-    }
-    """
-
-    resp = requests.post(
-        f"https://{SHOP_DOMAIN}/admin/api/2025-10/graphql.json",
-        headers={
-            "Content-Type": "application/json",
-            "X-Shopify-Access-Token": ADMIN_ACCESS_TOKEN,
-        },
-        json={"query": query, "variables": {"ql": ql}},
-        timeout=60,
+    # Per-product totals query — server-aggregates so the per-product table
+    # always matches Shopify exactly, regardless of how big the detail set is.
+    ql_byproduct = (
+        "FROM sales "
+        "SHOW net_items_sold, gross_sales, discounts, returns, net_sales, taxes, total_sales "
+        "WHERE product_title IS NOT NULL "
+        "AND sales_channel != 'Return Prime: Order Return' "
+        "GROUP BY product_title, product_type "
+        "WITH TOTALS "
+        f"SINCE {since} UNTIL {until} "
+        "ORDER BY total_sales DESC "
+        "LIMIT 1000"
     )
-    resp.raise_for_status()
-    data = resp.json()
 
-    if data.get("errors"):
-        raise ValueError(f"GraphQL error: {data['errors']}")
+    detail_rows = _shopifyql_rows(_shopifyql(ql_detail))
+    by_product_rows = _shopifyql_rows(_shopifyql(ql_byproduct))
 
-    sqr = data.get("data", {}).get("shopifyqlQuery", {}) or {}
-    parse_errors = sqr.get("parseErrors") or []
-    if parse_errors:
-        raise ValueError(f"ShopifyQL parse error: {parse_errors}")
+    def _cast(rows):
+        for row in rows:
+            for f in SALES_NUMERIC_FIELDS:
+                v = row.get(f)
+                if v is None or v == "":
+                    row[f] = 0
+                    continue
+                try:
+                    row[f] = float(v)
+                except (TypeError, ValueError):
+                    row[f] = 0
+            # Also cast any __totals columns Shopify appends
+            for f in SALES_NUMERIC_FIELDS:
+                t = row.get(f + "__totals")
+                if t is None or t == "":
+                    row[f + "__totals"] = 0
+                else:
+                    try:
+                        row[f + "__totals"] = float(t)
+                    except (TypeError, ValueError):
+                        row[f + "__totals"] = 0
+            for f in SALES_DIMENSION_FIELDS:
+                if f in row and row[f] is None:
+                    row[f] = ""
 
-    table = sqr.get("tableData") or {}
-    columns = table.get("columns") or []
-    raw_rows = table.get("rows") or []
-    if not raw_rows:
-        print("  [Sales] No rows returned.")
-        return []
-
-    if isinstance(raw_rows[0], dict):
-        result = list(raw_rows)
-    else:
-        if not columns:
-            return []
-        col_names = [c.get("name", f"col_{i}") for i, c in enumerate(columns)]
-        result = []
-        for row in raw_rows:
-            if isinstance(row, list):
-                entry = {col_names[i]: val for i, val in enumerate(row) if i < len(col_names)}
-                result.append(entry)
-
-    # Cast numeric SHOW fields once so the client gets numbers, not strings.
-    for row in result:
-        for f in SALES_NUMERIC_FIELDS:
-            v = row.get(f)
-            if v is None or v == "":
-                row[f] = 0
-                continue
-            try:
-                row[f] = float(v)
-            except (TypeError, ValueError):
-                row[f] = 0
-        for f in SALES_DIMENSION_FIELDS:
-            if f in row and row[f] is None:
-                row[f] = ""
-
-    print(f"  [Sales] {len(result)} rows returned.")
-    return result
+    _cast(detail_rows)
+    _cast(by_product_rows)
+    print(f"  [Sales] detail={len(detail_rows)} rows · byProduct={len(by_product_rows)} rows")
+    return {"rows": detail_rows, "byProduct": by_product_rows}
 
 
 # ── HTTP server ────────────────────────────────────────────────────────────────

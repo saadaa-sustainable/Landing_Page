@@ -418,30 +418,8 @@ SALES_DIMENSION_FIELDS = (
 )
 
 
-def fetch_sales(since: str, until: str) -> list:
-    """
-    Direct ShopifyQL fetch — returns one row per
-    day × product × order_utm × customer combination, plus the __totals columns
-    Shopify appends. No custom aggregation: the dashboard collapses raw rows
-    however the user wants. Numbers match Shopify's "Total sales by product"
-    report exactly (including the LAST_CLICK_ATTRIBUTION semantics, which we
-    get via order_utm_* — Shopify stamps last-click onto the order at checkout).
-    """
-    ql = (
-        "FROM sales "
-        "SHOW net_items_sold, gross_sales, discounts, returns, net_sales, taxes, total_sales "
-        "WHERE product_title IS NOT NULL "
-        "AND sales_channel != 'Return Prime: Order Return' "
-        "GROUP BY day, product_title, product_type, "
-        "order_utm_campaign, order_utm_content, order_utm_medium, order_utm_source, order_utm_term, "
-        "line_item_id, customer_id, new_or_returning_customer, "
-        "customer_last_order_date, customer_number_of_orders "
-        "WITH TOTALS "
-        f"SINCE {since} UNTIL {until} "
-        "ORDER BY day ASC "
-        "LIMIT 10000"
-    )
-
+def _shopifyql_table(ql: str) -> dict:
+    """Run a ShopifyQL query and return the tableData dict."""
     gql = """
     query($ql: String!) {
       shopifyqlQuery(query: $ql) {
@@ -464,39 +442,78 @@ def fetch_sales(since: str, until: str) -> list:
     if data.get("errors"):
         raise ValueError(f"ShopifyQL GraphQL error: {data['errors']}")
     sqr = (data.get("data") or {}).get("shopifyqlQuery") or {}
-    parse_errors = sqr.get("parseErrors") or []
-    if parse_errors:
-        raise ValueError(f"ShopifyQL parse error: {parse_errors}")
+    if sqr.get("parseErrors"):
+        raise ValueError(f"ShopifyQL parse error: {sqr['parseErrors']}")
+    return sqr.get("tableData") or {}
 
-    table = sqr.get("tableData") or {}
+
+def _table_to_rows(table: dict) -> list:
     columns = table.get("columns") or []
     raw_rows = table.get("rows") or []
     if not raw_rows:
         return []
-
     if isinstance(raw_rows[0], dict):
-        result = list(raw_rows)
-    else:
-        if not columns:
-            return []
-        col_names = [c.get("name", f"col_{i}") for i, c in enumerate(columns)]
-        result = []
-        for row in raw_rows:
-            if isinstance(row, list):
-                result.append({col_names[i]: v for i, v in enumerate(row) if i < len(col_names)})
+        return list(raw_rows)
+    if not columns:
+        return []
+    col_names = [c.get("name", f"col_{i}") for i, c in enumerate(columns)]
+    return [
+        {col_names[i]: v for i, v in enumerate(row) if i < len(col_names)}
+        for row in raw_rows if isinstance(row, list)
+    ]
 
-    # Cast SHOW + __totals fields to numbers; pass dimensions through verbatim.
-    for row in result:
-        for f in SALES_NUMERIC_FIELDS:
-            v = row.get(f)
-            row[f] = float(v) if v not in (None, "") else 0
-            t = row.get(f + "__totals")
-            row[f + "__totals"] = float(t) if t not in (None, "") else 0
-        for f in SALES_DIMENSION_FIELDS:
-            if f in row and row[f] is None:
-                row[f] = ""
 
-    return result
+def fetch_sales(since: str, until: str) -> dict:
+    """
+    Returns BOTH the per-(day × product × order_utm × customer × line_item)
+    detail rows AND a separate server-aggregated per-product totals array.
+    The detail rows feed UTM Analysis / raw-row mode and are capped at
+    LIMIT 10000; byProduct is one row per product (no cap issue) so the
+    main Sales tab always matches Shopify "Total sales by product" exactly.
+    """
+    ql_detail = (
+        "FROM sales "
+        "SHOW net_items_sold, gross_sales, discounts, returns, net_sales, taxes, total_sales "
+        "WHERE product_title IS NOT NULL "
+        "AND sales_channel != 'Return Prime: Order Return' "
+        "GROUP BY day, product_title, product_type, "
+        "order_utm_campaign, order_utm_content, order_utm_medium, order_utm_source, order_utm_term, "
+        "line_item_id, customer_id, new_or_returning_customer, "
+        "customer_last_order_date, customer_number_of_orders "
+        "WITH TOTALS "
+        f"SINCE {since} UNTIL {until} "
+        "ORDER BY day ASC "
+        "LIMIT 10000"
+    )
+    ql_byproduct = (
+        "FROM sales "
+        "SHOW net_items_sold, gross_sales, discounts, returns, net_sales, taxes, total_sales "
+        "WHERE product_title IS NOT NULL "
+        "AND sales_channel != 'Return Prime: Order Return' "
+        "GROUP BY product_title, product_type "
+        "WITH TOTALS "
+        f"SINCE {since} UNTIL {until} "
+        "ORDER BY total_sales DESC "
+        "LIMIT 1000"
+    )
+
+    detail_rows = _table_to_rows(_shopifyql_table(ql_detail))
+    by_product_rows = _table_to_rows(_shopifyql_table(ql_byproduct))
+
+    def _cast(rows):
+        for row in rows:
+            for f in SALES_NUMERIC_FIELDS:
+                v = row.get(f)
+                row[f] = float(v) if v not in (None, "") else 0
+                t = row.get(f + "__totals")
+                row[f + "__totals"] = float(t) if t not in (None, "") else 0
+            for f in SALES_DIMENSION_FIELDS:
+                if f in row and row[f] is None:
+                    row[f] = ""
+
+    _cast(detail_rows)
+    _cast(by_product_rows)
+    return {"rows": detail_rows, "byProduct": by_product_rows}
 
 
 def fetch_orders(since: str, until: str) -> list:
