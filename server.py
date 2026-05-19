@@ -692,26 +692,41 @@ query {
 # ── Supabase proxy fetch ─────────────────────────────────────────────────────
 
 def _supabase_get(table: str, params: list) -> list:
-    """GET from Supabase REST. `params` is a list of (key, value) tuples
-    so the same key (e.g. computed_at) can appear multiple times.
+    """GET from Supabase REST, paginated.
 
-    PostgREST defaults to 1000-row responses — we override via Range/Prefer
-    so wide date ranges return everything that matches the filter.
+    Supabase enforces a server-side row cap (PostgREST max-rows = 1000 on
+    the Free tier). Neither a Range header nor ?limit= can exceed it.
+    Solution: page through with Range: <offset>-<offset+999> until a page
+    returns fewer than 1000 rows.
     """
     if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
         raise ValueError("Supabase not configured. Add SUPABASE_URL and SUPABASE_SERVICE_KEY to .env")
     url = f"{SUPABASE_URL}/rest/v1/{table}"
-    headers = {
+    base_headers = {
         "apikey": SUPABASE_SERVICE_KEY,
         "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
         "Content-Type": "application/json",
         "Range-Unit": "items",
-        "Range": "0-99999",
-        "Prefer": "count=exact",
     }
-    r = requests.get(url, headers=headers, params=params, timeout=60)
-    r.raise_for_status()
-    return r.json()
+    PAGE = 1000
+    out = []
+    offset = 0
+    while True:
+        headers = dict(base_headers)
+        headers["Range"] = f"{offset}-{offset + PAGE - 1}"
+        r = requests.get(url, headers=headers, params=params, timeout=60)
+        if r.status_code not in (200, 206):
+            r.raise_for_status()
+        batch = r.json() or []
+        if not isinstance(batch, list):
+            return batch
+        out.extend(batch)
+        if len(batch) < PAGE:
+            break
+        offset += PAGE
+        if offset >= 100000:  # safety stop
+            break
+    return out
 
 
 def fetch_ads(since: str = "", until: str = "") -> list:
