@@ -9105,29 +9105,70 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
       });
       byLanding.forEach(b => { b.adCount = b.adIds.size || b.ads.length; });
 
+      // ── Order matching: utm_content (from each order) ↔ ad name / id ──
+      // Meta sometimes munges spaces to '+', uses an em-dash (–) instead of a
+      // hyphen (-), and tacks " - Copy"/" - Copy 2" onto ad names. We
+      // normalize both sides so " CTP-Foo – Copy " and "ctp-foo+-+copy" map
+      // to the same key before comparing.
+      const _normUtm = s => String(s == null ? '' : s)
+        .toLowerCase()
+        // unicode dash variants (hyphen, non-breaking, figure, en, em, bar, minus) → ASCII hyphen
+        .replace(/[‐‑‒–—―−]/g, '-')
+        .replace(/[+_]+/g, ' ')                    // unify + / _ to spaces
+        .replace(/\s*-\s*copy(\s*\d+)?\s*$/, '')   // strip trailing " - Copy"
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      // Build a lookup of utm_content (normalized) → array of sales rows.
+      // Computed once before iterating landing pages.
+      const salesByUtm = {};
+      let salesWithUtm = 0;
+      (SALES_RAW || []).forEach(s => {
+        const uc = _normUtm(s.utm_content);
+        if (!uc) return;
+        salesWithUtm++;
+        (salesByUtm[uc] = salesByUtm[uc] || []).push(s);
+      });
+      // Also index by ad_id (in case utm_content carries the numeric id).
+      const salesByUtmRaw = {};
+      (SALES_RAW || []).forEach(s => {
+        const uc = String(s.utm_content || '').toLowerCase().trim();
+        if (!uc) return;
+        (salesByUtmRaw[uc] = salesByUtmRaw[uc] || []).push(s);
+      });
+      const _utmCountsAcrossSales = Object.keys(salesByUtm).length;
+      console.log('[Ads x Landing Page] sales rows with utm_content:', salesWithUtm,
+                  '· distinct normalized utm_content values:', _utmCountsAcrossSales);
+
       // For each landing page, attach sessions + last-click sales
       const joined = [];
       byLanding.forEach(b => {
         const sess = sessionsByPath[b.path] || { sessions: 0, visitors: 0, cartAdds: 0, checkout: 0, byUtmContent: {}, _kind: 'other', _name: b.path };
-        // Last-click sales: any SALES_RAW row whose utm_content (= order_utm_content
-        // aliased to utm_content client-side) matches one of this landing page's
-        // ad names or ad ids (case-insensitive).
-        const adNameSet = new Set([...b.adNames].map(s => String(s).toLowerCase().trim()));
-        const adIdSet = new Set([...b.adIds].map(s => String(s).toLowerCase().trim()));
+        // Build the set of UTM keys this landing page can "claim" — every ad
+        // name (normalized) and every ad id pointing to this path.
+        const adKeys = new Set();
+        b.adNames.forEach(n => { const k = _normUtm(n); if (k) adKeys.add(k); });
+        const adIdKeys = new Set();
+        b.adIds.forEach(id => { const k = String(id).toLowerCase().trim(); if (k) adIdKeys.add(k); });
         let orders = 0, units = 0, totalSales = 0, netSales = 0, discounts = 0;
         const matchedRows = [];
-        (SALES_RAW || []).forEach(s => {
-          const uc = String(s.utm_content || '').toLowerCase().trim();
-          if (!uc) return;
-          if (adNameSet.has(uc) || adIdSet.has(uc)) {
-            orders++;
-            units += +s.net_items_sold || 0;
-            totalSales += +s.total_sales || 0;
-            netSales += +s.net_sales || 0;
-            discounts += +s.discounts || 0;
-            matchedRows.push(s);
-          }
-        });
+        const seen = new Set();
+        function _consume(s) {
+          // Sales rows are uniquely identified by line_item_id when present,
+          // fallback to a synthetic key so we don't double-count if an ad's
+          // name AND id both resolve to the same row.
+          const id = String(s.line_item_id || (s.day + '|' + s.product_title + '|' + s.utm_content || ''));
+          if (seen.has(id)) return;
+          seen.add(id);
+          orders++;
+          units += +s.net_items_sold || 0;
+          totalSales += +s.total_sales || 0;
+          netSales += +s.net_sales || 0;
+          discounts += +s.discounts || 0;
+          matchedRows.push(s);
+        }
+        adKeys.forEach(k => (salesByUtm[k] || []).forEach(_consume));
+        adIdKeys.forEach(k => (salesByUtmRaw[k] || []).forEach(_consume));
         const roas = b.spend > 0 ? totalSales / b.spend : 0;
         const cpc = b.adClicks > 0 ? b.spend / b.adClicks : 0;
         joined.push({
