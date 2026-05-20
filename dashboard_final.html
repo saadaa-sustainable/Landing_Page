@@ -5032,6 +5032,7 @@
         if (dateTo) qs.push('until=' + encodeURIComponent(dateTo));
         if (qs.length) endpoint += '?' + qs.join('&');
 
+        console.log('[Supabase Ads] fetching:', endpoint, '| masterSince=', dateFrom, '| masterUntil=', dateTo);
         const resp = await fetch(endpoint);
         if (!resp.ok) {
           const errText = await resp.text().catch(() => '');
@@ -5041,7 +5042,14 @@
         if (rows && rows.error) throw new Error(rows.error);
         if (!Array.isArray(rows) || !rows.length) throw new Error('No ad rows. Check Supabase env vars and the primary_table.');
 
-        console.log('[Supabase] fetched', rows.length, 'rows. First row keys:', Object.keys(rows[0]));
+        // Stash the date range the dashboard actually used so renderUtmAds
+        // can display it as a header — that way the user sees, at a glance,
+        // which dates this view is filtered to.
+        window._adsLoadedFor = { since: dateFrom || '', until: dateTo || '', rowCount: rows.length };
+        const distinctDates = new Set();
+        rows.forEach(r => { if (r.date) distinctDates.add(String(r.date)); });
+        window._adsLoadedFor.distinctDates = [...distinctDates].sort();
+        console.log('[Supabase Ads] fetched', rows.length, 'rows · distinct dates in response:', window._adsLoadedFor.distinctDates.length, '·', window._adsLoadedFor.distinctDates.slice(0, 5), window._adsLoadedFor.distinctDates.length > 5 ? '…' : '');
 
         // Normalize rows. Two shapes are supported:
         //   (A) FLAT — each row is one ad per day with columns like ad_id,
@@ -9168,7 +9176,16 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
         { indexAxis: 'y', plugins: { legend: { display: false } }, scales: hbar(false) });
 
       // Table
+      const _loaded = window._adsLoadedFor || {};
+      const _dateHint = _loaded.since && _loaded.until
+        ? (_loaded.since === _loaded.until
+            ? 'Ads loaded for ' + _loaded.since
+            : 'Ads loaded for ' + _loaded.since + ' → ' + _loaded.until)
+        : 'Ads loaded · no date filter';
+      const _distinctSpan = (_loaded.distinctDates || []).length;
+      const _dateBanner = '<span class="sec-meta" style="margin-left:8px;color:' + (_distinctSpan > 1 ? 'var(--low)' : 'var(--in)') + ';">' + _dateHint + ' · ' + (_loaded.rowCount || 0) + ' rows across ' + _distinctSpan + ' day' + (_distinctSpan === 1 ? '' : 's') + '</span>';
       let html = '<div class="tbl-wrap"><div class="tbl-hdr"><span class="tbl-title">' + rows.length + ' landing pages</span>'
+        + _dateBanner
         + '<span class="sec-meta" style="margin-left:8px;" title="Each row groups every Meta ad whose ad_link points to this landing page. Sessions come from sessions data matched on landing_page_path. Orders / total sales are from sales data matched on utm_content equal to one of the ads\' names (or IDs). Multiple ads to the same page collapse into one row.">click for ad-level + UTM detail · ⓘ</span></div>'
         + '<div class="tbl-scr"><table class="dtbl"><thead><tr>'
         + '<th>Landing Page</th><th># Ads</th><th>Spend</th><th>Outbound Clicks</th><th>Sessions</th><th>ATC%</th><th>Orders</th><th>Units</th><th>Total Sales</th><th>ROAS</th>'
