@@ -7345,8 +7345,22 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
         // API returns {error: "..."} on failure
         if (raw && raw.error) throw new Error(raw.error);
 
-        const rows = Array.isArray(raw) ? raw : [];
+        // Backend may now return { byPath: [...], rows: [...] } (two-query
+        // shape) OR the legacy flat array. Prefer byPath for accurate
+        // per-landing-page totals — the detailed `rows` are kept on every
+        // page's _utmRows for the UTM/city drill-down modals.
+        let detailRows = [];
+        let byPathRows = [];
+        if (Array.isArray(raw)) {
+          detailRows = raw;
+          byPathRows = raw; // legacy: use detail rows for totals too
+        } else if (raw && Array.isArray(raw.rows)) {
+          detailRows = raw.rows;
+          byPathRows = Array.isArray(raw.byPath) ? raw.byPath : raw.rows;
+        }
+        const rows = byPathRows;
         if (rows.length === 0) throw new Error('No rows returned for ' + dateVal + '. Check the date has traffic data.');
+        console.log('[Traffic] byPath rows:', byPathRows.length, '· detail rows:', detailRows.length);
 
         // ── Column name resolver (Shopify returns varying formats) ──
         function rv(r, ...names) {
@@ -7439,23 +7453,87 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
             // Weighted averages for bounce/duration/ppSession
             agg.bounceRate += bounceRate * s; agg.avgDuration += avgDuration * s; agg.ppSession += ppSession * s;
             agg._count += s;
-            // Track UTM sources
+            // Track UTM sources only if the row carried UTM dims (legacy
+            // single-query mode). byPath rows don't have UTMs, so this is
+            // skipped on the new code path; the second-pass loop below
+            // populates utmSources / utmRows from the detail rows.
             if (utmSource) {
               if (!agg.utmSources[utmSource]) agg.utmSources[utmSource] = { sessions: 0, visitors: 0, cartAdds: 0 };
               agg.utmSources[utmSource].sessions += s;
               agg.utmSources[utmSource].visitors += v;
               agg.utmSources[utmSource].cartAdds += c;
+              agg.utmRows.push(utmRow);
             }
-            // Keep the raw per-UTM detail row for click-through inspection
-            agg.utmRows.push(utmRow);
           } else if (pt === 'collection') {
             const p = String(lpPath || '');
             const name = p.replace(/^\/collections\//, '').replace(/\/$/, '').replace(/-/g, ' ').replace(/\b\w/g, x => x.toUpperCase()) || 'Collection';
-            COLLECTION_DATA.push({ path: p, name: name, visitors: v, sessions: s, cartAdds: c, checkout: ck, atcPct: atc, leakage: c - ck, bounceRate: bounceRate, avgDuration: avgDuration, ppSession: ppSession, utmSource: utmSource, utmMedium: utmMedium, utmCampaign: utmCampaign, utmContent: utmContent, utmTerm: utmTerm, day: String(day || ''), _utmRow: utmRow, _page_type: 'collection' });
+            // Carry _utmRow only if the row had real UTM dims (legacy path)
+            const collRow = { path: p, name: name, visitors: v, sessions: s, cartAdds: c, checkout: ck, atcPct: atc, leakage: c - ck, bounceRate: bounceRate, avgDuration: avgDuration, ppSession: ppSession, utmSource: utmSource, utmMedium: utmMedium, utmCampaign: utmCampaign, utmContent: utmContent, utmTerm: utmTerm, day: String(day || ''), _page_type: 'collection' };
+            if (utmSource) collRow._utmRow = utmRow;
+            COLLECTION_DATA.push(collRow);
           } else if (pt === 'home') {
-            HOME_DATA.push({ path: String(lpPath || '/'), name: 'Home Page', visitors: v, sessions: s, cartAdds: c, checkout: ck, atcPct: atc, leakage: c - ck, bounceRate: bounceRate, avgDuration: avgDuration, ppSession: ppSession, utmSource: utmSource, utmMedium: utmMedium, utmCampaign: utmCampaign, utmContent: utmContent, utmTerm: utmTerm, day: String(day || ''), _utmRow: utmRow, _page_type: 'home' });
+            const homeRow = { path: String(lpPath || '/'), name: 'Home Page', visitors: v, sessions: s, cartAdds: c, checkout: ck, atcPct: atc, leakage: c - ck, bounceRate: bounceRate, avgDuration: avgDuration, ppSession: ppSession, utmSource: utmSource, utmMedium: utmMedium, utmCampaign: utmCampaign, utmContent: utmContent, utmTerm: utmTerm, day: String(day || ''), _page_type: 'home' };
+            if (utmSource) homeRow._utmRow = utmRow;
+            HOME_DATA.push(homeRow);
           }
         });
+
+        // ── Second pass: detailRows carry the 9-dim UTM/city breakdown.
+        // Pages totals already came from byPathRows above (accurate); we use
+        // detailRows ONLY to fill _utmRows per landing page for the
+        // drill-down modal. Detail is subject to Shopify's 1000-row cap.
+        if (detailRows && detailRows !== rows) {
+          detailRows.forEach(r => {
+            const lpType = rv(r, 'landing_page_type', 'Landing page type') || '';
+            const lpPath = rv(r, 'landing_page_path', 'Landing page path') || '';
+            const pt = classifyPageType(lpType, lpPath);
+            if (pt === 'summary') return;
+            const v  = +(rv(r, 'online_store_visitors', 'Online store visitors')) || 0;
+            const s  = +(rv(r, 'sessions', 'Sessions')) || 0;
+            const c  = +(rv(r, 'sessions_with_cart_additions', 'Sessions with cart additions', 'Added to cart')) || 0;
+            const ck = +(rv(r, 'sessions_that_reached_checkout', 'Sessions that reached checkout')) || 0;
+            const bounceRate = +(rv(r, 'bounce_rate', 'Bounce rate')) || 0;
+            const avgDuration = +(rv(r, 'average_session_duration', 'Average session duration')) || 0;
+            const ppSession = +(rv(r, 'pageviews_per_session', 'Pageviews per session')) || 0;
+            const utmSource   = rv(r, 'utm_source',   'UTM source')   || '';
+            const utmMedium   = rv(r, 'utm_medium',   'UTM medium')   || '';
+            const utmCampaign = rv(r, 'utm_campaign', 'UTM campaign') || '';
+            const utmContent  = rv(r, 'utm_content',  'UTM content')  || '';
+            const utmTerm     = rv(r, 'utm_term',     'UTM term')     || '';
+            const city        = rv(r, 'session_city', 'Session city', 'city', 'City') || '';
+            const day         = rv(r, 'day', 'Day') || '';
+            const atc = s > 0 ? Math.round(c / s * 1000) / 10 : 0;
+            const utmRow = {
+              day: String(day || ''),
+              utmSource: String(utmSource || ''),
+              utmMedium: String(utmMedium || ''),
+              utmCampaign: String(utmCampaign || ''),
+              utmContent: String(utmContent || ''),
+              utmTerm: String(utmTerm || ''),
+              city: String(city || ''),
+              visitors: v, sessions: s, cartAdds: c, checkout: ck,
+              bounceRate, avgDuration, ppSession, atcPct: atc,
+            };
+            if (pt === 'pdp') {
+              const slug = String(lpPath || '').replace(/^\/products\//, '').replace(/\/$/, '').toLowerCase();
+              if (!pdpAgg[slug]) pdpAgg[slug] = { visitors: 0, sessions: 0, cartAdds: 0, checkout: 0, bounceRate: 0, avgDuration: 0, ppSession: 0, _count: 0, utmSources: {}, utmRows: [], _path: lpPath };
+              pdpAgg[slug].utmRows.push(utmRow);
+              if (utmSource) {
+                if (!pdpAgg[slug].utmSources[utmSource]) pdpAgg[slug].utmSources[utmSource] = { sessions: 0, visitors: 0, cartAdds: 0 };
+                pdpAgg[slug].utmSources[utmSource].sessions += s;
+                pdpAgg[slug].utmSources[utmSource].visitors += v;
+                pdpAgg[slug].utmSources[utmSource].cartAdds += c;
+              }
+            } else if (pt === 'collection') {
+              // Push synthetic per-UTM rows that the next pass concatenates onto collAgg[path].utmRows
+              const p = String(lpPath || '');
+              COLLECTION_DATA.push({ path: p, name: p.replace(/^\/collections\//, '').replace(/\/$/, '').replace(/-/g, ' ').replace(/\b\w/g, x => x.toUpperCase()) || 'Collection', visitors: 0, sessions: 0, cartAdds: 0, checkout: 0, atcPct: atc, leakage: 0, bounceRate: bounceRate, avgDuration: avgDuration, ppSession: ppSession, utmSource: utmSource, utmMedium: utmMedium, utmCampaign: utmCampaign, utmContent: utmContent, utmTerm: utmTerm, day: String(day || ''), _utmRow: utmRow, _page_type: 'collection', _detailOnly: true });
+            } else if (pt === 'home') {
+              HOME_DATA.push({ path: String(lpPath || '/'), name: 'Home Page', visitors: 0, sessions: 0, cartAdds: 0, checkout: 0, atcPct: atc, leakage: 0, bounceRate: bounceRate, avgDuration: avgDuration, ppSession: ppSession, utmSource: utmSource, utmMedium: utmMedium, utmCampaign: utmCampaign, utmContent: utmContent, utmTerm: utmTerm, day: String(day || ''), _utmRow: utmRow, _page_type: 'home', _detailOnly: true });
+            }
+          });
+        }
+
         // Aggregate collection rows by path (multiple UTM rows per collection)
         const collAgg = {};
         COLLECTION_DATA.forEach(r => {

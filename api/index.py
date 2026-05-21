@@ -161,12 +161,31 @@ def rows_to_dicts(columns: list, raw_rows: list) -> list:
 
 # ── Fetch functions ───────────────────────────────────────────────────────────
 
-def fetch_traffic(since: str, until: str) -> list:
-    """Fetch page sessions for a date range. Each returned row carries the full
-    UTM breakdown (source/medium/campaign/content/term) plus the day, so the
-    dashboard can build per-landing-page UTM detail tables without a re-fetch.
+def fetch_traffic(since: str, until: str) -> dict:
+    """Two-query traffic fetch:
+
+      • byPath  — GROUP BY landing_page_type, landing_page_path, day.
+                  Authoritative per-landing-page totals; ~99% coverage of
+                  the true day total (Shopify's 1000-row cap rarely bites
+                  with only 3 dims).
+      • rows    — full 9-dim breakdown for UTM / city drill-downs. Capped
+                  at 1000 rows by Shopify, so the totals here are partial.
+
+    Bounce rate is computed locally (bounces / sessions × 100) on every row.
     """
-    ql = (
+    ql_path = (
+        "FROM sessions "
+        "SHOW online_store_visitors, sessions, sessions_with_cart_additions, "
+        "added_to_cart_rate, bounces, average_session_duration, "
+        "pageviews_per_session, sessions_that_reached_checkout "
+        "WHERE landing_page_path IS NOT NULL "
+        "AND human_or_bot_session IN ('human', 'bot') "
+        "GROUP BY landing_page_type, landing_page_path, day "
+        "WITH TOTALS "
+        f"SINCE {since} UNTIL {until} "
+        "ORDER BY sessions DESC"
+    )
+    ql_detail = (
         "FROM sessions "
         "SHOW online_store_visitors, sessions, sessions_with_cart_additions, "
         "added_to_cart_rate, bounces, average_session_duration, "
@@ -178,7 +197,7 @@ def fetch_traffic(since: str, until: str) -> list:
         "session_city "
         "WITH TOTALS "
         f"SINCE {since} UNTIL {until} "
-        "ORDER BY sessions DESC "
+        "ORDER BY sessions DESC"
     )
     query = """
     query($ql: String!) {
@@ -188,20 +207,21 @@ def fetch_traffic(since: str, until: str) -> list:
       }
     }
     """
-    data = _gql(query, {"ql": ql})
-    sqr = data.get("data", {}).get("shopifyqlQuery", {})
-    if sqr.get("parseErrors"):
-        raise ValueError(f"ShopifyQL parse error: {sqr['parseErrors']}")
-    table = sqr.get("tableData", {})
-    result = rows_to_dicts(table.get("columns", []), table.get("rows", []))
 
-    # Compute bounce_rate from bounces / sessions (do not use Shopify's value directly)
-    for row in result:
-        bounces = float(row.get('bounces') or 0)
-        sessions = float(row.get('sessions') or 0)
-        row['bounce_rate'] = round(bounces / sessions * 100, 2) if sessions > 0 else 0
+    def _run(ql):
+        data = _gql(query, {"ql": ql})
+        sqr = data.get("data", {}).get("shopifyqlQuery", {})
+        if sqr.get("parseErrors"):
+            raise ValueError(f"ShopifyQL parse error: {sqr['parseErrors']}")
+        tbl = sqr.get("tableData", {})
+        result = rows_to_dicts(tbl.get("columns", []), tbl.get("rows", []))
+        for row in result:
+            bounces = float(row.get('bounces') or 0)
+            sessions = float(row.get('sessions') or 0)
+            row['bounce_rate'] = round(bounces / sessions * 100, 2) if sessions > 0 else 0
+        return result
 
-    return result
+    return {"byPath": _run(ql_path), "rows": _run(ql_detail)}
 
 
 def fetch_inventory() -> list:

@@ -45,12 +45,38 @@ if not SHOP_DOMAIN or not ADMIN_ACCESS_TOKEN:
 
 # ── Shopify fetch ──────────────────────────────────────────────────────────────
 
-def fetch_traffic(since: str, until: str) -> list:
-    """Fetch page sessions from ShopifyQL for a date range with UTM data.
-    When since == until, this is a single-day fetch. Otherwise it returns
-    rows aggregated across the range (no `day` in GROUP BY)."""
+def fetch_traffic(since: str, until: str) -> dict:
+    """Two-query traffic fetch:
 
-    ql = (
+      • byPath  -- GROUP BY landing_page_type, landing_page_path, day
+                   3 dims only, so ~700 landing pages × N days fits inside
+                   Shopify's 1000-row response cap. This is the authoritative
+                   per-landing-page total (covers 99%+ of true day totals).
+
+      • rows    -- GROUP BY landing_page_type, landing_page_path, day,
+                   utm_source, utm_medium, utm_campaign, utm_content,
+                   utm_term, session_city. The full 9-dim breakdown used
+                   for UTM / city drill-down modals. Capped at 1000 rows
+                   by Shopify so totals are NOT reliable here — only use
+                   for relative comparisons inside a single page.
+
+    Returns { "byPath": [...], "rows": [...] }.
+    """
+
+    ql_path = (
+        "FROM sessions "
+        "SHOW online_store_visitors, sessions, sessions_with_cart_additions, "
+        "added_to_cart_rate, bounces, average_session_duration, "
+        "pageviews_per_session, sessions_that_reached_checkout "
+        "WHERE landing_page_path IS NOT NULL "
+        "AND human_or_bot_session IN ('human', 'bot') "
+        "GROUP BY landing_page_type, landing_page_path, day "
+        "WITH TOTALS "
+        f"SINCE {since} UNTIL {until} "
+        "ORDER BY sessions DESC"
+    )
+
+    ql_detail = (
         "FROM sessions "
         "SHOW online_store_visitors, sessions, sessions_with_cart_additions, "
         "added_to_cart_rate, bounces, average_session_duration, "
@@ -62,75 +88,60 @@ def fetch_traffic(since: str, until: str) -> list:
         "session_city "
         "WITH TOTALS "
         f"SINCE {since} UNTIL {until} "
-        "ORDER BY sessions DESC "
+        "ORDER BY sessions DESC"
     )
 
-    query = """
-    query($ql: String!) {
-      shopifyqlQuery(query: $ql) {
-        tableData {
-          columns { name dataType }
-          rows
+    def _run(ql: str):
+        query = """
+        query($ql: String!) {
+          shopifyqlQuery(query: $ql) {
+            tableData { columns { name dataType } rows }
+            parseErrors
+          }
         }
-        parseErrors
-      }
-    }
-    """
-
-    resp = requests.post(
-        f"https://{SHOP_DOMAIN}/admin/api/2025-10/graphql.json",
-        headers={
-            "Content-Type": "application/json",
-            "X-Shopify-Access-Token": ADMIN_ACCESS_TOKEN,
-        },
-        json={"query": query, "variables": {"ql": ql}},
-        timeout=30,
-    )
-    resp.raise_for_status()
-    data = resp.json()
-
-    if data.get("errors"):
-        raise ValueError(f"GraphQL error: {data['errors']}")
-
-    sqr = data.get("data", {}).get("shopifyqlQuery", {})
-
-    parse_errors = sqr.get("parseErrors", [])
-    if parse_errors:
-        raise ValueError(f"ShopifyQL parse error: {parse_errors}")
-
-    table = sqr.get("tableData", {})
-    columns = table.get("columns", [])
-    raw_rows = table.get("rows", [])
-
-    if not raw_rows:
-        return []
-
-    # If rows are already dicts (Shopify sometimes returns them this way), pass through
-    if raw_rows and isinstance(raw_rows[0], dict):
-        result = raw_rows
-    else:
-        # If rows are arrays, map column indices to names
-        if not columns:
+        """
+        resp = requests.post(
+            f"https://{SHOP_DOMAIN}/admin/api/2025-10/graphql.json",
+            headers={
+                "Content-Type": "application/json",
+                "X-Shopify-Access-Token": ADMIN_ACCESS_TOKEN,
+            },
+            json={"query": query, "variables": {"ql": ql}},
+            timeout=60,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        if data.get("errors"):
+            raise ValueError(f"GraphQL error: {data['errors']}")
+        sqr = data.get("data", {}).get("shopifyqlQuery", {})
+        if sqr.get("parseErrors"):
+            raise ValueError(f"ShopifyQL parse error: {sqr['parseErrors']}")
+        table = sqr.get("tableData", {})
+        columns = table.get("columns", [])
+        raw_rows = table.get("rows", [])
+        if not raw_rows:
             return []
+        if isinstance(raw_rows[0], dict):
+            result = list(raw_rows)
+        else:
+            if not columns:
+                return []
+            col_names = [c.get("name", f"col_{i}") for i, c in enumerate(columns)]
+            result = [
+                {col_names[i]: v for i, v in enumerate(row) if i < len(col_names)}
+                for row in raw_rows if isinstance(row, list)
+            ]
+        # Compute bounce_rate from bounces / sessions instead of using Shopify's value
+        for row in result:
+            bounces = float(row.get('bounces') or 0)
+            sessions = float(row.get('sessions') or 0)
+            row['bounce_rate'] = round(bounces / sessions * 100, 2) if sessions > 0 else 0
+        return result
 
-        col_names = [c.get("name", f"col_{i}") for i, c in enumerate(columns)]
-
-        result = []
-        for row in raw_rows:
-            if isinstance(row, list):
-                entry = {}
-                for i, val in enumerate(row):
-                    if i < len(col_names):
-                        entry[col_names[i]] = val
-                result.append(entry)
-
-    # Compute bounce_rate from bounces / sessions instead of using Shopify's value
-    for row in result:
-        bounces = float(row.get('bounces') or 0)
-        sessions = float(row.get('sessions') or 0)
-        row['bounce_rate'] = round(bounces / sessions * 100, 2) if sessions > 0 else 0
-
-    return result
+    by_path = _run(ql_path)
+    detail = _run(ql_detail)
+    print(f"  [Traffic] byPath={len(by_path)} rows · detail={len(detail)} rows")
+    return {"byPath": by_path, "rows": detail}
 
 
 # ── Inventory fetch ──────────────────────────────────────────────────────────
