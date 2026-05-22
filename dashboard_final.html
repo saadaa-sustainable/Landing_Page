@@ -5012,7 +5012,7 @@
 
     // ── AD INTELLIGENCE ──
     // ── META ADS DATA & PROCESSING ──
-    let META_ADS_DATA = []; // unified ad rows from Supabase results_table
+    let META_ADS_DATA = []; // ad rows from Supabase primary_table (one per ad per day)
 
     // ── SUPABASE ADS FETCH (via backend proxy) ──
     async function fetchSupabaseAds() {
@@ -5051,176 +5051,58 @@
         window._adsLoadedFor.distinctDates = [...distinctDates].sort();
         console.log('[Supabase Ads] fetched', rows.length, 'rows · distinct dates in response:', window._adsLoadedFor.distinctDates.length, '·', window._adsLoadedFor.distinctDates.slice(0, 5), window._adsLoadedFor.distinctDates.length > 5 ? '…' : '');
 
-        // Normalize rows. Two shapes are supported:
-        //   (A) FLAT — each row is one ad per day with columns like ad_id,
-        //       ad_name, ad_link, amount_spent_inr, outbound_clicks, … (this
-        //       is what primary_table returns).
-        //   (B) NESTED — row has ads_json: [{...}, ...] and product_breakdown
-        //       columns (the old results_table shape).
-        // We detect (A) when the row carries ad_id at the root; otherwise we
-        // fall through to the existing ads_json expansion path.
+        // Every row in /api/ads now comes from Supabase primary_table —
+        // one ad per day with flat snake_case columns. The legacy
+        // results_table / ads_json shape is no longer supported here;
+        // it's reserved for the Creative Testing Dashboard (last-30-day
+        // creative analysis).
         META_ADS_DATA = [];
         rows.forEach(row => {
-          // ── Flat row from primary_table ──
-          if (row.ad_id || row.ad_link || row.amount_spent_inr != null) {
-            META_ADS_DATA.push({
-              adId: String(row.ad_id || ''),
-              adName: String(row.ad_name || ''),
-              adLink: String(row.ad_link || ''),
-              campaignName: String(row.campaign_name || ''),
-              campaignId: String(row.campaign_id || ''),
-              account: String(row.account_name || ''),
-              dateFrom: row.date || '',
-              dateTo: row.date_stop || row.date || '',
-              impressions: parseInt(row.impressions || 0),
-              spend: parseFloat(row.amount_spent_inr || 0),
-              clicks: parseInt(row.outbound_clicks || 0),
-              thruPlays: parseInt(row.thruplays || 0),
-              videoPlays: parseInt(row.three_sec_video_plays || 0),
-              reach: parseInt(row.reach || 0),
-              convValue: parseFloat(row.conversion_value || 0),
-              hookRate: parseFloat(row.three_sec_video_plays && row.thruplays ? row.thruplays / row.three_sec_video_plays : 0),
-              holdRate: 0,
-              thruplayRate: 0,
-              outboundCtr: parseFloat(row.ctr || 0),
-              engagementRate: 0,
-              cfRoas: parseFloat(row.purchase_roas || 0),
-              productName: '—',
-              productRevenue: parseFloat(row.conversion_value || 0),
-              _adStatus: String(row.ad_status || ''),
-              _previewLink: String(row.preview_link || ''),
-              _rowId: row.id,
-            });
-            return;
-          }
-
-          // ── Nested row from results_table ──
-          let ads = [];
-          if (row.ads_json) {
-            try { ads = Array.isArray(row.ads_json) ? row.ads_json : JSON.parse(row.ads_json); } catch (e) { ads = []; }
-          }
-
-          // product_breakdown: jsonb mapping product → { spend, revenue, impressions, ... }
-          let productBreakdown = {};
-          if (row.product_breakdown) {
-            try { productBreakdown = typeof row.product_breakdown === 'object' ? row.product_breakdown : JSON.parse(row.product_breakdown); } catch (e) { productBreakdown = {}; }
-          }
-
-          // ctype_breakdown: jsonb with creative type data
-          let ctypeBreakdown = {};
-          if (row.ctype_breakdown) {
-            try { ctypeBreakdown = typeof row.ctype_breakdown === 'object' ? row.ctype_breakdown : JSON.parse(row.ctype_breakdown); } catch (e) { ctypeBreakdown = {}; }
-          }
-
-          if (ads.length > 0) {
-            // Expand per-ad rows. ads_json uses Supabase's compact camelCase
-            // convention (adId / adName / adLink / spend / clicks / impr /
-            // convV / thru / vid3 / campName); we accept both that and the
-            // flat Postgres-snake_case form (ad_id, ad_name, amount_spent_inr,
-            // outbound_clicks, …) so either source shape works.
-            ads.forEach(ad => {
-              const _ad_id = String(ad.adId || ad.ad_id || ad.id || '');
-              const _ad_name = String(ad.adName || ad.ad_name || ad.name || '');
-              const _ad_link = String(ad.adLink || ad.ad_link || ad.link || row.ad_link || '');
-              const _camp_name = String(ad.campName || ad.campaign_name || ad.campaignName || row.campaign_name || '');
-              const _camp_id = String(ad.campaignId || ad.campaign_id || ad.campId || row.campaign_id || '');
-              const adSpend = parseFloat(ad.spend || ad.amount_spent_inr || ad.total_spend || 0);
-              const adImpr = parseInt(ad.impr || ad.impressions || ad.total_impr || 0);
-              const adConvValue = parseFloat(ad.convV || ad.conversion_value || ad.conv_value || ad.purchase_value || ad.total_conv_value || 0);
-              const adClicks = parseInt(ad.clicks || ad.outbound_clicks || 0);
-              const adThruPlays = parseInt(ad.thru || ad.thruplays || ad.thru_plays || ad.total_thru_plays || 0);
-              const adVideoPlays = parseInt(ad.vid3 || ad.three_sec_video_plays || ad.video_plays || ad.total_video_plays || 0);
-              const adReach = parseInt(ad.reach || ad.total_reach || 0);
-
-              // Derive product mapping: match ad id/name to product_breakdown keys
-              let productName = '—';
-              let productRevenue = 0;
-              if (Object.keys(productBreakdown).length > 0) {
-                // product_breakdown keys may be ad IDs or product names
-                const adId = _ad_id;
-                const adName = _ad_name;
-                if (productBreakdown[adId]) {
-                  const pb = productBreakdown[adId];
-                  productName = pb.product_title || pb.product || adName || '—';
-                  productRevenue = parseFloat(pb.revenue || pb.conv_value || 0);
-                } else if (productBreakdown[adName]) {
-                  const pb = productBreakdown[adName];
-                  productName = pb.product_title || pb.product || adName || '—';
-                  productRevenue = parseFloat(pb.revenue || pb.conv_value || 0);
-                } else {
-                  // Try partial match
-                  for (const [k, v] of Object.entries(productBreakdown)) {
-                    if (adId && k.includes(adId)) { productName = v.product_title || v.product || adName || k; productRevenue = parseFloat(v.revenue || v.conv_value || 0); break; }
-                  }
-                }
-              }
-
-              META_ADS_DATA.push({
-                adId: _ad_id,
-                adName: _ad_name,
-                adLink: _ad_link,
-                campaignName: _camp_name,
-                campaignId: _camp_id,
-                account: row.account_name || '',
-                dateFrom: row.data_date_from || '',
-                dateTo: row.data_date_to || '',
-                impressions: adImpr,
-                spend: adSpend,
-                clicks: adClicks,
-                thruPlays: adThruPlays,
-                videoPlays: adVideoPlays,
-                reach: adReach,
-                convValue: adConvValue,
-                hookRate: adVideoPlays > 0 ? parseFloat(ad.hook_rate || (adThruPlays / adVideoPlays)) || 0 : 0,
-                holdRate: parseFloat(ad.hold_rate || row.hold_rate || 0),
-                thruplayRate: parseFloat(ad.thruplay_rate || row.thruplay_rate || 0),
-                outboundCtr: parseFloat(ad.outbound_ctr || row.outbound_ctr || 0),
-                engagementRate: parseFloat(ad.engagement_rate || row.engagement_rate || 0),
-                cfRoas: parseFloat(ad.cf_roas || row.cf_roas || 0),
-                productName: productName,
-                productRevenue: productRevenue,
-                _productBreakdown: productBreakdown,
-                _ctypeBreakdown: ctypeBreakdown,
-                _rowId: row.id,
-              });
-            });
-          } else {
-            // No per-ad breakdown — use the row-level aggregates as a single entry
-            const topProduct = Object.keys(productBreakdown).length > 0
-              ? (() => { let best = null, bestRev = 0; for (const [k, v] of Object.entries(productBreakdown)) { const r = parseFloat(v.revenue || v.conv_value || 0); if (r > bestRev) { bestRev = r; best = v.product_title || v.product || k; } } return best || '—'; })()
-              : '—';
-            META_ADS_DATA.push({
-              adId: String(row.id || ''),
-              adName: row.account_name || ('Row ' + row.id),
-              adLink: String(row.ad_link || ''),
-              campaignName: String(row.campaign_name || ''),
-              campaignId: String(row.campaign_id || ''),
-              account: row.account_name || '',
-              dateFrom: row.data_date_from || '',
-              dateTo: row.data_date_to || '',
-              impressions: parseInt(row.total_impr || 0),
-              spend: parseFloat(row.total_spend || 0),
-              clicks: parseInt(row.total_out_clicks || 0),
-              thruPlays: parseInt(row.total_thru_plays || 0),
-              videoPlays: parseInt(row.total_video_plays || 0),
-              reach: parseInt(row.total_reach || 0),
-              convValue: parseFloat(row.total_conv_value || 0),
-              hookRate: parseFloat(row.hook_rate || 0),
-              holdRate: parseFloat(row.hold_rate || 0),
-              thruplayRate: parseFloat(row.thruplay_rate || 0),
-              outboundCtr: parseFloat(row.outbound_ctr || 0),
-              engagementRate: parseFloat(row.engagement_rate || 0),
-              cfRoas: parseFloat(row.cf_roas || 0),
-              productName: topProduct,
-              productRevenue: parseFloat(row.total_conv_value || 0),
-              _productBreakdown: productBreakdown,
-              _ctypeBreakdown: ctypeBreakdown,
-              _rowId: row.id,
-            });
-          }
+          const impressions = parseInt(row.impressions || 0);
+          const reach = parseInt(row.reach || 0);
+          const threeSec = parseInt(row.three_sec_video_plays || 0);
+          const thruPlays = parseInt(row.thruplays || 0);
+          const outboundClicks = parseInt(row.outbound_clicks || 0);
+          const spend = parseFloat(row.amount_spent_inr || 0);
+          // Meta's standard video-funnel rates (computed from primary_table cols):
+          //   hookRate     = 3-sec views / impressions
+          //   holdRate     = thru-plays / 3-sec views
+          //   thruplayRate = thru-plays / impressions
+          //   outboundCtr  = outbound clicks / impressions
+          const hookRate     = impressions > 0 ? threeSec / impressions : 0;
+          const holdRate     = threeSec > 0    ? thruPlays / threeSec   : 0;
+          const thruplayRate = impressions > 0 ? thruPlays / impressions : 0;
+          const outboundCtr  = impressions > 0 ? outboundClicks / impressions : 0;
+          META_ADS_DATA.push({
+            adId: String(row.ad_id || ''),
+            adName: String(row.ad_name || ''),
+            adLink: String(row.ad_link || ''),
+            campaignName: String(row.campaign_name || ''),
+            campaignId: String(row.campaign_id || ''),
+            account: String(row.account_name || ''),
+            dateFrom: String(row.date || ''),
+            dateTo: String(row.date_stop || row.date || ''),
+            impressions,
+            spend,
+            clicks: outboundClicks,
+            thruPlays,
+            videoPlays: threeSec,
+            reach,
+            convValue: parseFloat(row.conversion_value || 0),
+            // Standard rates derived from raw primary_table counts
+            hookRate, holdRate, thruplayRate, outboundCtr,
+            engagementRate: impressions > 0 ? parseInt(row.post_engagements || 0) / impressions : 0,
+            cfRoas: parseFloat(row.purchase_roas || 0),
+            // Ad ↔ product matching happens via utm_content ↔ ad_name later in buildAdMatchData
+            productName: '—',
+            productRevenue: parseFloat(row.conversion_value || 0),
+            _adStatus: String(row.ad_status || ''),
+            _previewLink: String(row.preview_link || ''),
+            _rowId: row.id,
+          });
         });
 
-        if (!META_ADS_DATA.length) throw new Error('No ad records could be extracted from the data');
+        if (!META_ADS_DATA.length) throw new Error('No ad records could be extracted from primary_table');
 
         msgEl.textContent = '✓ ' + META_ADS_DATA.length + ' ads from ' + rows.length + ' row(s) · ' + (fmtDate(dateFrom) || 'all') + ' → ' + (fmtDate(dateTo) || 'all');
         msgEl.style.color = 'var(--in)';

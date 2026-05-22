@@ -247,7 +247,14 @@ flowchart TD
 `XXXXL→4XL`, `XXXXXL→5XL`, `SMALL→S`, `MEDIUM→M`, `LARGE→L`,
 `EXTRA SMALL→XS`, `EXTRA LARGE→XL`.
 
-### 4.5 `/api/ads` — Supabase Meta Ads
+### 4.5 `/api/ads` — Supabase Meta Ads (primary_table)
+
+**Source of truth for the Ad Intelligence tab.** The older `results_table`
+(nested `ads_json`) is no longer used by this dashboard — it's reserved for
+the Creative Testing Dashboard, which reads the last-30-day creative
+analysis from that table independently.
+
+
 
 ```mermaid
 flowchart TD
