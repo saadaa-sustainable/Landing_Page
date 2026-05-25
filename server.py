@@ -140,8 +140,63 @@ def fetch_traffic(since: str, until: str) -> dict:
 
     by_path = _run(ql_path)
     detail = _run(ql_detail)
-    print(f"  [Traffic] byPath={len(by_path)} rows · detail={len(detail)} rows")
-    return {"byPath": by_path, "rows": detail}
+
+    # Authoritative day-level totals — one tiny query, no GROUP BY, no
+    # landing_page_path filter. This is the truth the dashboard's KPI cards
+    # should display (avoids over-counting visitors via per-page de-dup
+    # quirks and under-counting checkouts whose session had a null
+    # landing_page_path: cart-recovery emails, customer-account flows, etc.).
+    truth = _run_truth_query(since, until)
+    print(f"  [Traffic] byPath={len(by_path)} rows · detail={len(detail)} rows · totals={'yes' if truth else 'no'}")
+    return {"byPath": by_path, "rows": detail, "totals": truth}
+
+
+def _run_truth_query(since: str, until: str) -> dict:
+    """Account-level day totals across ALL sessions (no landing_page filter,
+    no GROUP BY). Returns a single-row dict with the 8 SHOW fields."""
+    ql = (
+        "FROM sessions "
+        "SHOW online_store_visitors, sessions, sessions_with_cart_additions, "
+        "bounces, average_session_duration, pageviews_per_session, "
+        "sessions_that_reached_checkout, added_to_cart_rate "
+        "WHERE human_or_bot_session IN ('human', 'bot') "
+        f"SINCE {since} UNTIL {until}"
+    )
+    query = """
+    query($ql: String!) {
+      shopifyqlQuery(query: $ql) {
+        tableData { columns { name dataType } rows }
+        parseErrors
+      }
+    }
+    """
+    try:
+        resp = requests.post(
+            f"https://{SHOP_DOMAIN}/admin/api/2025-10/graphql.json",
+            headers={
+                "Content-Type": "application/json",
+                "X-Shopify-Access-Token": ADMIN_ACCESS_TOKEN,
+            },
+            json={"query": query, "variables": {"ql": ql}},
+            timeout=30,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        if data.get("errors"):
+            return {}
+        sqr = data.get("data", {}).get("shopifyqlQuery", {})
+        if sqr.get("parseErrors"):
+            return {}
+        rows = (sqr.get("tableData") or {}).get("rows") or []
+        if not rows:
+            return {}
+        row = rows[0] if isinstance(rows[0], dict) else {}
+        bounces = float(row.get('bounces') or 0)
+        sessions = float(row.get('sessions') or 0)
+        row['bounce_rate'] = round(bounces / sessions * 100, 2) if sessions > 0 else 0
+        return row
+    except Exception:
+        return {}
 
 
 # ── Inventory fetch ──────────────────────────────────────────────────────────

@@ -221,7 +221,27 @@ def fetch_traffic(since: str, until: str) -> dict:
             row['bounce_rate'] = round(bounces / sessions * 100, 2) if sessions > 0 else 0
         return result
 
-    return {"byPath": _run(ql_path), "rows": _run(ql_detail)}
+    # Authoritative day totals — no landing_page filter, no GROUP BY.
+    # This is what Shopify Analytics shows as the day's visitor / session /
+    # checkout numbers; the dashboard's KPI cards should display these
+    # rather than summing per-landing-page rows (which double-count
+    # visitors and miss checkouts whose session had a null landing_page).
+    ql_truth = (
+        "FROM sessions "
+        "SHOW online_store_visitors, sessions, sessions_with_cart_additions, "
+        "bounces, average_session_duration, pageviews_per_session, "
+        "sessions_that_reached_checkout, added_to_cart_rate "
+        "WHERE human_or_bot_session IN ('human', 'bot') "
+        f"SINCE {since} UNTIL {until}"
+    )
+    truth_rows = []
+    try:
+        truth_rows = _run(ql_truth)
+    except Exception:
+        truth_rows = []
+    truth = truth_rows[0] if truth_rows else {}
+
+    return {"byPath": _run(ql_path), "rows": _run(ql_detail), "totals": truth}
 
 
 def fetch_inventory() -> list:

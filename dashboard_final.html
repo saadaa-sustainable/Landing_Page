@@ -7227,22 +7227,45 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
         // API returns {error: "..."} on failure
         if (raw && raw.error) throw new Error(raw.error);
 
-        // Backend may now return { byPath: [...], rows: [...] } (two-query
-        // shape) OR the legacy flat array. Prefer byPath for accurate
-        // per-landing-page totals — the detailed `rows` are kept on every
-        // page's _utmRows for the UTM/city drill-down modals.
+        // Backend may now return { byPath, rows, totals } (three-part shape)
+        // OR the legacy flat array. Prefer byPath for per-landing-page
+        // totals; `rows` carries the 9-dim UTM/city detail for drill-down
+        // modals; `totals` is the account-wide day truth (no landing_page
+        // filter, no GROUP BY) used for the Traffic-tab KPI cards.
         let detailRows = [];
         let byPathRows = [];
+        let truthTotals = null;
         if (Array.isArray(raw)) {
           detailRows = raw;
-          byPathRows = raw; // legacy: use detail rows for totals too
+          byPathRows = raw;
         } else if (raw && Array.isArray(raw.rows)) {
           detailRows = raw.rows;
           byPathRows = Array.isArray(raw.byPath) ? raw.byPath : raw.rows;
+          if (raw.totals && typeof raw.totals === 'object') truthTotals = raw.totals;
         }
         const rows = byPathRows;
         if (rows.length === 0) throw new Error('No rows returned for ' + dateVal + '. Check the date has traffic data.');
-        console.log('[Traffic] byPath rows:', byPathRows.length, '· detail rows:', detailRows.length);
+        console.log('[Traffic] byPath rows:', byPathRows.length, '· detail rows:', detailRows.length,
+                    '· totals:', truthTotals ? Object.keys(truthTotals).length + ' fields' : 'none');
+
+        // Day-level account totals — used by renderTraf for KPI cards.
+        // Shopify computes these on its side with no landing_page filter, so
+        // they include cart-recovery / customer-account checkouts that the
+        // landing-page breakdown excludes, and the visitor count is
+        // unique-de-duped (not summed across pages).
+        if (truthTotals) {
+          SHOPIFY_TOTALS = {
+            visitors:    +(truthTotals.online_store_visitors) || 0,
+            sessions:    +(truthTotals.sessions) || 0,
+            cartAdds:    +(truthTotals.sessions_with_cart_additions) || 0,
+            checkout:    +(truthTotals.sessions_that_reached_checkout) || 0,
+            bounceRate:  +(truthTotals.bounce_rate) || 0,
+            avgDuration: +(truthTotals.average_session_duration) || 0,
+            ppSession:   +(truthTotals.pageviews_per_session) || 0,
+          };
+        } else {
+          SHOPIFY_TOTALS = null;
+        }
 
         // ── Column name resolver (Shopify returns varying formats) ──
         function rv(r, ...names) {
@@ -7456,8 +7479,14 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
         } else { HOME_DATA = []; }
         COLLECTION_DATA.sort((a, b) => b.sessions - a.sessions);
 
-        // Store Shopify totals globally for accurate KPIs
-        SHOPIFY_TOTALS = _shopifyTotals;
+        // Store Shopify totals globally for accurate KPIs. Prefer the
+        // explicit `totals` block the backend now returns (authoritative,
+        // no GROUP BY) over any inline summary row we happened to detect.
+        if (truthTotals) {
+          // Already set above; keep it.
+        } else if (_shopifyTotals) {
+          SHOPIFY_TOTALS = _shopifyTotals;
+        }
 
         if (productRows.length === 0 && Object.keys(pdpAgg).length === 0) throw new Error('No /products/ rows in response.');
 
