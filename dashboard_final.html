@@ -3132,10 +3132,10 @@
           style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--mu2);margin-top:5px;"></div>
       </div>
     </div>
-    <div class="toolbar" style="flex-direction:column;align-items:stretch;gap:0;padding:0;">
-      <!-- Row 1: Filter dropdowns -->
+    <div class="toolbar" style="padding:0;">
+      <!-- Single row: filters + search + sort + view toggle -->
       <div
-        style="display:flex;align-items:center;gap:6px;padding:8px 20px;flex-wrap:wrap;border-bottom:1px solid var(--bd2);">
+        style="display:flex;align-items:center;gap:8px;padding:8px 20px;flex-wrap:wrap;">
         <div class="tg"><span class="tb-lbl">Filter</span>
           <select class="filter-select" id="tfSelect" onchange="setTF(this.value)">
             <option value="all">All</option>
@@ -3144,7 +3144,6 @@
             <option value="hatc">High ATC</option>
           </select>
         </div>
-        <div style="width:1px;height:20px;background:var(--bd2);margin:0 4px;"></div>
         <div class="tg"><span class="tb-lbl">Page</span>
           <select class="filter-select" id="tptSelect" onchange="setTPT(this.value)">
             <option value="all">All</option>
@@ -3153,7 +3152,6 @@
             <option value="home">Home</option>
           </select>
         </div>
-        <div style="width:1px;height:20px;background:var(--bd2);margin:0 4px;"></div>
         <div class="tg"><span class="tb-lbl">Lifecycle</span>
           <select class="filter-select" id="tlcSelect" onchange="setTLC(this.value)">
             <option value="all">All</option>
@@ -3162,9 +3160,6 @@
             <option value="discontinued">Disc.</option>
           </select>
         </div>
-      </div>
-      <!-- Row 2: Search, Sort, Nav, View -->
-      <div style="display:flex;align-items:center;gap:8px;padding:6px 20px;flex-wrap:wrap;">
         <input class="srch" id="trafSrch" placeholder="Search products…" oninput="renderTraf()"
           style="flex:1;min-width:140px;max-width:220px;" />
         <div class="tg"><span class="tb-lbl">Sort</span>
