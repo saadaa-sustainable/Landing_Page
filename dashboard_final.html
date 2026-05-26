@@ -7997,6 +7997,10 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
         return;
       }
       const all = SALES_DATA;
+      // Per-row units helper — preserved as a local so the table row renderer
+      // below can still call _units(r). Tolerates both `orders` and
+      // `net_items_sold` field shapes.
+      const _units = r => r.orders || r.net_items_sold || 0;
       // KPI priority order:
       //   1. window._salesGrandTotals — UNFILTERED Shopify query, matches the
       //      "Total sales over time" report row-for-row
