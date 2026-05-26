@@ -168,16 +168,28 @@ def rows_to_dicts(columns: list, raw_rows: list) -> list:
 # ── Fetch functions ───────────────────────────────────────────────────────────
 
 def fetch_traffic(since: str, until: str) -> dict:
-    """Traffic source — Supabase `sessions` table first, Shopify fallback."""
-    if SAADAA_VAR and SAADAA_KEY:
-        try:
-            payload = fetch_traffic_from_supabase(since, until)
-            if payload.get("byPath") or payload.get("rows"):
-                return payload
-            print("  [Traffic] Supabase empty, falling back to Shopify…")
-        except Exception as e:
-            print(f"  [Traffic] Supabase fetch failed ({e}); fallback to Shopify…")
-    return _fetch_traffic_from_shopify(since, until)
+    """Traffic source — Supabase `sessions` table first, Shopify fallback.
+
+    The response is tagged with `_source` so we can tell at a glance which
+    branch served it: "supabase", "shopify:no-credentials" (env vars not
+    set), "shopify:supabase-empty", or "shopify:supabase-error:<msg>".
+    """
+    if not (SAADAA_VAR and SAADAA_KEY):
+        out = _fetch_traffic_from_shopify(since, until)
+        out["_source"] = "shopify:no-credentials"
+        return out
+    try:
+        payload = fetch_traffic_from_supabase(since, until)
+        if payload.get("byPath") or payload.get("rows"):
+            return payload
+        out = _fetch_traffic_from_shopify(since, until)
+        out["_source"] = "shopify:supabase-empty"
+        return out
+    except Exception as e:
+        print(f"  [Traffic] Supabase fetch failed ({e}); fallback to Shopify…")
+        out = _fetch_traffic_from_shopify(since, until)
+        out["_source"] = f"shopify:supabase-error:{str(e)[:120]}"
+        return out
 
 
 def _fetch_traffic_from_shopify(since: str, until: str) -> dict:
@@ -1004,6 +1016,22 @@ def serve_dashboard():
 @app.route("/api/health")
 def health():
     return jsonify({"status": "ok", "shop": SHOP_DOMAIN})
+
+
+@app.route("/api/_env_probe")
+def env_probe():
+    """Lightweight check of which env vars Vercel has loaded.
+    Returns presence + length only (never the values)."""
+    def shape(v):
+        return {"present": bool(v), "len": len(v or "")}
+    return jsonify({
+        "SHOP_DOMAIN":          shape(SHOP_DOMAIN),
+        "ADMIN_ACCESS_TOKEN":   shape(ADMIN_ACCESS_TOKEN),
+        "SUPABASE_URL":         shape(SUPABASE_URL),
+        "SUPABASE_SERVICE_KEY": shape(SUPABASE_SERVICE_KEY),
+        "SAADAA_VAR":           shape(SAADAA_VAR),
+        "SAADAA_KEY":           shape(SAADAA_KEY),
+    })
 
 
 @app.route("/api/traffic")
