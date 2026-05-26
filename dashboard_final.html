@@ -3605,27 +3605,20 @@
   <div class="page" id="page-utm">
     <div class="toolbar" style="flex-direction:column;align-items:stretch;gap:0;padding:0;">
       <div style="display:flex;align-items:center;gap:8px;padding:6px 20px;flex-wrap:wrap;">
-        <div class="tg"><span class="tb-lbl">Level</span>
-          <div class="vtog">
-            <button class="vb on" id="utm-prod" onclick="setUtmView('products')">Products</button>
-            <button class="vb" id="utm-coll" onclick="setUtmView('collections')">Collections</button>
-            <button class="vb" id="utm-ads" onclick="setUtmView('ads')">Ads × Landing Page</button>
-          </div>
-        </div>
-        <input class="srch" id="utmSrch" placeholder="Search…" oninput="renderUtmAnalysis()"
+        <input class="srch" id="utmSrch" placeholder="Search landing page or ad…" oninput="renderUtmAnalysis()"
           style="flex:1;min-width:160px;max-width:280px;" />
         <div class="tg"><span class="tb-lbl">Sort</span>
           <select class="filter-select" id="utmSortSelect" onchange="renderUtmAnalysis()">
-            <option value="lastTotal">Last-Click Sales ↓</option>
-            <option value="firstSessions">First-Click Sessions ↓</option>
-            <option value="firstAtc">First-Click ATC% ↓</option>
+            <option value="lastTotal">Sales ↓</option>
+            <option value="firstSessions">Sessions ↓</option>
+            <option value="firstAtc">ATC% ↓</option>
             <option value="lastUnits">Units Sold ↓</option>
-            <option value="pageOrders">Page Orders ↓</option>
-            <option value="pageRevenue">Page Revenue ↓</option>
+            <option value="pageOrders">Orders ↓</option>
+            <option value="pageRevenue">Revenue ↓</option>
             <option value="alpha">Name (A→Z)</option>
           </select>
         </div>
-        <div class="tg" id="utmShowWrap"><span class="tb-lbl">Show</span>
+        <div class="tg" id="utmShowWrap" style="display:none;"><span class="tb-lbl">Show</span>
           <select class="filter-select" id="utmShowSelect" onchange="renderUtmAnalysis()">
             <option value="both">First & Last Click</option>
             <option value="onlyMatched">Only products with both</option>
@@ -8828,28 +8821,14 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
     // Cache the joined rows so the row-click handler can re-open the modal.
     let _utmJoinedRows = [];
     let _utmCollJoined = [];
-    let utmViewMode = 'products';
-
-    function setUtmView(v) {
-      utmViewMode = v;
-      const idMap = { products: 'utm-prod', collections: 'utm-coll', ads: 'utm-ads' };
-      Object.entries(idMap).forEach(([k, id]) => {
-        const el = document.getElementById(id);
-        if (el) el.classList.toggle('on', k === v);
-      });
-      const showWrap = document.getElementById('utmShowWrap');
-      if (showWrap) showWrap.style.display = v === 'ads' ? 'none' : '';
-      const s = document.getElementById('utmSrch');
-      if (s) s.placeholder = v === 'collections' ? 'Search collection…'
-        : v === 'ads' ? 'Search landing page or ad…'
-          : 'Search product…';
-      renderUtmAnalysis();
-    }
+    // UTM Analysis is locked to the Ads × Landing Page view. The Products and
+    // Collections sub-views were removed from the UI per user request.
+    // setUtmView() is kept as a no-op so any stale call site doesn't throw.
+    let utmViewMode = 'ads';
+    function setUtmView(_v) { renderUtmAnalysis(); }
 
     function renderUtmAnalysis() {
-      if (utmViewMode === 'collections') return renderUtmCollections();
-      if (utmViewMode === 'ads') return renderUtmAds();
-      return renderUtmProducts();
+      return renderUtmAds();
     }
 
     function renderUtmProducts() {
