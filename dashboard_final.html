@@ -179,24 +179,23 @@
       font-variant-numeric: tabular-nums;
     }
 
-    /* ── SIDEBAR — deep brown surface (#6E260E) per user spec.
-       Dark editorial column: light text, peach-tinted icon tiles,
-       cream/yellow active state. The chosen hue is a rich burnt-umber
-       that pops the orange brand badge and reads warm next to the
-       cream content area. ── */
+    /* ── SIDEBAR — sienna surface (#A0522D) per user spec.
+       Warm rust-brown column with light text, cream icon tiles, and a
+       pale-yellow active state. Slightly lighter and more saturated than
+       the previous burnt-umber — reads more "leather" than "chocolate"
+       while still carrying strong visual weight against the cream page. ── */
     .nav {
       flex-shrink: 0;
       width: 250px;
       display: flex;
       flex-direction: column;
-      /* layered: subtle radial top-left bloom + a very faint vertical
-         gradient so the dark surface has depth instead of looking flat */
+      /* layered: warm top bloom + vertical gradient between sienna tones */
       background:
-        radial-gradient(circle at 18% 0%, rgba(232, 168, 124, .10) 0%, transparent 55%),
-        linear-gradient(180deg, #7A2C12 0%, #6E260E 40%, #5C1F0A 100%);
+        radial-gradient(circle at 18% 0%, rgba(255, 220, 180, .12) 0%, transparent 55%),
+        linear-gradient(180deg, #B45D33 0%, #A0522D 42%, #8C4624 100%);
       color: var(--bg-base);
-      border-right: 1px solid rgba(0, 0, 0, .35);
-      box-shadow: 3px 0 18px rgba(44, 16, 8, .22);
+      border-right: 1px solid rgba(0, 0, 0, .28);
+      box-shadow: 3px 0 18px rgba(96, 44, 22, .22);
       height: 100%;
     }
 
@@ -389,8 +388,8 @@
       color: var(--bg-base);
     }
     .ntab.on .ntab-icon {
-      background: var(--accent-warm-tint);    /* warm pale yellow — pops on dark brown */
-      color: #6E260E;                          /* echoes the sidebar surface inside the tile */
+      background: var(--accent-warm-tint);    /* warm pale yellow — pops on sienna */
+      color: #A0522D;                          /* echoes the sidebar surface inside the tile */
       border-color: rgba(232, 200, 122, .60);
     }
 
