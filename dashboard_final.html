@@ -2703,15 +2703,18 @@
 
     /* KPIs and hero panels */
     .krow { gap: 12px !important; margin-bottom: 18px !important; }
-    .kpi { padding: 16px 18px !important; min-width: 0; }
-    /* Allow KPI values to wrap and shrink instead of truncating with "…". The
-       dashboard renders full whole numbers now (e.g. ₹2,89,41,560 instead of
-       ₹2.89M / 21,540 instead of 21.5k), so we'd rather have the card grow a
-       line than hide digits. */
+    /* Enable container queries on the KPI card so .kv can shrink to fit
+       width without breaking mid-digit. */
+    .kpi { padding: 16px 18px !important; min-width: 0; container-type: inline-size; }
+    /* Numbers must never wrap mid-character (no "1" on its own line!). With
+       container queries we scale the font down on narrow cards instead.
+       At full width the value stays 1.8rem; on narrow cards (~150px) it
+       shrinks toward 1.05rem so "₹3,36,891.31" stays on one line. */
     .kpi .kv {
-      white-space: normal;
-      overflow-wrap: anywhere;
-      word-break: break-word;
+      font-size: clamp(1.05rem, 5.5cqi, 1.8rem);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: clip;
       line-height: 1.1;
     }
     .home-hero { gap: 1px; }
@@ -9308,20 +9311,31 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
 
       // KPIs — totals attributed to each landing page via the order.full_url
       // path match. One number per concept; no parallel utm_content lens.
-      const totSpend = rows.reduce((a, r) => a + r.spend, 0);
-      const totClicks = rows.reduce((a, r) => a + r.adClicks, 0);
+      //
+      // Spend reconciles to Meta's actual figure: we sum EVERY ad in
+      // META_ADS_DATA (linked + unlinked + manually-assigned), not just the
+      // ones rolled into landing-page rows. Previously the KPI showed only
+      // linked spend, which under-counted by however much the unlinked-ads
+      // section held (~₹99k on 2026-05-19). The breakdown is in the sub-label.
+      const totSpendAll = (META_ADS_DATA || []).reduce((a, ad) => a + (+ad.spend || 0), 0);
+      const totClicksAll = (META_ADS_DATA || []).reduce((a, ad) => a + (+ad.clicks || 0), 0);
+      const totSpendLinked = rows.reduce((a, r) => a + r.spend, 0);
+      const totSpendUnlinked = totSpendAll - totSpendLinked;
       const totSessions = rows.reduce((a, r) => a + r.sessions, 0);
       const totPageOrders = rows.reduce((a, r) => a + (r.pageOrders || 0), 0);
       const totPageUnits = rows.reduce((a, r) => a + (r.pageUnits || 0), 0);
       const totPageRev = rows.reduce((a, r) => a + (r.pageRevenue || 0), 0);
-      const blendRoas = totSpend > 0 ? totPageRev / totSpend : 0;
+      const blendRoas = totSpendAll > 0 ? totPageRev / totSpendAll : 0;
+      const unlinkedSub = totSpendUnlinked > 0
+        ? fmt(totClicksAll) + ' clicks · ' + fmtRs(totSpendUnlinked) + ' on unlinked'
+        : fmt(totClicksAll) + ' outbound clicks';
       kpiEl.innerHTML =
-        kpi('ca', 'Landing pages', rows.length, rows.reduce((a, r) => a + r.adCount, 0) + ' ads tracked')
-        + kpi('out', 'Ad Spend', fmtRs(totSpend), fmt(totClicks) + ' outbound clicks')
+        kpi('ca', 'Landing pages', rows.length, rows.reduce((a, r) => a + r.adCount, 0) + ' ads in table')
+        + kpi('out', 'Ad Spend', fmtRs(totSpendAll), unlinkedSub)
         + kpi('ct', 'Sessions', fmt(totSessions), 'first-click on landing path')
         + kpi('in', 'Orders', fmt(totPageOrders), fmt(totPageUnits) + ' units · matched by landing URL')
         + kpi('in', 'Sales', fmtRs(totPageRev), 'sum of line-item rev on matched orders')
-        + kpi('ca', 'ROAS', blendRoas ? (Math.round(blendRoas * 100) / 100) + 'x' : '—', 'sales / spend');
+        + kpi('ca', 'ROAS', blendRoas ? (Math.round(blendRoas * 100) / 100) + 'x' : '—', 'sales / total spend');
 
       // Charts: top landing pages by spend (left) and by total sales (right)
       const firstTitle = document.querySelector('#page-utm .crow .ch:nth-child(1) .cht');
