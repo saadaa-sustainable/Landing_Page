@@ -472,7 +472,7 @@
     .scroll {
       overflow-y: auto;
       overflow-x: hidden;
-      padding: 20px 24px;
+      padding: 28px 32px 40px;               /* more generous gutters; bottom is heavier so the last table doesn't hug the viewport edge */
       flex: 1;
     }
 
@@ -798,9 +798,13 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 14px;
-      padding-bottom: 8px;
+      margin-bottom: 22px;                   /* +8 — clears the title from the row below */
+      padding-bottom: 14px;                  /* +6 */
       border-bottom: 1px solid var(--bd);
+      /* faint secondary rule under the main one — magazine-style double-line
+         divider; visible enough to feel intentional, subtle enough to not
+         compete with content */
+      box-shadow: 0 2px 0 var(--bd-soft);
     }
 
     .sec-title {
@@ -873,8 +877,8 @@
       flex-shrink: 0;
       display: flex;
       align-items: center;
-      gap: 6px;
-      padding: 8px 20px;
+      gap: 10px;                             /* +4 — toolbar groups now have proper separation */
+      padding: 12px 24px;                    /* +4/+4 — matches the new .scroll horizontal gutter */
       background: var(--bg-surface);
       border-bottom: 1px solid var(--bd);
       flex-wrap: wrap;
@@ -883,7 +887,7 @@
     .tg {
       display: flex;
       align-items: center;
-      gap: 5px;
+      gap: 7px;                              /* +2 — label & control now sit visually distinct */
     }
 
     .tb-lbl {
@@ -1242,8 +1246,8 @@
     /* ── KPI ── */
     .krow {
       display: grid;
-      gap: 8px;
-      margin-bottom: 14px;
+      gap: 14px;                             /* +6 — KPI cards were touching at narrow widths */
+      margin-bottom: 26px;                   /* +12 — clear visual break before the charts row */
     }
 
     .k6 {
@@ -1261,17 +1265,20 @@
     .kpi {
       background: var(--bg-white);
       border: 1px solid var(--bd);
-      border-radius: var(--r);
-      padding: 18px 20px;
+      border-radius: 10px;                   /* slightly softer than the default var(--r) — feels less geometric */
+      padding: 22px 24px 20px;               /* asymmetric — extra top to seat the accent line; tighter bottom hugs the sub label */
       position: relative;
       overflow: hidden;
-      transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+      /* baseline elevation so the card feels lifted off the page even at rest;
+         hover adds a stronger lift. */
+      box-shadow: 0 1px 0 rgba(44, 36, 32, .03), 0 4px 14px -8px rgba(44, 36, 32, .08);
+      transition: transform .25s cubic-bezier(.2,.7,.2,1), box-shadow .25s, border-color .2s;
     }
 
     .kpi:hover {
-      transform: translateY(-2px);
+      transform: translateY(-3px);
       border-color: var(--bd-strong);
-      box-shadow: 0 8px 20px rgba(44, 36, 32, .06);
+      box-shadow: 0 1px 0 rgba(44, 36, 32, .04), 0 14px 30px -12px rgba(44, 36, 32, .14);
     }
 
     .kpi::before {
@@ -1280,7 +1287,7 @@
       top: 0;
       left: 0;
       right: 0;
-      height: 2px;
+      height: 3px;                           /* +1 — accent line is the card's identity, deserves to be seen */
     }
 
     .kpi.ca::before {
@@ -1350,8 +1357,8 @@
     /* ── CHARTS ── */
     .crow {
       display: grid;
-      gap: 10px;
-      margin-bottom: 14px;
+      gap: 18px;                             /* +8 — charts get room to breathe between them */
+      margin-bottom: 26px;                   /* +12 — matches .krow rhythm */
     }
 
     .c3 {
@@ -1365,24 +1372,26 @@
     .ch {
       background: var(--bg-white);
       border: 1px solid var(--bd);
-      border-radius: var(--r);
-      padding: 12px 14px;
-      transition: transform .2s, box-shadow .2s, border-color .2s;
+      border-radius: 10px;
+      padding: 18px 20px;                    /* +6/+6 — chart titles + axes were cramped */
+      box-shadow: 0 1px 0 rgba(44, 36, 32, .03), 0 4px 14px -8px rgba(44, 36, 32, .06);
+      transition: transform .25s cubic-bezier(.2,.7,.2,1), box-shadow .25s, border-color .2s;
     }
 
     .ch:hover {
       transform: translateY(-2px);
       border-color: var(--bd-strong);
-      box-shadow: 0 8px 20px rgba(44, 36, 32, .06);
+      box-shadow: 0 1px 0 rgba(44, 36, 32, .04), 0 12px 26px -12px rgba(44, 36, 32, .12);
     }
 
     .cht {
       font-family: 'JetBrains Mono', monospace;
-      font-size: .54rem;
-      color: var(--mu2);
+      font-size: .66rem;                     /* +.12 — was 8.6px, now lands at the legibility floor */
+      color: var(--txt-mid);                 /* up from --mu2 — chart titles deserve presence */
       text-transform: uppercase;
-      letter-spacing: .08em;
-      margin-bottom: 10px;
+      letter-spacing: .05em;                 /* tightened from .08em */
+      font-weight: 500;
+      margin-bottom: 14px;                   /* +4 — separates title from canvas */
       display: flex;
       align-items: center;
       gap: 6px;
@@ -1516,16 +1525,17 @@
     .tbl-wrap {
       background: var(--bg-white);
       border: 1px solid var(--bd);
-      border-radius: var(--r);
-      overflow-x: clip;          /* x: clip preserves rounded corners on horizontal overflow */
-      overflow-y: visible;       /* y: visible so the sticky thead can escape this box and pin to the page-scroll ancestor */
-      margin-bottom: 14px;
-      transition: box-shadow .2s;
+      border-radius: 10px;
+      overflow-x: clip;
+      overflow-y: visible;
+      margin-bottom: 22px;                   /* +8 — pages with multiple tables now have proper separation */
+      box-shadow: 0 1px 0 rgba(44, 36, 32, .03), 0 4px 14px -8px rgba(44, 36, 32, .06);
+      transition: box-shadow .25s;
     }
 
 
     .tbl-wrap:hover {
-      box-shadow: 0 8px 24px rgba(44, 36, 32, .08);
+      box-shadow: 0 1px 0 rgba(44, 36, 32, .04), 0 14px 30px -12px rgba(44, 36, 32, .12);
     }
 
     .tbl-hdr {
@@ -1579,15 +1589,21 @@
     }
 
     .dtbl td {
-      padding: 10px 14px;
+      padding: 14px 16px;                    /* +4/+2 — denser tables were a strain to scan; this gives each row real weight */
       border-bottom: 1px solid var(--bd-soft);
-      font-size: .72rem;
+      font-size: .76rem;
       vertical-align: middle;
       color: var(--txt);
     }
 
     .dtbl tr:last-child td {
       border-bottom: none;
+    }
+
+    /* Subtle zebra striping for long tables — reads better than identical
+       white rows once you're more than ~10 rows in. Hover still wins. */
+    .dtbl tbody tr:nth-child(even) td {
+      background: rgba(245, 241, 236, .35);
     }
 
     .dtbl tr:hover td {
@@ -2711,21 +2727,23 @@
     .srch { padding: 7px 13px; }
 
     /* Toolbars (filter rows on each tab) — more breathing room */
-    .toolbar { padding: 12px 22px !important; gap: 10px !important; row-gap: 10px !important; }
+    .toolbar { padding: 14px 24px !important; gap: 10px !important; row-gap: 10px !important; }
     .toolbar .tg { gap: 7px; }
     .tb-lbl { letter-spacing: .06em; }
 
     /* Section headers */
-    .sec-hdr { padding: 4px 0 6px; }
+    .sec-hdr { padding: 4px 0 14px; }
 
     /* Sticky filter bar at top of Overview */
-    #homeSticky { padding: 14px 22px 10px !important; }
+    #homeSticky { padding: 18px 26px 14px !important; }
 
-    /* KPIs and hero panels */
-    .krow { gap: 12px !important; margin-bottom: 18px !important; }
+    /* KPIs and hero panels — these !important rules used to clamp the cards
+       back to a tight 12/16/18 layout; they now align with the new generous
+       defaults so the spacing pass actually takes effect. */
+    .krow { gap: 14px !important; margin-bottom: 26px !important; }
     /* Enable container queries on the KPI card so .kv can shrink to fit
        width without breaking mid-digit. */
-    .kpi { padding: 16px 18px !important; min-width: 0; container-type: inline-size; }
+    .kpi { padding: 22px 24px 20px !important; min-width: 0; container-type: inline-size; }
     /* Numbers must never wrap mid-character (no "1" on its own line!). With
        container queries we scale the font down on narrow cards instead.
        At full width the value stays 1.8rem; on narrow cards (~150px) it
@@ -2777,12 +2795,12 @@
     }
 
     /* Charts row */
-    .crow { gap: 14px !important; margin-bottom: 14px !important; }
-    .ch { padding: 14px 18px !important; }
+    .crow { gap: 18px !important; margin-bottom: 26px !important; }
+    .ch { padding: 18px 20px !important; }
 
-    /* Table cells */
-    #homeTbody td, .dtbl tbody td { padding: 12px 16px !important; }
-    .dtbl th { padding: 11px 16px !important; }
+    /* Table cells — overrides aligned to the new generous default */
+    #homeTbody td, .dtbl tbody td { padding: 14px 16px !important; }
+    .dtbl th { padding: 13px 16px !important; }
 
     /* Config panels */
     .cpanel { padding: 14px 22px !important; gap: 10px !important; }
