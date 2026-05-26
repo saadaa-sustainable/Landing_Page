@@ -3620,8 +3620,8 @@
             <option value="firstSessions">First-Click Sessions ↓</option>
             <option value="firstAtc">First-Click ATC% ↓</option>
             <option value="lastUnits">Units Sold ↓</option>
-            <option value="campOrders">Campaign Orders ↓</option>
-            <option value="campRevenue">Campaign Revenue ↓</option>
+            <option value="pageOrders">Page Orders ↓</option>
+            <option value="pageRevenue">Page Revenue ↓</option>
             <option value="alpha">Name (A→Z)</option>
           </select>
         </div>
@@ -9244,29 +9244,46 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
       console.log('[Ads x Landing Page] sales rows with utm_content:', salesWithUtm,
                   '· distinct normalized utm_content values:', _utmCountsAcrossSales);
 
-      // ── Order matching (campaign-level): utm_campaign ↔ ad.campaignName ──
-      // Same normalization as utm_content, applied to the campaign axis. An
-      // order is counted under a landing page when any ad pointing at that
-      // page belongs to a campaign whose name matches the order's
-      // utm_campaign. This is a wider net than utm_content (catches orders
-      // where Meta dropped the ad-level utm_content but kept the campaign).
-      const ordersByCampaign = {};
-      let ordersWithCamp = 0;
+      // ── Order matching (URL-path level): order.full_url ↔ landing page path ──
+      // For each order, pull the URL the customer originally landed on out of
+      // customAttributes.full_url, strip everything from "?" onwards, and key
+      // on the pathname. Example:
+      //   full_url = "https://saadaa-design.myshopify.com/collections/cotton-trousers
+      //               ?utm_source=META&utm_campaign=NCP_ASC-7DC+1DEV_CP_Jan2025…"
+      //   key      = "/collections/cotton-trousers"
+      // That key is the same value we use for the landing-page bucket, so a
+      // direct map lookup pairs the order with its landing page. This is the
+      // cleanest possible attribution — no UTM-name fuzziness, no campaign-
+      // rename drift; it simply says "this customer arrived on this page".
+      function _orderLandingPath(o) {
+        const attrs = o.customAttributes || {};
+        let raw = (attrs['full_url'] || '').trim();
+        if (!raw) raw = (attrs['_tsh_landing_url'] || attrs['landing_site'] || '').trim();
+        if (!raw) return '';
+        // Strip query/hash, then resolve to a pathname. Accepts both absolute
+        // URLs (https://host/path?q) and bare paths ("/collections/x?q").
+        try {
+          const u = raw.startsWith('http') ? new URL(raw) : new URL(raw, 'https://x');
+          return _normPath(u.pathname);
+        } catch (e) {
+          // Fallback for malformed values: cut at ? and # manually
+          const cut = raw.split('?')[0].split('#')[0];
+          // If it still includes a host, strip protocol://host
+          const m = cut.match(/^https?:\/\/[^/]+(\/.*)?$/);
+          return _normPath(m ? (m[1] || '/') : cut);
+        }
+      }
+      const ordersByPath = {};
+      let ordersWithUrl = 0;
       (ORDERS_DATA || []).forEach(o => {
         if (o.cancelled) return;
-        const attrs = o.customAttributes || {};
-        let camp = (attrs['utm_campaign'] || '').trim();
-        if (!camp && attrs['full_url']) {
-          try { camp = (new URL(attrs['full_url']).searchParams.get('utm_campaign') || '').trim(); } catch (e) {}
-        }
-        if (!camp) return;
-        const key = _normUtm(camp);
-        if (!key) return;
-        ordersWithCamp++;
-        (ordersByCampaign[key] = ordersByCampaign[key] || []).push(o);
+        const p = _orderLandingPath(o);
+        if (!p) return;
+        ordersWithUrl++;
+        (ordersByPath[p] = ordersByPath[p] || []).push(o);
       });
-      console.log('[Ads x Landing Page] orders with utm_campaign:', ordersWithCamp,
-                  '· distinct campaigns:', Object.keys(ordersByCampaign).length);
+      console.log('[Ads x Landing Page] orders with full_url path:', ordersWithUrl,
+                  '· distinct landing paths:', Object.keys(ordersByPath).length);
 
       // For each landing page, attach sessions + last-click sales
       const joined = [];
@@ -9298,30 +9315,29 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
         adKeys.forEach(k => (salesByUtm[k] || []).forEach(_consume));
         adIdKeys.forEach(k => (salesByUtmRaw[k] || []).forEach(_consume));
 
-        // ── Campaign-level order match: utm_campaign ↔ ad.campaignName ──
-        // Roll up unique orders matched via any campaign this landing page's
-        // ads belong to. Dedup on order id/name so an order whose
-        // utm_campaign matches two of the page's campaigns counts once.
-        const campOrderSeen = new Set();
-        const matchedCampOrders = [];
-        let campOrders = 0, campUnits = 0, campRevenue = 0;
-        const campKeys = new Set();
-        b.campaigns.forEach(c => { const k = _normUtm(c); if (k) campKeys.add(k); });
-        campKeys.forEach(k => (ordersByCampaign[k] || []).forEach(o => {
+        // ── Landing-page order match: order.full_url path ↔ this page's path ──
+        // Direct map lookup — every order whose customer-arrival URL has
+        // this landing path attaches here. Dedup defensively in case the
+        // map ever grows aliases (currently it's keyed on a single
+        // normalized path, so collisions can't happen).
+        const pageOrderSeen = new Set();
+        const matchedPageOrders = [];
+        let pageOrders = 0, pageUnits = 0, pageRevenue = 0;
+        (ordersByPath[b.path] || []).forEach(o => {
           const oid = String(o.id || o.name || '');
-          if (campOrderSeen.has(oid)) return;
-          campOrderSeen.add(oid);
-          campOrders++;
+          if (pageOrderSeen.has(oid)) return;
+          pageOrderSeen.add(oid);
+          pageOrders++;
           (o.lineItems || []).forEach(li => {
-            campUnits += +li.quantity || 0;
-            campRevenue += (+li.price || 0) * (+li.quantity || 0);
+            pageUnits += +li.quantity || 0;
+            pageRevenue += (+li.price || 0) * (+li.quantity || 0);
           });
-          matchedCampOrders.push(o);
-        }));
+          matchedPageOrders.push(o);
+        });
 
         const roas = b.spend > 0 ? totalSales / b.spend : 0;
         const cpc = b.adClicks > 0 ? b.spend / b.adClicks : 0;
-        const campRoas = b.spend > 0 ? campRevenue / b.spend : 0;
+        const pageRoas = b.spend > 0 ? pageRevenue / b.spend : 0;
         joined.push({
           path: b.path,
           pageKind: sess._kind,
@@ -9345,12 +9361,12 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
           discounts,
           roas,
           cpc,
-          campOrders,
-          campUnits,
-          campRevenue,
-          campRoas,
+          pageOrders,
+          pageUnits,
+          pageRevenue,
+          pageRoas,
           _matchedSales: matchedRows,
-          _matchedCampOrders: matchedCampOrders,
+          _matchedPageOrders: matchedPageOrders,
         });
       });
 
@@ -9371,8 +9387,11 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
         firstSessions: (a, b) => b.sessions - a.sessions,
         firstAtc: (a, b) => b.atcPct - a.atcPct,
         lastUnits: (a, b) => b.units - a.units,
-        campOrders: (a, b) => (b.campOrders || 0) - (a.campOrders || 0),
-        campRevenue: (a, b) => (b.campRevenue || 0) - (a.campRevenue || 0),
+        pageOrders: (a, b) => (b.pageOrders || 0) - (a.pageOrders || 0),
+        pageRevenue: (a, b) => (b.pageRevenue || 0) - (a.pageRevenue || 0),
+        // back-compat for any older saved selection
+        campOrders: (a, b) => (b.pageOrders || 0) - (a.pageOrders || 0),
+        campRevenue: (a, b) => (b.pageRevenue || 0) - (a.pageRevenue || 0),
         alpha: (a, b) => String(a.path).localeCompare(String(b.path)),
       }[sortKey] || ((a, b) => b.totalSales - a.totalSales);
       rows.sort(sorter);
@@ -9384,18 +9403,18 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
       const totSessions = rows.reduce((a, r) => a + r.sessions, 0);
       const totSales = rows.reduce((a, r) => a + r.totalSales, 0);
       const totOrders = rows.reduce((a, r) => a + r.orders, 0);
-      const totCampOrders = rows.reduce((a, r) => a + (r.campOrders || 0), 0);
-      const totCampRev = rows.reduce((a, r) => a + (r.campRevenue || 0), 0);
+      const totPageOrders = rows.reduce((a, r) => a + (r.pageOrders || 0), 0);
+      const totPageRev = rows.reduce((a, r) => a + (r.pageRevenue || 0), 0);
       const blendRoas = totSpend > 0 ? totSales / totSpend : 0;
-      const campRoas = totSpend > 0 ? totCampRev / totSpend : 0;
+      const pageRoas = totSpend > 0 ? totPageRev / totSpend : 0;
       kpiEl.innerHTML =
         kpi('ca', 'Landing pages', rows.length, rows.reduce((a, r) => a + r.adCount, 0) + ' ads tracked')
         + kpi('out', 'Ad Spend', fmtRs(totSpend), fmt(totClicks) + ' outbound clicks')
         + kpi('ct', 'Sessions', fmt(totSessions), 'first-click on landing path')
         + kpi('in', 'Last-Click Sales', fmtRs(totSales), totOrders + ' orders matched by utm_content')
-        + kpi('in', 'Campaign Orders', fmt(totCampOrders), fmtRs(totCampRev) + ' · matched by utm_campaign')
+        + kpi('in', 'Page Orders', fmt(totPageOrders), fmtRs(totPageRev) + ' · matched by landing-page URL')
         + kpi('ca', 'Blended ROAS', blendRoas ? (Math.round(blendRoas * 100) / 100) + 'x' : '—', 'sales / spend')
-        + kpi('ca', 'Campaign ROAS', campRoas ? (Math.round(campRoas * 100) / 100) + 'x' : '—', 'campaign-matched rev / spend');
+        + kpi('ca', 'Page ROAS', pageRoas ? (Math.round(pageRoas * 100) / 100) + 'x' : '—', 'page-matched rev / spend');
 
       // Charts: top landing pages by spend (left) and by total sales (right)
       const firstTitle = document.querySelector('#page-utm .crow .ch:nth-child(1) .cht');
@@ -9426,8 +9445,8 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
         + '<div class="tbl-scr"><table class="dtbl"><thead><tr>'
         + '<th>Landing Page</th><th># Ads</th><th>Spend</th><th>Outbound Clicks</th><th>Sessions</th><th>ATC%</th>'
         + '<th title="Orders matched by utm_content ↔ ad name / ad id (per-ad, last-click)">Orders</th><th>Units</th><th>Total Sales</th>'
-        + '<th title="Orders matched by utm_campaign ↔ any ad campaign on this page (campaign-level)">Camp. Orders</th>'
-        + '<th title="Line-item revenue from campaign-matched orders">Camp. Rev</th>'
+        + '<th title="Orders whose customer-arrival URL (full_url path, query string stripped) matches this landing page">Page Orders</th>'
+        + '<th title="Line-item revenue from orders matched by landing-page URL">Page Rev</th>'
         + '<th>ROAS</th>'
         + '</tr></thead><tbody>';
       const maxSpend = Math.max(...rows.map(r => r.spend), 1);
@@ -9450,10 +9469,10 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
           + '<td><div class="tnum">' + r.orders + '</div></td>'
           + '<td><div class="tnum">' + r.units + '</div></td>'
           + '<td><div class="tnum" style="color:#4ade80;">' + fmtRs(r.totalSales) + '</div></td>'
-          + '<td><div class="tnum"' + ((r.campOrders || 0) > 0 ? ' style="color:#4ade80;"' : '') + '>' + (r.campOrders || 0) + '</div>'
-            + ((r.campOrders || 0) > 0 ? '<div class="tm" style="font-size:.55rem;color:var(--mu2);">' + (r.campUnits || 0) + ' units</div>' : '')
+          + '<td><div class="tnum"' + ((r.pageOrders || 0) > 0 ? ' style="color:#4ade80;"' : '') + '>' + (r.pageOrders || 0) + '</div>'
+            + ((r.pageOrders || 0) > 0 ? '<div class="tm" style="font-size:.55rem;color:var(--mu2);">' + (r.pageUnits || 0) + ' units</div>' : '')
             + '</td>'
-          + '<td><div class="tnum"' + ((r.campRevenue || 0) > 0 ? ' style="color:#4ade80;"' : '') + '>' + ((r.campRevenue || 0) > 0 ? fmtRs(r.campRevenue) : '—') + '</div></td>'
+          + '<td><div class="tnum"' + ((r.pageRevenue || 0) > 0 ? ' style="color:#4ade80;"' : '') + '>' + ((r.pageRevenue || 0) > 0 ? fmtRs(r.pageRevenue) : '—') + '</div></td>'
           + '<td><div class="tnum" style="' + roasColor + '">' + (r.roas ? (Math.round(r.roas * 100) / 100) + 'x' : '—') + '</div></td>'
           + '</tr>';
       });
@@ -9541,9 +9560,9 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
         + '<div class="pd-metric"><div class="pd-val" style="color:#4ade80">' + fmtRs(r.totalSales) + '</div><div class="pd-lbl">Total Sales (utm_content)</div></div>'
         + '<div class="pd-metric"><div class="pd-val">' + r.orders + '</div><div class="pd-lbl">Orders (utm_content)</div></div>'
         + '<div class="pd-metric"><div class="pd-val">' + r.units + '</div><div class="pd-lbl">Units Sold</div></div>'
-        + '<div class="pd-metric"><div class="pd-val" style="color:#4ade80">' + fmtRs(r.campRevenue || 0) + '</div><div class="pd-lbl">Order Rev (utm_campaign)</div></div>'
-        + '<div class="pd-metric"><div class="pd-val">' + (r.campOrders || 0) + '</div><div class="pd-lbl">Campaign Orders</div></div>'
-        + '<div class="pd-metric"><div class="pd-val">' + (r.campRoas ? (Math.round(r.campRoas * 100) / 100) + 'x' : '—') + '</div><div class="pd-lbl">Campaign ROAS</div></div>'
+        + '<div class="pd-metric"><div class="pd-val" style="color:#4ade80">' + fmtRs(r.pageRevenue || 0) + '</div><div class="pd-lbl">Order Rev (landing URL)</div></div>'
+        + '<div class="pd-metric"><div class="pd-val">' + (r.pageOrders || 0) + '</div><div class="pd-lbl">Page Orders</div></div>'
+        + '<div class="pd-metric"><div class="pd-val">' + (r.pageRoas ? (Math.round(r.pageRoas * 100) / 100) + 'x' : '—') + '</div><div class="pd-lbl">Page ROAS</div></div>'
         + '<div class="pd-metric"><div class="pd-val">' + (r.roas ? (Math.round(r.roas * 100) / 100) + 'x' : '—') + '</div><div class="pd-lbl">ROAS (utm_content)</div></div>'
         + '<div class="pd-metric"><div class="pd-val">' + (r.cpc ? '₹' + (Math.round(r.cpc * 100) / 100) : '—') + '</div><div class="pd-lbl">CPC</div></div>'
         + '</div></div>';
@@ -9567,24 +9586,25 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
       });
       html += '</tbody></table></div></div>';
 
-      // ── Campaign-matched orders (utm_campaign ↔ ad.campaignName) ──
-      // Shopify orders (not sales aggregates) joined on the campaign axis.
-      // Each row is one order, expanded with its line items inline.
-      const campOrdersMatched = r._matchedCampOrders || [];
-      if (campOrdersMatched.length) {
-        const sortedOrders = [...campOrdersMatched].sort((a, c) => {
+      // ── Landing-page-URL-matched orders (order.full_url path ↔ this page) ──
+      // Shopify orders whose customer-arrival URL (full_url, query string
+      // stripped) resolves to this landing page. One row per order, expanded
+      // with its line items inline. Direct path match — no UTM fuzziness.
+      const pageOrdersMatched = r._matchedPageOrders || [];
+      if (pageOrdersMatched.length) {
+        const sortedOrders = [...pageOrdersMatched].sort((a, c) => {
           const av = (a.lineItems || []).reduce((s, li) => s + (+li.price || 0) * (+li.quantity || 0), 0);
           const cv = (c.lineItems || []).reduce((s, li) => s + (+li.price || 0) * (+li.quantity || 0), 0);
           return cv - av;
         }).slice(0, 200);
-        const campRevTotal = campOrdersMatched.reduce((s, o) =>
+        const pageRevTotal = pageOrdersMatched.reduce((s, o) =>
           s + (o.lineItems || []).reduce((ss, li) => ss + (+li.price || 0) * (+li.quantity || 0), 0), 0);
-        const campUnitsTotal = campOrdersMatched.reduce((s, o) =>
+        const pageUnitsTotal = pageOrdersMatched.reduce((s, o) =>
           s + (o.lineItems || []).reduce((ss, li) => ss + (+li.quantity || 0), 0), 0);
         html += '<div class="pd-section"><div class="pd-section-title">'
-          + 'Campaign-matched orders · ' + campOrdersMatched.length + ' orders · '
-          + campUnitsTotal + ' units · ' + fmtRs(campRevTotal)
-          + ' <span style="font-size:.6rem;font-weight:400;color:var(--mu2);">(utm_campaign ↔ ad.campaignName)</span></div>';
+          + 'Orders landed on ' + sh(r.path) + ' · ' + pageOrdersMatched.length + ' orders · '
+          + pageUnitsTotal + ' units · ' + fmtRs(pageRevTotal)
+          + ' <span style="font-size:.6rem;font-weight:400;color:var(--mu2);">(order full_url path ↔ landing page)</span></div>';
         html += '<div style="overflow-x:auto;"><table class="dtbl" style="font-size:.68rem;min-width:980px;"><thead><tr>'
           + '<th>Order</th><th>Date</th><th>UTM Campaign</th><th>UTM Content</th><th>UTM Source</th><th>Items</th><th>Units</th><th>Total</th>'
           + '</tr></thead><tbody>';
@@ -9610,11 +9630,11 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
             + '</tr>';
         });
         html += '</tbody></table></div></div>';
-      } else if (r.campaigns.length) {
+      } else {
         html += '<div class="pd-section"><div class="pd-empty">'
-          + 'No orders carry a utm_campaign matching any of this page\'s '
-          + r.campaigns.length + ' campaign' + (r.campaigns.length === 1 ? '' : 's')
-          + '. Either no purchase came through these campaigns in this date range, or the orders were stamped with a different campaign name.'
+          + 'No orders carry a full_url that resolves to ' + sh(r.path) + '. '
+          + 'Either no purchase came through this landing page in this date range, '
+          + 'or the orders\' full_url was stripped/empty.'
           + '</div></div>';
       }
 
