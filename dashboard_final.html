@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
   <title>सादा — Ops</title>
   <link
-    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500&family=Inter:wght@300;400;500;600&family=Roboto:wght@400;500;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500&family=Inter:wght@300;400;500;600&display=swap"
     rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -179,24 +179,22 @@
       font-variant-numeric: tabular-nums;
     }
 
-    /* ── SIDEBAR — deep brown surface (#6E260E) per user spec.
-       Dark editorial column: light text, peach-tinted icon tiles,
-       cream/yellow active state. The chosen hue is a rich burnt-umber
-       that pops the orange brand badge and reads warm next to the
-       cream content area. ── */
+    /* ── SIDEBAR — coffee/taupe surface (#5C4033) per user spec.
+       A more neutral dark brown than the previous burnt-umber. Reads
+       like espresso / leather rather than terracotta. Light cream text
+       and pale-yellow active state carry over unchanged. ── */
     .nav {
       flex-shrink: 0;
       width: 250px;
       display: flex;
       flex-direction: column;
-      /* layered: subtle radial top-left bloom + a very faint vertical
-         gradient so the dark surface has depth instead of looking flat */
+      /* layered: warm top-left bloom + vertical gradient between taupes */
       background:
-        radial-gradient(circle at 18% 0%, rgba(232, 168, 124, .10) 0%, transparent 55%),
-        linear-gradient(180deg, #7A2C12 0%, #6E260E 40%, #5C1F0A 100%);
+        radial-gradient(circle at 18% 0%, rgba(232, 200, 160, .08) 0%, transparent 55%),
+        linear-gradient(180deg, #6B4D40 0%, #5C4033 42%, #4A3329 100%);
       color: var(--bg-base);
       border-right: 1px solid rgba(0, 0, 0, .35);
-      box-shadow: 3px 0 18px rgba(44, 16, 8, .22);
+      box-shadow: 3px 0 18px rgba(30, 20, 14, .22);
       height: 100%;
     }
 
@@ -389,8 +387,8 @@
       color: var(--bg-base);
     }
     .ntab.on .ntab-icon {
-      background: var(--accent-warm-tint);    /* warm pale yellow — pops on dark brown */
-      color: #6E260E;                          /* echoes the sidebar surface inside the tile */
+      background: var(--accent-warm-tint);    /* warm pale yellow — pops on coffee */
+      color: #5C4033;                          /* echoes the sidebar surface inside the tile */
       border-color: rgba(232, 200, 122, .60);
     }
 
@@ -1598,7 +1596,7 @@
     /* If the kpi has no .ks, that's fine — the divider doesn't render */
 
     .kd {
-      font-family: 'Roboto', sans-serif;
+      font-family: 'Space Grotesk', sans-serif;
       font-size: .6rem;
       margin-top: 2px;
     }
@@ -1722,7 +1720,7 @@
     }
 
     .fnnum {
-      font-family: 'Roboto', sans-serif;
+      font-family: 'Space Grotesk', sans-serif;
       font-size: .62rem;
       font-weight: 500;
       color: var(--txt);
@@ -1769,7 +1767,7 @@
     }
 
     .cbar-val {
-      font-family: 'Roboto', sans-serif;
+      font-family: 'Space Grotesk', sans-serif;
       font-size: .6rem;
       color: var(--txt);
       width: 22px;
@@ -1948,7 +1946,7 @@
        (e.g. Date cells) still win because inline styles beat the class. */
 
     .tnum {
-      font-family: 'Roboto', sans-serif;
+      font-family: 'Space Grotesk', sans-serif;
       font-size: .82rem;                     /* up from .78rem — matches the new .tn so numbers feel "anchored" to row labels */
       color: var(--txt);
       font-weight: 500;
@@ -2034,7 +2032,7 @@
     }
 
     .tdelta {
-      font-family: 'Roboto', sans-serif;
+      font-family: 'Space Grotesk', sans-serif;
       font-size: .65rem;
       font-weight: 500;
     }
@@ -2167,7 +2165,7 @@
     }
 
     .szqty {
-      font-family: 'Roboto', sans-serif;
+      font-family: 'Space Grotesk', sans-serif;
       font-size: .88rem;
       font-weight: 500;
       color: var(--txt);
@@ -2294,7 +2292,7 @@
     }
 
     .csv {
-      font-family: 'Roboto', sans-serif;
+      font-family: 'Space Grotesk', sans-serif;
       font-size: .82rem;
       font-weight: 500;
       color: var(--txt);
@@ -2610,7 +2608,7 @@
     }
 
     .inv-sum-val {
-      font-family: 'Roboto', sans-serif;
+      font-family: 'Space Grotesk', sans-serif;
       font-size: 1.6rem;
       font-weight: 500;
       color: var(--txt);
@@ -2696,7 +2694,7 @@
     }
 
     .bar-row .br-val {
-      font-family: 'Roboto', sans-serif;
+      font-family: 'Space Grotesk', sans-serif;
       font-size: .72rem;
       font-weight: 600;
       color: var(--txt);
@@ -2759,7 +2757,7 @@
     }
 
     .exposure-val {
-      font-family: 'Roboto', sans-serif;
+      font-family: 'Space Grotesk', sans-serif;
       font-size: .6rem;
       font-weight: 500;
       color: var(--txt);
@@ -2817,7 +2815,7 @@
     }
 
     .leak-step .lk-val {
-      font-family: 'Roboto', sans-serif;
+      font-family: 'Space Grotesk', sans-serif;
       font-size: .72rem;
       font-weight: 600;
       color: var(--txt);
@@ -2921,7 +2919,7 @@
     }
 
     .pt-metric-val {
-      font-family: 'Roboto', sans-serif;
+      font-family: 'Space Grotesk', sans-serif;
       font-size: 1.1rem;
       font-weight: 600;
       color: var(--txt);
@@ -10775,7 +10773,7 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
     }
 
     .pd-val {
-      font-family: 'Roboto', sans-serif;
+      font-family: 'Space Grotesk', sans-serif;
       font-size: 1rem;
       font-weight: 600;
       color: var(--txt);
