@@ -36,6 +36,12 @@ ADMIN_ACCESS_TOKEN   = os.environ.get("ADMIN_ACCESS_TOKEN", "")
 SUPABASE_URL         = (os.environ.get("SUPABASE_URL") or "").strip().rstrip("/")
 SUPABASE_SERVICE_KEY = (os.environ.get("SUPABASE_SERVICE_KEY") or "").strip()
 
+# Second Supabase project — holds `sessions`, `orders`, `order_line_items`.
+# When set, /api/traffic and /api/orders read from here first and fall back
+# to Shopify only if the call fails.
+SUPABASE_DATA_URL         = (os.environ.get("SUPABASE_DATA_URL") or "").strip().rstrip("/")
+SUPABASE_DATA_SERVICE_KEY = (os.environ.get("SUPABASE_DATA_SERVICE_KEY") or "").strip()
+
 app = Flask(__name__, static_folder=None)
 
 # ── CORS helper ───────────────────────────────────────────────────────────────
@@ -162,6 +168,19 @@ def rows_to_dicts(columns: list, raw_rows: list) -> list:
 # ── Fetch functions ───────────────────────────────────────────────────────────
 
 def fetch_traffic(since: str, until: str) -> dict:
+    """Traffic source — Supabase `sessions` table first, Shopify fallback."""
+    if SUPABASE_DATA_URL and SUPABASE_DATA_SERVICE_KEY:
+        try:
+            payload = fetch_traffic_from_supabase(since, until)
+            if payload.get("byPath") or payload.get("rows"):
+                return payload
+            print("  [Traffic] Supabase empty, falling back to Shopify…")
+        except Exception as e:
+            print(f"  [Traffic] Supabase fetch failed ({e}); fallback to Shopify…")
+    return _fetch_traffic_from_shopify(since, until)
+
+
+def _fetch_traffic_from_shopify(since: str, until: str) -> dict:
     """Two-query traffic fetch:
 
       • byPath  — GROUP BY landing_page_type, landing_page_path, day.
@@ -554,6 +573,20 @@ def fetch_sales(since: str, until: str) -> dict:
 
 
 def fetch_orders(since: str, until: str) -> list:
+    """Orders source — Supabase `orders` + `order_line_items` first,
+    Shopify Admin GraphQL fallback."""
+    if SUPABASE_DATA_URL and SUPABASE_DATA_SERVICE_KEY:
+        try:
+            rows = fetch_orders_from_supabase(since, until)
+            if rows:
+                return rows
+            print("  [Orders] Supabase returned 0 rows — falling back to Shopify…")
+        except Exception as e:
+            print(f"  [Orders] Supabase fetch failed ({e}); fallback to Shopify…")
+    return _fetch_orders_from_shopify(since, until)
+
+
+def _fetch_orders_from_shopify(since: str, until: str) -> list:
     all_orders = []
     cursor = None
     query_filter = f"created_at:>={since} created_at:<={until}"
@@ -703,6 +736,207 @@ def _supabase_get(table: str, params: list) -> list:
         if offset >= 100000:  # safety stop
             break
     return out
+
+
+def _supabase_data_get(table: str, params: list) -> list:
+    """Paginated GET against the SECOND Supabase project (sessions / orders /
+    order_line_items). Raises ValueError if env vars aren't set."""
+    if not SUPABASE_DATA_URL or not SUPABASE_DATA_SERVICE_KEY:
+        raise ValueError("Second Supabase project not configured. "
+                         "Add SUPABASE_DATA_URL and SUPABASE_DATA_SERVICE_KEY env vars.")
+    url = f"{SUPABASE_DATA_URL}/rest/v1/{table}"
+    base_headers = {
+        "apikey": SUPABASE_DATA_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_DATA_SERVICE_KEY}",
+        "Content-Type": "application/json",
+        "Range-Unit": "items",
+    }
+    PAGE = 1000
+    out, offset = [], 0
+    while True:
+        headers = dict(base_headers)
+        headers["Range"] = f"{offset}-{offset + PAGE - 1}"
+        r = requests.get(url, headers=headers, params=params, timeout=60)
+        if r.status_code not in (200, 206):
+            r.raise_for_status()
+        batch = r.json() or []
+        if not isinstance(batch, list):
+            return batch
+        out.extend(batch)
+        if len(batch) < PAGE:
+            break
+        offset += PAGE
+        if offset >= 100000:
+            break
+    return out
+
+
+def fetch_traffic_from_supabase(since: str, until: str) -> dict:
+    """Pull session rows from Supabase and reshape into the same
+    { byPath, rows, totals } shape Shopify direct returns."""
+    rows = _supabase_data_get("sessions", [
+        ("select", "*"),
+        ("session_date", f"gte.{since}"),
+        ("session_date", f"lte.{until}"),
+        ("order", "sessions.desc"),
+    ])
+
+    def _norm(r):
+        out = dict(r)
+        out["day"] = r.get("session_date") or ""
+        try:
+            br = float(r.get("bounce_rate") or 0)
+            out["bounce_rate"] = round(br * 100, 2) if br < 1.5 and br > 0 else round(br, 2)
+        except Exception:
+            out["bounce_rate"] = 0
+        return out
+
+    detail_rows = [_norm(r) for r in rows]
+
+    byPath = {}
+    for r in detail_rows:
+        key = (r.get("landing_page_type") or "", r.get("landing_page_path") or "", r.get("day") or "")
+        if not key[1]:
+            continue
+        b = byPath.setdefault(key, {
+            "landing_page_type": key[0], "landing_page_path": key[1], "day": key[2],
+            "online_store_visitors": 0, "sessions": 0, "sessions_with_cart_additions": 0,
+            "bounces": 0, "sessions_that_reached_checkout": 0,
+            "_bounce_weighted": 0.0, "_dur_weighted": 0.0, "_pps_weighted": 0.0, "_weight": 0,
+        })
+        s = float(r.get("sessions") or 0)
+        b["online_store_visitors"]      += float(r.get("online_store_visitors") or 0)
+        b["sessions"]                   += s
+        b["sessions_with_cart_additions"] += float(r.get("sessions_with_cart_additions") or 0)
+        b["bounces"]                    += float(r.get("bounces") or 0)
+        b["sessions_that_reached_checkout"] += float(r.get("sessions_that_reached_checkout") or 0)
+        b["_bounce_weighted"] += float(r.get("bounce_rate") or 0) * s
+        b["_dur_weighted"]    += float(r.get("average_session_duration") or 0) * s
+        b["_pps_weighted"]    += float(r.get("pageviews_per_session") or 0) * s
+        b["_weight"]          += s
+    byPath_rows = []
+    for b in byPath.values():
+        w = b["_weight"] or 1
+        byPath_rows.append({
+            "landing_page_type": b["landing_page_type"],
+            "landing_page_path": b["landing_page_path"],
+            "day": b["day"],
+            "online_store_visitors": int(b["online_store_visitors"]),
+            "sessions": int(b["sessions"]),
+            "sessions_with_cart_additions": int(b["sessions_with_cart_additions"]),
+            "bounces": int(b["bounces"]),
+            "sessions_that_reached_checkout": int(b["sessions_that_reached_checkout"]),
+            "bounce_rate": round(b["_bounce_weighted"] / w, 2),
+            "average_session_duration": round(b["_dur_weighted"] / w, 2),
+            "pageviews_per_session": round(b["_pps_weighted"] / w, 2),
+        })
+    byPath_rows.sort(key=lambda r: -r["sessions"])
+
+    tot = {
+        "online_store_visitors": sum(int(r.get("online_store_visitors") or 0) for r in detail_rows),
+        "sessions":              sum(int(r.get("sessions") or 0)              for r in detail_rows),
+        "sessions_with_cart_additions": sum(int(r.get("sessions_with_cart_additions") or 0) for r in detail_rows),
+        "bounces":               sum(int(r.get("bounces") or 0)               for r in detail_rows),
+        "sessions_that_reached_checkout": sum(int(r.get("sessions_that_reached_checkout") or 0) for r in detail_rows),
+    }
+    sess_tot = tot["sessions"] or 1
+    tot["bounce_rate"]              = round(tot["bounces"] / sess_tot * 100, 2)
+    tot["average_session_duration"] = round(sum(float(r.get("average_session_duration") or 0) * float(r.get("sessions") or 0) for r in detail_rows) / sess_tot, 2)
+    tot["pageviews_per_session"]    = round(sum(float(r.get("pageviews_per_session") or 0) * float(r.get("sessions") or 0)   for r in detail_rows) / sess_tot, 2)
+
+    return {"byPath": byPath_rows, "rows": detail_rows, "totals": tot, "_source": "supabase"}
+
+
+def fetch_orders_from_supabase(since: str, until: str) -> list:
+    """Pull from orders + order_line_items, reshape to the legacy /api/orders
+    flat-dict-per-order shape so the dashboard JS doesn't change."""
+    orders = _supabase_data_get("orders", [
+        ("select", "*"),
+        ("created_at", f"gte.{since}T00:00:00"),
+        ("created_at", f"lte.{until}T23:59:59"),
+        ("order", "created_at.desc"),
+    ])
+    if not orders:
+        return []
+
+    order_ids = [o.get("id") for o in orders if o.get("id")]
+    line_items_by_order = {}
+    if order_ids:
+        CHUNK = 200
+        for i in range(0, len(order_ids), CHUNK):
+            chunk = order_ids[i:i+CHUNK]
+            quoted = ",".join('"' + str(x).replace('"', '\\"') + '"' for x in chunk)
+            lis = _supabase_data_get("order_line_items", [
+                ("select", "*"),
+                ("order_id", f"in.({quoted})"),
+            ])
+            for li in lis:
+                line_items_by_order.setdefault(li.get("order_id"), []).append(li)
+
+    def _f(v):
+        try: return float(v or 0)
+        except (TypeError, ValueError): return 0.0
+    def _split_csv(v):
+        if not v: return []
+        if isinstance(v, list): return v
+        return [x.strip() for x in str(v).split(",") if x.strip()]
+    def _parse_attrs(v):
+        if not v: return {}
+        if isinstance(v, dict): return v
+        try:
+            return json.loads(v) if isinstance(v, str) else {}
+        except Exception:
+            return {}
+
+    result = []
+    for o in orders:
+        items_raw = line_items_by_order.get(o.get("id"), [])
+        items = [{
+            "title": li.get("title") or "", "variantTitle": li.get("variant_title") or "",
+            "sku": li.get("sku") or "", "quantity": int(li.get("quantity") or 0),
+            "price": _f(li.get("unit_price")), "image": li.get("image_url") or "",
+        } for li in items_raw]
+        attrs = _parse_attrs(o.get("custom_attributes"))
+        for k in ("utm_source","utm_medium","utm_campaign","utm_content","utm_term",
+                  "full_url","gokwik_cid","cart_token","user_agent","customer_ip"):
+            v = o.get(k)
+            if v and not attrs.get(k):
+                attrs[k] = v
+        result.append({
+            "id": o.get("id") or "", "name": o.get("name") or "",
+            "createdAt": o.get("created_at") or "",
+            "financialStatus": (o.get("financial_status") or "").upper(),
+            "fulfillmentStatus": (o.get("fulfillment_status") or "").upper(),
+            "total": _f(o.get("total_price")), "subtotal": _f(o.get("subtotal")),
+            "discounts": _f(o.get("total_discounts")), "shipping": _f(o.get("total_shipping")),
+            "tax": _f(o.get("total_tax")), "refunded": _f(o.get("total_refunded")),
+            "currency": o.get("currency") or "INR",
+            "discountCodes": _split_csv(o.get("discount_codes")),
+            "note": o.get("note") or "",
+            "tags": _split_csv(o.get("tags")),
+            "cancelled": o.get("cancelled_at") is not None,
+            "customer": {
+                "name": f"{o.get('shipping_first_name','') or ''} {o.get('shipping_last_name','') or ''}".strip(),
+                "email": "", "phone": o.get("shipping_phone") or "", "ordersCount": 0,
+            },
+            "address": {
+                "city": o.get("shipping_city") or "",
+                "province": o.get("shipping_province") or "",
+                "country": o.get("shipping_country") or "",
+                "zip": o.get("shipping_zip") or "",
+            },
+            "lineItems": items,
+            "itemCount": sum(li["quantity"] for li in items),
+            "customAttributes": attrs,
+            "paymentGateway": o.get("payment_gateway") or o.get("gateway") or "",
+            "source": o.get("source_name") or "",
+            "utm_source": o.get("utm_source") or "",
+            "utm_medium": o.get("utm_medium") or "",
+            "utm_campaign": o.get("utm_campaign") or "",
+            "utm_content": o.get("utm_content") or "",
+            "utm_term": o.get("utm_term") or "",
+        })
+    return result
 
 
 def fetch_ads(since: str = "", until: str = "") -> list:

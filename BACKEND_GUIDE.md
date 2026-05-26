@@ -46,8 +46,10 @@ missing Shopify creds raise `SystemExit` immediately.
 |---|---|---|
 | `SHOP_DOMAIN` | Shopify endpoint URL | `https://{SHOP_DOMAIN}/admin/api/2025-10/graphql.json` |
 | `ADMIN_ACCESS_TOKEN` | `X-Shopify-Access-Token` header | Custom App access token; must carry `read_reports` scope or `shopifyqlQuery` is hidden by the API |
-| `SUPABASE_URL` | Supabase REST base | `{SUPABASE_URL}/rest/v1/{table}` |
-| `SUPABASE_SERVICE_KEY` | `apikey` + `Authorization: Bearer` headers | Service role key (server-side use only) |
+| `SUPABASE_URL` | Supabase REST base | `{SUPABASE_URL}/rest/v1/{table}` — ads project (primary_table / inventory_snapshots) |
+| `SUPABASE_SERVICE_KEY` | `apikey` + `Authorization: Bearer` headers | Service role key for the ads project |
+| `SUPABASE_DATA_URL` | Second Supabase project REST base | Sessions + orders project (`sessions`, `orders`, `order_line_items` tables). Optional — when present, `/api/traffic` and `/api/orders` read from here first and fall back to Shopify only if the call fails. |
+| `SUPABASE_DATA_SERVICE_KEY` | Auth headers for the second project | Service role key for the data project |
 
 ---
 
