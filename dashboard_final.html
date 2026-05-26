@@ -843,8 +843,14 @@
     }
 
     .tbl-scr {
-      overflow-x: auto;
-      overflow-y: visible;       /* visible (not clip/hidden) so the sticky thead can pin to the .scroll ancestor on page scroll */
+      /* The CSS Overflow spec: when one axis is "auto" the other axis's
+         "visible" is computed to "auto" — which creates a scroll container
+         that traps any descendant position:sticky. Using "clip" instead
+         keeps horizontal overflow trimmed without establishing a scroll
+         container, so the inner <thead><th> can pin against the page-level
+         .scroll ancestor as the user scrolls. */
+      overflow-x: clip;
+      overflow-y: visible;
       width: 100%;
     }
 
@@ -1536,13 +1542,17 @@
       padding: 9px 13px;
       border-bottom: 1px solid var(--bd);
       font-weight: 500;
+      /* opaque warm-cream — distinct from both the white .tbl-wrap and the
+         page background, so the header stays clearly visible whether stuck
+         to the page top or sitting normally at the top of its table */
       background: var(--bg-surface);
       white-space: nowrap;
       position: sticky;
       top: 0;
-      z-index: 10;
-      /* subtle drop shadow that only "shows up" when the row is stuck and rows scroll underneath */
-      box-shadow: 0 1px 0 var(--bd), 0 4px 8px -4px rgba(44, 36, 32, .08);
+      z-index: 20;
+      /* dropped shadow that becomes visible when content scrolls underneath
+         the stuck header — gives a "lifted" feel while pinned */
+      box-shadow: 0 1px 0 var(--bd), 0 6px 10px -6px rgba(44, 36, 32, .14);
     }
 
     .dtbl td {
@@ -2689,7 +2699,16 @@
     /* KPIs and hero panels */
     .krow { gap: 12px !important; margin-bottom: 18px !important; }
     .kpi { padding: 16px 18px !important; min-width: 0; }
-    .kpi .kv { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    /* Allow KPI values to wrap and shrink instead of truncating with "…". The
+       dashboard renders full whole numbers now (e.g. ₹2,89,41,560 instead of
+       ₹2.89M / 21,540 instead of 21.5k), so we'd rather have the card grow a
+       line than hide digits. */
+    .kpi .kv {
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      line-height: 1.1;
+    }
     .home-hero { gap: 1px; }
     .hero-panel { padding: 22px 24px !important; }
 
@@ -4211,7 +4230,13 @@
     }
 
     // ── HELPERS ──
-    const fmt = n => n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n);
+    // Whole-number formatter: full Indian-locale grouping, no abbreviation.
+    // 21540 → "21,540", 4045 → "4,045", 1250000 → "12,50,000". Never collapses
+    // to "21.5k" / "4k" / "1.25M" — the dashboard now shows every digit.
+    const fmt = n => {
+      if (n == null || isNaN(n)) return '0';
+      return Number(n).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+    };
     // Visible cell text: always render the whole value. We used to truncate
     // here ("name…") but that hid information the user needed; long values
     // now wrap onto the next line via .tn / .tm CSS, breaking at word
