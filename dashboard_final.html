@@ -7997,15 +7997,24 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
         return;
       }
       const all = SALES_DATA;
-      // Prefer Shopify WITH TOTALS row for accurate KPIs, fallback to summing rows
+      // KPI priority order:
+      //   1. window._salesGrandTotals — UNFILTERED Shopify query, matches the
+      //      "Total sales over time" report row-for-row
+      //   2. window._salesTotals — the older WITH TOTALS aggregate (filtered)
+      //   3. Summed rows fallback
+      const gt = window._salesGrandTotals || null;
       const st = window._salesTotals || null;
-      const totSales = st ? (st.total_sales || 0) : all.reduce((a, r) => a + (r.total_sales || 0), 0);
-      const totGross = st ? (st.gross_sales || 0) : all.reduce((a, r) => a + (r.gross_sales || 0), 0);
-      const _units = r => r.orders || r.net_items_sold || 0;
-      const totUnits = st ? (st.net_items_sold || 0) : all.reduce((a, r) => a + _units(r), 0);
-      const totDisc = st ? (st.discounts || 0) : all.reduce((a, r) => a + (r.discounts || 0), 0);
-      const totRet = st ? (st.returns || 0) : all.reduce((a, r) => a + (r.returns || 0), 0);
-      const totNet = st ? (st.net_sales || 0) : all.reduce((a, r) => a + (r.net_sales || 0), 0);
+      const pick = (gtKey, stKey, fallbackKey) => {
+        if (gt && gt[gtKey] != null) return +gt[gtKey] || 0;
+        if (st && st[stKey] != null) return +st[stKey] || 0;
+        return all.reduce((a, r) => a + (+r[fallbackKey] || 0), 0);
+      };
+      const totSales = pick('total_sales', 'total_sales', 'total_sales');
+      const totGross = pick('gross_sales', 'gross_sales', 'gross_sales');
+      const totUnits = pick('net_items_sold', 'net_items_sold', 'net_items_sold');
+      const totDisc  = pick('discounts',   'discounts',   'discounts');
+      const totRet   = pick('returns',     'returns',     'returns');
+      const totNet   = pick('net_sales',   'net_sales',   'net_sales');
 
       const _ms = document.getElementById('masterSince');
       const _mu = document.getElementById('masterUntil');
@@ -8013,8 +8022,31 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
         ? _ms.value + ' → ' + _mu.value
         : 'all time';
 
+      // Differentiator: tag KPI sources so user can see which Shopify lens they
+      // came from. If the unfiltered grand-total query ran, mark the cards with
+      // a green "✓ matches Shopify" badge and call out how much was excluded
+      // from the per-product breakdown below (custom line items, gift cards,
+      // Return Prime channel).
+      const exc = window._salesExcluded || {};
+      const excTot = Math.abs(+exc.total_sales || 0);
+      const sourceBadge = gt
+        ? '<span title="Unfiltered Shopify sales query — matches Shopify ' +
+          '\'Total sales over time\' report to the rupee" ' +
+          'style="display:inline-block;background:var(--in-bg);color:var(--in-text);' +
+          'border:1px solid var(--in-bd);font-family:JetBrains Mono,monospace;' +
+          'font-size:.55rem;font-weight:600;padding:1px 6px;border-radius:8px;' +
+          'letter-spacing:.02em;margin-left:6px;vertical-align:middle;">✓ SHOPIFY MATCH</span>'
+        : '<span title="Summed from per-product rows (filtered)" ' +
+          'style="display:inline-block;background:var(--sf2);color:var(--mu2);' +
+          'border:1px solid var(--bd2);font-family:JetBrains Mono,monospace;' +
+          'font-size:.55rem;font-weight:600;padding:1px 6px;border-radius:8px;' +
+          'letter-spacing:.02em;margin-left:6px;vertical-align:middle;">PER-PRODUCT SUM</span>';
+      const excSub = excTot > 0.5
+        ? rangeLabel + ' · ' + fmtRs(excTot) + ' excluded from per-product table'
+        : rangeLabel;
+
       document.getElementById('salesKpis').innerHTML =
-        kpi('ca', 'Total Sales', fmtRs(totSales), rangeLabel)
+        kpi('ca', 'Total Sales' + sourceBadge, fmtRs(totSales), excSub)
         + kpi('ci', 'Gross Sales', fmtRs(totGross), 'before discounts & returns')
         + kpi('ca', 'Units Sold', totUnits.toLocaleString(), 'net items sold')
         + kpi('cl', 'Discounts', fmtRs(Math.abs(totDisc)), 'total discount value')
@@ -8108,12 +8140,17 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
         const raw = await resp.json();
         if (raw && raw.error) throw new Error(raw.error);
 
-        // Server now returns { rows: [detail], byProduct: [per-product totals] }
-        // — fall back to the older flat-array shape for forward compatibility.
+        // Server now returns { rows, byProduct, grandTotals, excludedFromBreakdown }.
+        // grandTotals comes from an UNFILTERED query so the top-line KPIs match
+        // Shopify's "Total sales over time" report exactly. excludedFromBreakdown
+        // tells us how much was dropped by the product-title / sales-channel
+        // filters so we can label it in the UI.
         let rows = Array.isArray(raw) ? raw
           : (raw && Array.isArray(raw.rows) ? raw.rows
           : (raw && Array.isArray(raw.data) ? raw.data : []));
         const byProductRaw = (raw && Array.isArray(raw.byProduct)) ? raw.byProduct : [];
+        window._salesGrandTotals = (raw && raw.grandTotals) ? raw.grandTotals : null;
+        window._salesExcluded    = (raw && raw.excludedFromBreakdown) ? raw.excludedFromBreakdown : null;
         if (!rows.length && !byProductRaw.length) throw new Error('No sales data for this period.');
 
         const numFields = SALES_NUM_FIELDS;

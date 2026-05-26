@@ -623,8 +623,21 @@ def fetch_sales(since: str, until: str) -> dict:
         "ORDER BY total_sales DESC "
     )
 
+    # Grand-totals query — UNFILTERED so it matches Shopify's "Total sales
+    # over time" report exactly. The per-product query above filters out
+    # orphan rows (product_title NULL: custom line items, gift cards) and
+    # Return Prime refunds, which keeps the table clean but undershoots the
+    # Shopify total by however much those rows contributed. The UI uses this
+    # for top-line KPIs and labels the gap so it's visible.
+    ql_grand = (
+        "FROM sales "
+        "SHOW gross_sales, discounts, returns, net_sales, taxes, total_sales, net_items_sold "
+        f"SINCE {since} UNTIL {until} "
+    )
+
     detail_rows = _shopifyql_rows(_shopifyql(ql_detail))
     by_product_rows = _shopifyql_rows(_shopifyql(ql_byproduct))
+    grand_rows = _shopifyql_rows(_shopifyql(ql_grand))
 
     def _cast(rows):
         for row in rows:
@@ -653,8 +666,22 @@ def fetch_sales(since: str, until: str) -> dict:
 
     _cast(detail_rows)
     _cast(by_product_rows)
-    print(f"  [Sales] detail={len(detail_rows)} rows · byProduct={len(by_product_rows)} rows")
-    return {"rows": detail_rows, "byProduct": by_product_rows}
+    _cast(grand_rows)
+
+    grand_totals = {f: 0.0 for f in SALES_NUMERIC_FIELDS}
+    if grand_rows:
+        for f in SALES_NUMERIC_FIELDS:
+            grand_totals[f] = float(grand_rows[0].get(f) or 0)
+    byp_sums = {f: sum(float(r.get(f) or 0) for r in by_product_rows) for f in SALES_NUMERIC_FIELDS}
+    excluded = {f: round(grand_totals[f] - byp_sums[f], 2) for f in SALES_NUMERIC_FIELDS}
+
+    print(f"  [Sales] detail={len(detail_rows)} rows · byProduct={len(by_product_rows)} rows · grand_total_sales={grand_totals.get('total_sales', 0):,.2f} · excluded_total={excluded.get('total_sales', 0):,.2f}")
+    return {
+        "rows": detail_rows,
+        "byProduct": by_product_rows,
+        "grandTotals": grand_totals,
+        "excludedFromBreakdown": excluded,
+    }
 
 
 # ── HTTP server ────────────────────────────────────────────────────────────────

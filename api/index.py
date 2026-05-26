@@ -570,8 +570,27 @@ def fetch_sales(since: str, until: str) -> dict:
         "ORDER BY total_sales DESC "
     )
 
+    # Grand-totals query — UNFILTERED. Matches Shopify's "Total sales over
+    # time" report row-for-row. We need this because the per-product query
+    # above intentionally drops:
+    #   - rows with product_title IS NULL (custom line items, gift cards,
+    #     shipping adjustments — can't be grouped by product without a
+    #     phantom "—" row)
+    #   - the Return Prime: Order Return sales_channel
+    # Those filters keep the per-product table clean but make the summed
+    # values undershoot Shopify by the value of those orphan rows. This
+    # query exists solely to feed the top-line KPIs so they reconcile to
+    # the rupee with Shopify; we also return the gap explicitly so the UI
+    # can label what the per-product view excluded.
+    ql_grand = (
+        "FROM sales "
+        "SHOW gross_sales, discounts, returns, net_sales, taxes, total_sales, net_items_sold "
+        f"SINCE {since} UNTIL {until} "
+    )
+
     detail_rows = _table_to_rows(_shopifyql_table(ql_detail))
     by_product_rows = _table_to_rows(_shopifyql_table(ql_byproduct))
+    grand_rows = _table_to_rows(_shopifyql_table(ql_grand))
 
     def _cast(rows):
         for row in rows:
@@ -586,7 +605,24 @@ def fetch_sales(since: str, until: str) -> dict:
 
     _cast(detail_rows)
     _cast(by_product_rows)
-    return {"rows": detail_rows, "byProduct": by_product_rows}
+    _cast(grand_rows)
+
+    # Collapse the single grand-totals row into a flat dict the UI can read
+    # directly. Compute the per-field gap between grand totals (Shopify
+    # truth) and the per-product sum (what makes it into the table).
+    grand_totals = {f: 0.0 for f in SALES_NUMERIC_FIELDS}
+    if grand_rows:
+        for f in SALES_NUMERIC_FIELDS:
+            grand_totals[f] = float(grand_rows[0].get(f) or 0)
+    byp_sums = {f: sum(float(r.get(f) or 0) for r in by_product_rows) for f in SALES_NUMERIC_FIELDS}
+    excluded = {f: round(grand_totals[f] - byp_sums[f], 2) for f in SALES_NUMERIC_FIELDS}
+
+    return {
+        "rows": detail_rows,
+        "byProduct": by_product_rows,
+        "grandTotals": grand_totals,
+        "excludedFromBreakdown": excluded,
+    }
 
 
 def fetch_orders(since: str, until: str) -> list:
