@@ -25,15 +25,28 @@ flowchart LR
     LocalServer["server.py<br/>localhost:5000"]
     Vercel["api/index.py<br/>Vercel Flask"]
     Shopify["Shopify Admin GraphQL<br/>2025-10<br/>(ShopifyQL + Orders/Products)"]
-    Supabase["Supabase REST<br/>(PostgREST)<br/>primary_table<br/>inventory_snapshots"]
+    SupabaseAds["Supabase REST — Ads project<br/>(SUPABASE_URL / SUPABASE_SERVICE_KEY)<br/>primary_table<br/>inventory_snapshots"]
+    SupabaseData["Supabase REST — SAADAA project<br/>(SAADAA_VAR / SAADAA_KEY)<br/>sessions<br/>orders<br/>order_line_items"]
 
     Browser -- "fetch(/api/*)" --> LocalServer
     Browser -- "fetch(/api/*)" --> Vercel
-    LocalServer -- "POST /graphql.json" --> Shopify
+
+    LocalServer -- "POST /graphql.json<br/>(fallback for traffic/orders;<br/>primary for sales/products/inventory)" --> Shopify
     Vercel      -- "POST /graphql.json" --> Shopify
-    LocalServer -- "GET  /rest/v1/<table>" --> Supabase
-    Vercel      -- "GET  /rest/v1/<table>" --> Supabase
+
+    LocalServer -- "GET /rest/v1/&lt;table&gt;<br/>ads + inventory" --> SupabaseAds
+    Vercel      -- "GET /rest/v1/&lt;table&gt;" --> SupabaseAds
+
+    LocalServer -- "GET /rest/v1/&lt;table&gt;<br/>traffic + orders<br/>(primary, Shopify is fallback)" --> SupabaseData
+    Vercel      -- "GET /rest/v1/&lt;table&gt;" --> SupabaseData
 ```
+
+The two Supabase projects live in the same org but are separate databases.
+`/api/traffic` and `/api/orders` prefer the SAADAA project and only fall
+back to Shopify if `SAADAA_VAR`/`SAADAA_KEY` are missing or the call fails;
+the response carries a `_source` tag (`supabase`, `shopify:no-credentials`,
+`shopify:supabase-empty`, or `shopify:supabase-error:<msg>`) so you can
+tell from the wire which branch served the data.
 
 ---
 
