@@ -2993,20 +2993,19 @@
       <div id="invCfgBody"></div>
     </div>
     <div class="toolbar" style="flex-direction:column;align-items:stretch;gap:0;padding:0;">
-      <!-- Row 1: Filter dropdowns -->
-      <div
-        style="display:flex;align-items:center;gap:6px;padding:8px 20px;flex-wrap:wrap;border-bottom:1px solid var(--bd2);">
+      <!-- Row 1: Collapsible filter panel (hidden by default — toggled by the Filters button on Row 2) -->
+      <div id="invFiltersPanel"
+        style="display:none;align-items:center;gap:6px;padding:10px 20px;flex-wrap:wrap;border-bottom:1px solid var(--bd2);background:var(--bg-surface);">
         <div class="tg"><span class="tb-lbl">Gender</span>
-          <select class="filter-select" id="igSelect" onchange="setIG(this.value)">
+          <select class="filter-select" id="igSelect" onchange="setIG(this.value);refreshInvFiltersBadge();">
             <option value="all">All</option>
             <option value="Women">Women</option>
             <option value="Men">Men</option>
             <option value="Unisex">Unisex</option>
           </select>
         </div>
-        <div style="width:1px;height:20px;background:var(--bd2);margin:0 4px;"></div>
         <div class="tg"><span class="tb-lbl">Lifecycle</span>
-          <select class="filter-select" id="ilcSelect" onchange="setILC(this.value)">
+          <select class="filter-select" id="ilcSelect" onchange="setILC(this.value);refreshInvFiltersBadge();">
             <option value="all">All</option>
             <option value="npd">🌱 NPD</option>
             <option value="active">Active</option>
@@ -3014,47 +3013,44 @@
             <option value="discontinued">Disc.</option>
           </select>
         </div>
-        <div style="width:1px;height:20px;background:var(--bd2);margin:0 4px;"></div>
         <div class="tg"><span class="tb-lbl">Stock</span>
-          <select class="filter-select" id="isfSelect" onchange="setISF(this.value)">
+          <select class="filter-select" id="isfSelect" onchange="setISF(this.value);refreshInvFiltersBadge();">
             <option value="all">All</option>
             <option value="in_stock">In Stock</option>
             <option value="broken_stock">Broken</option>
             <option value="out_of_stock">OOS</option>
           </select>
         </div>
-        <div style="width:1px;height:20px;background:var(--bd2);margin:0 4px;"></div>
         <div class="tg"><span class="tb-lbl">Category</span>
-          <select class="filter-select" id="invCatSelect" onchange="setIF(this.value)">
+          <select class="filter-select" id="invCatSelect" onchange="setIF(this.value);refreshInvFiltersBadge();">
             <option value="all">All Categories</option>
           </select>
         </div>
-        <div style="width:1px;height:20px;background:var(--bd2);margin:0 4px;"></div>
         <div class="tg"><span class="tb-lbl">Status</span>
-          <select class="filter-select" id="istatusSelect" onchange="setIStatus(this.value)" title="Filter by Shopify product status (active / draft)">
+          <select class="filter-select" id="istatusSelect" onchange="setIStatus(this.value);refreshInvFiltersBadge();" title="Filter by Shopify product status (active / draft)">
             <option value="all">All</option>
             <option value="ACTIVE">Active</option>
             <option value="DRAFT">Draft</option>
           </select>
         </div>
-        <div style="width:1px;height:20px;background:var(--bd2);margin:0 4px;"></div>
         <div class="tg"><span class="tb-lbl">Color</span>
-          <select class="filter-select" id="invColorSelect" onchange="setIColor(this.value)">
+          <select class="filter-select" id="invColorSelect" onchange="setIColor(this.value);refreshInvFiltersBadge();">
             <option value="all">All Colors</option>
           </select>
         </div>
-        <div style="width:1px;height:20px;background:var(--bd2);margin:0 4px;"></div>
         <div class="tg"><span class="tb-lbl">Tag</span>
-          <select class="filter-select" id="invTagSelect" onchange="setInvTag(this.value)">
+          <select class="filter-select" id="invTagSelect" onchange="setInvTag(this.value);refreshInvFiltersBadge();">
             <option value="all">All Tags</option>
           </select>
         </div>
-        <div style="width:1px;height:20px;background:var(--bd2);margin:0 4px;"></div>
         <div class="tg"><span class="tb-lbl">Type</span>
-          <select class="filter-select" id="invPTSelect" onchange="setIPT(this.value)">
+          <select class="filter-select" id="invPTSelect" onchange="setIPT(this.value);refreshInvFiltersBadge();">
             <option value="all">All Types</option>
           </select>
         </div>
+        <div style="flex:1;"></div>
+        <button class="ibtn" onclick="resetInvFilters()" title="Reset all filters to All"
+          style="font-size:.62rem;letter-spacing:.04em;color:var(--mu2);">↺ Reset</button>
       </div>
       <!-- Active tag chip row -->
       <div id="invTagChipRow" style="display:none;align-items:center;gap:6px;padding:3px 20px 5px;flex-wrap:wrap;">
@@ -3066,8 +3062,17 @@
           style="background:none;border:none;color:var(--mu2);cursor:pointer;font-size:.75rem;padding:0 2px;line-height:1;"
           title="Clear tag filter">✕</button>
       </div>
-      <!-- Row 2: Search, Mode, Nav, View -->
-      <div style="display:flex;align-items:center;gap:8px;padding:6px 20px;flex-wrap:wrap;">
+      <!-- Row 2: Filter toggle, Search, Mode, View -->
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 20px;flex-wrap:wrap;">
+        <button class="ibtn" id="invFiltersBtn" onclick="toggleInvFilters()"
+          title="Show / hide filter dropdowns"
+          style="display:inline-flex;align-items:center;gap:6px;font-size:.7rem;letter-spacing:.02em;font-weight:500;">
+          <span style="font-size:.85rem;line-height:1;">⛃</span>
+          <span>Filters</span>
+          <span id="invFiltersBadge"
+            style="display:none;background:var(--cta);color:var(--txt);font-family:'JetBrains Mono',monospace;font-size:.55rem;font-weight:600;padding:1px 6px;border-radius:8px;line-height:1.3;letter-spacing:.02em;">0</span>
+          <span id="invFiltersCaret" style="font-size:.55rem;color:var(--mu2);margin-left:2px;">▾</span>
+        </button>
         <input class="srch" id="invSrch" placeholder="Search products…" oninput="renderInv()"
           style="flex:1;min-width:140px;max-width:220px;" />
         <div class="tg"><span class="tb-lbl">Mode</span>
@@ -4219,6 +4224,65 @@
 
     function setIColor(v) { invColor = v; styleDropdown('invColorSelect', v); renderInv(); }
     function setIG(g) { invGender = g; styleDropdown('igSelect', g); renderInv(); }
+
+    // ── Inventory filters: collapsible panel + active-count badge ──
+    // All 8 dropdowns live inside #invFiltersPanel, which is hidden until the
+    // user clicks the Filters button. The badge on the button shows how many
+    // filters are currently set to anything other than "all", so the user can
+    // see at a glance whether filtering is active without expanding the panel.
+    const _INV_FILTER_IDS = [
+      'igSelect', 'ilcSelect', 'isfSelect', 'invCatSelect',
+      'istatusSelect', 'invColorSelect', 'invTagSelect', 'invPTSelect',
+    ];
+
+    function toggleInvFilters() {
+      const panel = document.getElementById('invFiltersPanel');
+      const caret = document.getElementById('invFiltersCaret');
+      if (!panel) return;
+      const open = panel.style.display === 'flex';
+      panel.style.display = open ? 'none' : 'flex';
+      if (caret) caret.textContent = open ? '▾' : '▴';
+    }
+
+    function refreshInvFiltersBadge() {
+      const badge = document.getElementById('invFiltersBadge');
+      if (!badge) return;
+      let active = 0;
+      _INV_FILTER_IDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && el.value && el.value !== 'all') active++;
+      });
+      if (active > 0) {
+        badge.textContent = String(active);
+        badge.style.display = 'inline-block';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+
+    function resetInvFilters() {
+      const setters = {
+        igSelect:        setIG,
+        ilcSelect:       setILC,
+        isfSelect:       setISF,
+        invCatSelect:    setIF,
+        istatusSelect:   setIStatus,
+        invColorSelect:  setIColor,
+        invTagSelect:    setInvTag,
+        invPTSelect:     setIPT,
+      };
+      Object.entries(setters).forEach(([id, fn]) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.value = 'all';
+        try { fn('all'); } catch (e) {}
+      });
+      refreshInvFiltersBadge();
+    }
+
+    // Keep the badge accurate after the option-list-populating helpers run
+    // on data load (they call .innerHTML = …, which can reset the value).
+    document.addEventListener('DOMContentLoaded', refreshInvFiltersBadge);
 
     // ── NAV ──
     let _currentPage = 'home';
@@ -6032,6 +6096,11 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
     // (setALC removed — ad intelligence tab revamped)
 
     function renderInv() {
+      // Refresh the active-filter badge each time the inventory re-renders.
+      // This catches every filter-change path (URL restore, programmatic
+      // setIG/setIF etc., user dropdown changes) without needing each setter
+      // to know about the badge.
+      if (typeof refreshInvFiltersBadge === 'function') refreshInvFiltersBadge();
       const src = INVLIVE.length ? INVLIVE : DATA.filter(r => r.hasInvData);
       // Exclude old/archived products from all counts
       const all = src.filter(r => !r._excluded && r.stockStatus !== 'unknown' && !isCombo(r) && !isUserDisabled(r));
