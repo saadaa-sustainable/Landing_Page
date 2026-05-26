@@ -6,68 +6,143 @@
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
   <title>सादा — Ops</title>
   <link
-    href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=JetBrains+Mono:wght@300;400;500&family=Inter:wght@300;400;500&family=Roboto:wght@400;500;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500&family=Inter:wght@300;400;500;600&family=Roboto:wght@400;500;700&display=swap"
     rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
+    /* ──────────────────────────────────────────────────────────────────
+       SAADAA DESIGN — BRAND COLOR PALETTE v1.0
+       Source: brand-color-palette.pdf
+       Hard rules:
+         1. ECRU is the soul — every background warm, never cold.
+         2. Yellow #F0C61E = CTA only (primary buttons, logo bg, active nav).
+         3. Status badges use PAIRED tokens (bg+text+border).
+         4. Purple/pink reserved for detail-panel accents only.
+       ────────────────────────────────────────────────────────────────── */
     :root {
-      /* Backgrounds — warm ecru palette */
-      --bg: #FAF8F5;
-      --bg-surface: #F5F1EC;
-      --bg-ecru: #F0EAD6;
-      --bg-page-alt: #F6F3F1;
-      --bg-muted: #F0EDE6;
-      --bg-white: #FFFFFF;
-      /* Glass card formula (per brand spec) */
-      --sf: rgba(255, 252, 248, 0.72);
-      --sf2: #F5F1EC;
-      --sf3: #F0EAD6;
-      /* Borders */
-      --bd: #E7E2D2;
-      --bd2: #DDD8CC;
-      --bd-soft: #EFEAE0;
-      --bd-warm: #EDE8DC;
-      --bd-strong: #C9C2AE;
-      /* Brand accents */
-      --cta: #F0C61E;                             /* yellow — primary CTA only */
-      --cta-hover: #D9B01A;
-      --sand: #C9A882;                            /* secondary accent */
-      --sand-d: rgba(201, 168, 130, .14);
-      --sand-b: rgba(201, 168, 130, .35);
-      --amber: #E8C87A;
-      --warm-tint: #FAF1DC;
-      /* Text */
-      --txt: #161513;
-      --txt-hover: #1B1A17;
-      --txt-charcoal: #2C2420;
-      --txt-mid: #494640;
-      --mu: #9A9384;
-      --mu2: #6E695E;
-      /* Status — Success */
-      --in: #3D9E6B;
-      --in-bg: #ECF1E9;
-      --in-bd: rgba(79, 124, 77, .35);
-      --in-text: #4F7C4D;
-      /* Status — Warning */
-      --low: #D9922A;
-      --low-bg: #FAF1DC;
-      --low-bd: rgba(232, 200, 122, .55);
-      --low-text: #B57514;
-      /* Status — Error */
-      --out: #C94343;
-      --out-bg: #FDECEA;
-      --out-bd: rgba(192, 57, 43, .30);
-      --out-text: #C0392B;
-      /* Info / link */
-      --traf: #3B6FD4;
-      --info-bg: #D6E1F5;
+      /* ── Backgrounds ────────────────────────────────────────────── */
+      --bg-base:        #FAF8F5;   /* main page bg */
+      --bg-surface:     #F5F1EC;   /* sidebar, panels */
+      --bg-ecru:        #F0EAD6;   /* ★ core Saadaa ecru */
+      --bg-page-alt:    #F6F3F1;   /* alternate page bg */
+      --bg-muted:       #F0EDE6;   /* muted cards / empty states */
+      --bg-white:       #FFFFFF;   /* modals, dropdowns (SOLID — never alpha) */
+      /* legacy short aliases — keep existing CSS working */
+      --bg:             #FAF8F5;
+      /* glass card */
+      --sf:             rgba(255, 252, 248, 0.72);
+      --sf2:            #F5F1EC;
+      --sf3:            #F0EAD6;
+
+      /* ── Borders / Lines ───────────────────────────────────────── */
+      --border-primary: #E7E2D2;   /* default card / input */
+      --border-soft:    #EFEAE0;   /* soft dividers */
+      --border-warm:    #EDE8DC;   /* warm separators */
+      --border-mid:     #DDD8CC;   /* medium weight */
+      --border-strong:  #C9C2AE;   /* selected states */
+      /* aliases */
+      --bd:             #E7E2D2;
+      --bd2:            #DDD8CC;
+      --bd-soft:        #EFEAE0;
+      --bd-warm:        #EDE8DC;
+      --bd-strong:      #C9C2AE;
+
+      /* ── Text ─────────────────────────────────────────────────── */
+      --text-primary:        #161513;   /* main body, headings */
+      --text-primary-hover:  #1B1A17;
+      --text-charcoal:       #2C2420;   /* hero text */
+      --text-mid:            #494640;
+      --text-secondary:      #6E695E;   /* labels, descriptions */
+      --text-tertiary:       #9A9384;   /* muted, placeholders */
+      --text-link:           #3B6FD4;
+      /* aliases */
+      --txt:           #161513;
+      --txt-hover:     #1B1A17;
+      --txt-charcoal:  #2C2420;
+      --txt-mid:       #494640;
+      --mu:            #9A9384;
+      --mu2:           #6E695E;
+
+      /* ── Primary Accent — Yellow (CTA ONLY) ──────────────────── */
+      --accent-yellow:    #F0C61E;   /* ★ primary CTA */
+      --accent-yellow-h:  #D9B01A;
+      --accent-sand:      #C9A882;   /* secondary */
+      --accent-amber:     #E8C87A;   /* warning tint, badge bg */
+      --accent-warm-tint: #FAF1DC;   /* pale yellow — pending bg */
+      --accent-orange:    #E8A87C;   /* sidebar active (sand-orange tone) */
+      /* aliases */
+      --cta:           #F0C61E;
+      --cta-hover:     #D9B01A;
+      --sand:          #C9A882;
+      --sand-d:        rgba(201, 168, 130, .14);
+      --sand-b:        rgba(201, 168, 130, .35);
+      --amber:         #E8C87A;
+      --warm-tint:     #FAF1DC;
+
+      /* ── Status — Success ────────────────────────────────────── */
+      --success-text: #4F7C4D;
+      --success-mid:  #3D9E6B;
+      --success-bg:   #ECF1E9;
+      --success-alt:  #4CAF7D;
+      --success-bd:   rgba(79, 124, 77, .35);
+      /* aliases */
+      --in:           #3D9E6B;
+      --in-bg:        #ECF1E9;
+      --in-bd:        rgba(79, 124, 77, .35);
+      --in-text:      #4F7C4D;
+
+      /* ── Status — Warning ────────────────────────────────────── */
+      --warning-text: #B57514;
+      --warning-mid:  #D9922A;
+      --warning-bg:   #FAF1DC;
+      --warning-bd:   #E8C87A;
+      /* aliases */
+      --low:          #D9922A;
+      --low-bg:       #FAF1DC;
+      --low-bd:       rgba(232, 200, 122, .55);
+      --low-text:     #B57514;
+      --warn:         #D9922A;
+
+      /* ── Status — Error / Danger ─────────────────────────────── */
+      --error-text: #C0392B;
+      --error-mid:  #C94343;
+      --error-dark: #A03A2C;
+      --error-bg:   #FDECEA;
+      /* aliases */
+      --out:          #C94343;
+      --out-bg:       #FDECEA;
+      --out-bd:       rgba(192, 57, 43, .30);
+      --out-text:     #C0392B;
+
+      /* ── Status — Info / Link ────────────────────────────────── */
       --info-text: #355C7A;
-      /* Secondary accents (detail panels only) */
-      --cart: #7B4FBF;
-      --accent-pink: #B54F7A;
-      --warn: #D9922A;
+      --info-mid:  #2C5AB8;
+      --info-link: #3B6FD4;
+      --info-bg:   #D6E1F5;
+      /* aliases */
+      --traf:         #3B6FD4;
+
+      /* ── Secondary accents (DETAIL PANELS ONLY) ──────────────── */
+      --accent-purple:    #7B4FBF;
+      --accent-purple-bg: #F5F3FB;
+      --accent-pink:      #B54F7A;
+      --accent-pink-bg:   #FDF3F8;
+      --accent-indigo:    #3B6FD4;
+      --accent-indigo-bg: #F0F6FB;
+      /* alias */
+      --cart:         #7B4FBF;
+
+      /* ── Sidebar (DARK — per brand spec) ─────────────────────── */
+      --sidebar-bg:       #2C2420;   /* charcoal, ~88% opacity in use */
+      --sidebar-text:     #FAF8F5;   /* light, ~85% opacity in use */
+      --sidebar-active:   #E8A87C;   /* sand-orange, 20% opacity in use */
+      --sidebar-border:   rgba(231, 226, 210, .12);
+
+      /* ── Geometry ────────────────────────────────────────────── */
       --r: 12px;
+      --r-card: 10px;
+      --r-pill: 999px;
     }
 
     *,
@@ -104,17 +179,22 @@
       font-variant-numeric: tabular-nums;
     }
 
-    /* ── SIDEBAR (was the horizontal NAV) ── */
+    /* ── SIDEBAR (DARK per brand spec — charcoal bg, light text) ── */
     .nav {
       flex-shrink: 0;
       width: 210px;
       display: flex;
       flex-direction: column;
-      background: rgba(255, 252, 248, 0.95);
-      backdrop-filter: blur(14px);
-      border-right: 1px solid var(--bd);
-      box-shadow: 1px 0 12px rgba(44, 36, 32, .04);
+      background: var(--sidebar-bg);                    /* #2C2420 charcoal */
+      color: var(--sidebar-text);                       /* #FAF8F5 light */
+      border-right: 1px solid rgba(0, 0, 0, .2);
+      box-shadow: 2px 0 16px rgba(44, 36, 32, .12);     /* heavier shadow against the warm page bg */
       height: 100%;
+      /* subtle warm-noise overlay for depth — keeps the dark surface from
+         feeling flat against the cream content area */
+      background-image:
+        radial-gradient(circle at 20% 0%, rgba(232, 168, 124, .04) 0%, transparent 50%),
+        linear-gradient(180deg, rgba(232, 168, 124, .02) 0%, transparent 30%);
     }
 
     /* ── APP MAIN (everything to the right of the sidebar) ── */
@@ -142,40 +222,41 @@
     }
 
     .brand {
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 1.35rem;
-      font-weight: 700;
-      color: var(--txt-charcoal);
-      padding: 18px 22px 18px 30px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.25rem;                   /* Space Grotesk reads slightly larger than Cormorant at same px */
+      font-weight: 600;
+      color: var(--sidebar-text);            /* light on dark sidebar */
+      padding: 20px 22px 20px 34px;
       display: flex;
       align-items: center;
-      border-bottom: 1px solid var(--bd);
-      letter-spacing: .02em;
+      border-bottom: 1px solid var(--sidebar-border);
+      letter-spacing: -.005em;
       white-space: nowrap;
       gap: 6px;
       position: relative;
     }
 
-    /* Yellow brand accent strip (per spec: logo bg = yellow) */
+    /* Yellow CTA accent on the brand mark (per hard rule 2: yellow = CTA only) */
     .brand::before {
       content: '';
       position: absolute;
-      left: 12px;
+      left: 16px;
       top: 50%;
       transform: translateY(-50%);
       width: 4px;
-      height: 24px;
+      height: 22px;
       border-radius: 2px;
-      background: var(--cta);
+      background: var(--accent-yellow);
+      box-shadow: 0 0 12px rgba(240, 198, 30, .45);   /* soft glow against dark */
     }
 
     .brand-sub {
-      font-size: .65rem;
+      font-size: .62rem;
       font-family: 'JetBrains Mono', monospace;
-      color: var(--mu2);
-      letter-spacing: .12em;
+      color: rgba(250, 248, 245, .55);      /* dimmed sidebar text */
+      letter-spacing: .1em;
       text-transform: uppercase;
-      font-weight: 300;
+      font-weight: 400;
     }
 
     .nav-tabs {
@@ -188,40 +269,46 @@
     }
 
     .ntab {
-      padding: 11px 22px;
+      padding: 13px 22px 13px 26px;          /* +2 vertical, room for touch target ≥40px (hard rule 6) */
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
       font-family: 'JetBrains Mono', monospace;
-      font-size: .65rem;
-      letter-spacing: .1em;
+      font-size: .66rem;
+      letter-spacing: .07em;
       text-transform: uppercase;
-      color: var(--mu2);
+      color: rgba(250, 248, 245, .78);       /* sidebar text near brand's 85% spec — inactive */
       cursor: pointer;
       border: none;
       background: none;
       border-left: 3px solid transparent;
-      transition: all .15s;
+      /* hard rule 4: never transition-all — specify properties */
+      transition: color .15s ease, background-color .15s ease, border-color .15s ease;
       white-space: nowrap;
       text-align: left;
       width: 100%;
+      min-height: 42px;                      /* touch target ≥40 */
     }
 
     .ntab:hover {
-      color: var(--txt);
-      background: rgba(0, 0, 0, .03);
+      color: var(--sidebar-text);            /* full bright */
+      background: rgba(250, 248, 245, .05);  /* subtle white wash on dark */
     }
 
     .ntab.on {
-      color: var(--txt);
-      border-left-color: var(--cta);
-      background: rgba(244, 200, 70, .10);
+      color: var(--accent-yellow);            /* yellow text on active (hard rule 2: yellow = CTA + active nav) */
+      border-left-color: var(--accent-yellow);
+      background: rgba(232, 168, 124, .14);   /* sand-orange wash, ~20% per brand spec */
       font-weight: 500;
     }
 
     .ntab-icon {
-      font-size: .75rem;
-      opacity: .7;
+      font-size: .9rem;
+      opacity: .75;
+      flex-shrink: 0;
+    }
+    .ntab.on .ntab-icon {
+      opacity: 1;
     }
 
     .nbadge {
@@ -348,7 +435,7 @@
     .drp-cal-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 
     .drp-cal-month-title {
-      font-family: 'Cormorant Garamond', serif;
+      font-family: 'Space Grotesk', sans-serif;
       font-size: 1.05rem;
       font-weight: 600;
       color: var(--txt);
@@ -494,6 +581,17 @@
       background: var(--bd-strong);
     }
 
+    /* Dark scrollbar inside the dark sidebar — default light scrollbar
+       would break the dark surface visually. */
+    .nav ::-webkit-scrollbar-track { background: transparent; }
+    .nav ::-webkit-scrollbar-thumb {
+      background: rgba(250, 248, 245, .12);
+      border-radius: 4px;
+    }
+    .nav ::-webkit-scrollbar-thumb:hover {
+      background: rgba(250, 248, 245, .25);
+    }
+
     /* Global Know More button in the navbar */
     .nav-info-btn {
       align-self: center;
@@ -546,7 +644,7 @@
     }
 
     .info-modal-title {
-      font-family: 'Cormorant Garamond', serif;
+      font-family: 'Space Grotesk', sans-serif;
       font-size: 1.1rem;
       font-weight: 700;
       color: var(--txt-charcoal);
@@ -808,11 +906,11 @@
     }
 
     .sec-title {
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 1.25rem;                    /* up from 1.05 — Cormorant reads small; section titles need to declare themselves */
-      font-weight: 500;
-      color: var(--txt);
-      letter-spacing: .005em;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.15rem;                    /* Space Grotesk reads heavier than Cormorant at equal px */
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -.01em;                /* Space Grotesk wants tighter tracking */
       line-height: 1.2;
     }
 
@@ -998,7 +1096,7 @@
     }
 
     .spb-name {
-      font-family: 'Cormorant Garamond', serif;
+      font-family: 'Space Grotesk', sans-serif;
       font-size: 0.95rem;
       color: var(--txt);
       flex: 1;
@@ -1904,7 +2002,7 @@
     }
 
     .sznm {
-      font-family: 'Cormorant Garamond', serif;
+      font-family: 'Space Grotesk', sans-serif;
       font-size: 1.05rem;
       margin-bottom: 1px;
     }
@@ -2093,7 +2191,7 @@
     }
 
     .dtitle {
-      font-family: 'Cormorant Garamond', serif;
+      font-family: 'Space Grotesk', sans-serif;
       font-size: 1.05rem;
       line-height: 1.25;
     }
@@ -2234,7 +2332,7 @@
     }
 
     .dz-title {
-      font-family: 'Cormorant Garamond', serif;
+      font-family: 'Space Grotesk', sans-serif;
       font-size: .9rem;
       margin-bottom: 2px;
     }
@@ -2835,7 +2933,7 @@
       <button class="ntab" id="nt-sales" onclick="goPage('sales')"><span class="ntab-icon">₹</span> Sales</button>
       <button class="ntab" id="nt-orders" onclick="goPage('orders')"><span class="ntab-icon">🛒</span> Orders</button>
       <button class="ntab" id="nt-utm" onclick="goPage('utm')"><span class="ntab-icon">⇄</span> UTM Analysis</button>
-      <div style="height:1px;background:var(--bd);margin:12px 14px;"></div>
+      <div style="height:1px;background:var(--sidebar-border);margin:14px 22px;"></div>
       <button class="ntab" id="nt-settings" onclick="goPage('settings')"><span class="ntab-icon">⚙</span> Settings</button>
     </div>
   </aside>
@@ -3373,7 +3471,7 @@
         style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(580px,92vw);max-height:85vh;overflow-y:auto;background:var(--sf);border:1px solid var(--bd2);border-radius:10px;padding:28px 26px 22px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
           <div
-            style="font-family:'Cormorant Garamond',serif;font-size:1.15rem;font-weight:600;color:var(--sand);letter-spacing:.5px;">
+            style="font-family:'Space Grotesk',sans-serif;font-size:1.15rem;font-weight:600;color:var(--sand);letter-spacing:.5px;">
             ◈ Ad Intelligence — Definitions</div>
           <button onclick="closeAdDefinitionPopup()"
             style="background:none;border:none;color:var(--mu2);font-size:1.1rem;cursor:pointer;">✕</button>
@@ -10406,7 +10504,7 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
     }
 
     .pd-title {
-      font-family: 'Cormorant Garamond', serif;
+      font-family: 'Space Grotesk', sans-serif;
       font-size: 1.1rem;
       font-weight: 600;
       color: var(--txt);
