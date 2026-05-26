@@ -3467,11 +3467,11 @@
   <!-- ===== SALES PAGE ===== -->
   <div class="page" id="page-sales">
     <div class="toolbar" style="flex-direction:column;align-items:stretch;gap:0;padding:0;">
-      <!-- Row 1: Shopify-style dimension filters -->
-      <div
-        style="display:flex;align-items:center;gap:6px;padding:8px 20px;flex-wrap:wrap;border-bottom:1px solid var(--bd2);">
+      <!-- Row 1: Collapsible filter panel (hidden until Filters button is clicked) -->
+      <div id="salesFiltersPanel"
+        style="display:none;align-items:center;gap:6px;padding:10px 20px;flex-wrap:wrap;border-bottom:1px solid var(--bd2);background:var(--bg-surface);">
         <div class="tg"><span class="tb-lbl">Quick</span>
-          <select class="filter-select" id="sfSelect" onchange="setSF(this.value)">
+          <select class="filter-select" id="sfSelect" onchange="setSF(this.value);refreshSalesFiltersBadge();">
             <option value="all">All</option>
             <option value="top">Top 20</option>
             <option value="disc">High Discount</option>
@@ -3479,41 +3479,52 @@
           </select>
         </div>
         <div class="tg"><span class="tb-lbl">Day</span>
-          <select class="filter-select" id="salesDaySelect" onchange="setSalesDim('day', this.value)">
+          <select class="filter-select" id="salesDaySelect" onchange="setSalesDim('day', this.value);refreshSalesFiltersBadge();">
             <option value="all">All Days</option>
           </select>
         </div>
         <div class="tg"><span class="tb-lbl">Product Type</span>
-          <select class="filter-select" id="salesPTSelect" onchange="setSalesDim('product_type', this.value)">
+          <select class="filter-select" id="salesPTSelect" onchange="setSalesDim('product_type', this.value);refreshSalesFiltersBadge();">
             <option value="all">All Types</option>
           </select>
         </div>
         <div class="tg"><span class="tb-lbl">UTM Source</span>
-          <select class="filter-select" id="salesUtmSrcSelect" onchange="setSalesDim('utm_source', this.value)">
+          <select class="filter-select" id="salesUtmSrcSelect" onchange="setSalesDim('utm_source', this.value);refreshSalesFiltersBadge();">
             <option value="all">All Sources</option>
           </select>
         </div>
         <div class="tg"><span class="tb-lbl">UTM Medium</span>
-          <select class="filter-select" id="salesUtmMedSelect" onchange="setSalesDim('utm_medium', this.value)">
+          <select class="filter-select" id="salesUtmMedSelect" onchange="setSalesDim('utm_medium', this.value);refreshSalesFiltersBadge();">
             <option value="all">All Mediums</option>
           </select>
         </div>
         <div class="tg"><span class="tb-lbl">UTM Campaign</span>
-          <select class="filter-select" id="salesUtmCampSelect" onchange="setSalesDim('utm_campaign', this.value)">
+          <select class="filter-select" id="salesUtmCampSelect" onchange="setSalesDim('utm_campaign', this.value);refreshSalesFiltersBadge();">
             <option value="all">All Campaigns</option>
           </select>
         </div>
         <div class="tg"><span class="tb-lbl">Customer</span>
-          <select class="filter-select" id="salesCustSelect" onchange="setSalesDim('new_or_returning_customer', this.value)">
+          <select class="filter-select" id="salesCustSelect" onchange="setSalesDim('new_or_returning_customer', this.value);refreshSalesFiltersBadge();">
             <option value="all">All</option>
             <option value="new">New</option>
             <option value="returning">Returning</option>
           </select>
         </div>
-        <button class="ibtn" onclick="resetSalesFilters()" style="margin-left:auto;font-size:.6rem;" title="Clear all filters">✕ Clear</button>
+        <div style="flex:1;"></div>
+        <button class="ibtn" onclick="resetSalesFilters();refreshSalesFiltersBadge();"
+          style="font-size:.62rem;letter-spacing:.04em;color:var(--mu2);" title="Clear all filters">↺ Reset</button>
       </div>
-      <!-- Row 2: Search, Sort, Group-by, Nav -->
-      <div style="display:flex;align-items:center;gap:8px;padding:6px 20px;flex-wrap:wrap;">
+      <!-- Row 2: Filters toggle, Search, Group-by, View -->
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 20px;flex-wrap:wrap;">
+        <button class="ibtn" id="salesFiltersBtn" onclick="toggleSalesFilters()"
+          title="Show / hide filter dropdowns"
+          style="display:inline-flex;align-items:center;gap:6px;font-size:.7rem;letter-spacing:.02em;font-weight:500;">
+          <span style="font-size:.85rem;line-height:1;">⛃</span>
+          <span>Filters</span>
+          <span id="salesFiltersBadge"
+            style="display:none;background:var(--cta);color:var(--txt);font-family:'JetBrains Mono',monospace;font-size:.55rem;font-weight:600;padding:1px 6px;border-radius:8px;line-height:1.3;letter-spacing:.02em;">0</span>
+          <span id="salesFiltersCaret" style="font-size:.55rem;color:var(--mu2);margin-left:2px;">▾</span>
+        </button>
         <input class="srch" id="salesSrch" placeholder="Search product…" oninput="renderSales()"
           style="flex:1;min-width:140px;max-width:220px;" />
         <div class="tg"><span class="tb-lbl">Group By</span>
@@ -7711,12 +7722,45 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
 
     function resetSalesFilters() {
       Object.keys(salesDimFilters).forEach(k => salesDimFilters[k] = 'all');
-      ['salesDaySelect', 'salesPTSelect', 'salesUtmSrcSelect', 'salesUtmMedSelect', 'salesUtmCampSelect', 'salesCustSelect'].forEach(id => {
+      ['sfSelect', 'salesDaySelect', 'salesPTSelect', 'salesUtmSrcSelect', 'salesUtmMedSelect', 'salesUtmCampSelect', 'salesCustSelect'].forEach(id => {
         const el = document.getElementById(id);
         if (el) { el.value = 'all'; styleDropdown(id, 'all'); }
       });
       rebuildSalesData();
       renderSales();
+    }
+
+    // ── Sales filters: collapsible panel + active-count badge ──
+    // Same pattern as the Inventory page — 7 dropdowns hidden behind one
+    // Filters button, with a badge showing how many are set to non-"all".
+    const _SALES_FILTER_IDS = [
+      'sfSelect', 'salesDaySelect', 'salesPTSelect',
+      'salesUtmSrcSelect', 'salesUtmMedSelect', 'salesUtmCampSelect', 'salesCustSelect',
+    ];
+
+    function toggleSalesFilters() {
+      const panel = document.getElementById('salesFiltersPanel');
+      const caret = document.getElementById('salesFiltersCaret');
+      if (!panel) return;
+      const open = panel.style.display === 'flex';
+      panel.style.display = open ? 'none' : 'flex';
+      if (caret) caret.textContent = open ? '▾' : '▴';
+    }
+
+    function refreshSalesFiltersBadge() {
+      const badge = document.getElementById('salesFiltersBadge');
+      if (!badge) return;
+      let active = 0;
+      _SALES_FILTER_IDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && el.value && el.value !== 'all') active++;
+      });
+      if (active > 0) {
+        badge.textContent = String(active);
+        badge.style.display = 'inline-block';
+      } else {
+        badge.style.display = 'none';
+      }
     }
 
     // Populate the dimension dropdowns from SALES_RAW so the option lists
@@ -7939,6 +7983,7 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
     }
 
     function renderSales() {
+      if (typeof refreshSalesFiltersBadge === 'function') refreshSalesFiltersBadge();
       const el = document.getElementById('salesView');
       const cardsEl = document.getElementById('salesCardsView');
       if (el && cardsEl) {
