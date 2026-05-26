@@ -3011,13 +3011,20 @@
     .home-hero { gap: 1px; }
     .hero-panel { padding: 22px 24px !important; }
 
-    /* Orders KPI row (auto-fit) — wider min so cards don't stretch absurdly */
+    /* Orders KPI row (auto-fit) — wider min so long currency values like
+       ₹17,49,664.73 don't get clipped at the default 170px minmax. */
     #ordersKpis {
-      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)) !important;
-      gap: 12px !important;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)) !important;
+      gap: 14px !important;
       padding: 14px 22px !important;
     }
-    #ordersKpis .kv { font-size: 1.5rem; }
+    /* Same container-query clamp as the default .kv — at full width the
+       value lands at 1.55rem, on narrow cards it scales down toward 1rem
+       so the entire number stays on a single line. Hardcoded 1.5rem was
+       getting clipped mid-decimal on long ₹ values. */
+    #ordersKpis .kv {
+      font-size: clamp(1rem, 5.2cqi, 1.55rem) !important;
+    }
 
     /* Product-detail modal KPIs — modal width is constrained, and we now show
        full whole-number sales values (e.g. ₹15,92,432.10) instead of "₹15.9k".
