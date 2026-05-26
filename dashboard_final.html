@@ -179,22 +179,19 @@
       font-variant-numeric: tabular-nums;
     }
 
-    /* ── SIDEBAR (DARK per brand spec — charcoal bg, light text) ── */
+    /* ── SIDEBAR — light cream, editorial column with section labels.
+       Per user reference: circular brand badge, hamburger top-right,
+       gray uppercase section headers, two-line nav items with colored
+       icon tiles, peach wash on the active item. ── */
     .nav {
       flex-shrink: 0;
-      width: 210px;
+      width: 250px;
       display: flex;
       flex-direction: column;
-      background: var(--sidebar-bg);                    /* #2C2420 charcoal */
-      color: var(--sidebar-text);                       /* #FAF8F5 light */
-      border-right: 1px solid rgba(0, 0, 0, .2);
-      box-shadow: 2px 0 16px rgba(44, 36, 32, .12);     /* heavier shadow against the warm page bg */
+      background: var(--bg-surface);                    /* warm cream #F5F1EC */
+      color: var(--text-primary);
+      border-right: 1px solid var(--border-primary);
       height: 100%;
-      /* subtle warm-noise overlay for depth — keeps the dark surface from
-         feeling flat against the cream content area */
-      background-image:
-        radial-gradient(circle at 20% 0%, rgba(232, 168, 124, .04) 0%, transparent 50%),
-        linear-gradient(180deg, rgba(232, 168, 124, .02) 0%, transparent 30%);
     }
 
     /* ── APP MAIN (everything to the right of the sidebar) ── */
@@ -221,43 +218,105 @@
       box-shadow: 0 1px 12px rgba(44, 36, 32, .06);
     }
 
+    /* Brand block at the top of the sidebar — circular sand-orange badge
+       on the left, Saadaa wordmark in the middle, hamburger toggle on
+       the right. Anchors the column the way the reference does. */
     .brand {
-      font-family: 'Space Grotesk', sans-serif;
-      font-size: 1.25rem;                   /* Space Grotesk reads slightly larger than Cormorant at same px */
-      font-weight: 600;
-      color: var(--sidebar-text);            /* light on dark sidebar */
-      padding: 20px 22px 20px 34px;
       display: flex;
       align-items: center;
-      border-bottom: 1px solid var(--sidebar-border);
-      letter-spacing: -.005em;
-      white-space: nowrap;
-      gap: 6px;
-      position: relative;
+      gap: 12px;
+      padding: 18px 18px 18px 20px;
+      border-bottom: 1px solid var(--border-soft);
     }
 
-    /* Yellow CTA accent on the brand mark (per hard rule 2: yellow = CTA only) */
-    .brand::before {
-      content: '';
-      position: absolute;
-      left: 16px;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 4px;
-      height: 22px;
-      border-radius: 2px;
-      background: var(--accent-yellow);
-      box-shadow: 0 0 12px rgba(240, 198, 30, .45);   /* soft glow against dark */
+    .brand-badge {
+      width: 38px;
+      height: 38px;
+      flex-shrink: 0;
+      border-radius: 50%;
+      background: var(--accent-orange);       /* sand-orange #E8A87C */
+      color: var(--bg-white);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: -.02em;
+      box-shadow: 0 2px 8px rgba(232, 168, 124, .35), inset 0 1px 0 rgba(255, 255, 255, .25);
+    }
+
+    .brand-text {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      line-height: 1.1;
+    }
+
+    .brand-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -.015em;
     }
 
     .brand-sub {
-      font-size: .62rem;
+      font-size: .56rem;
       font-family: 'JetBrains Mono', monospace;
-      color: rgba(250, 248, 245, .55);      /* dimmed sidebar text */
-      letter-spacing: .1em;
+      color: var(--text-tertiary);
+      letter-spacing: .08em;
       text-transform: uppercase;
-      font-weight: 400;
+      font-weight: 500;
+      margin-top: 3px;
     }
+
+    /* Hamburger toggle — circular dark icon top-right of the brand row */
+    .nav-hamburger {
+      flex-shrink: 0;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--text-charcoal);
+      color: var(--bg-white);
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .85rem;
+      line-height: 1;
+      transition: background-color .15s ease, transform .15s ease;
+    }
+    .nav-hamburger:hover {
+      background: var(--text-primary);
+      transform: scale(1.05);
+    }
+    .nav-hamburger svg { width: 14px; height: 14px; }
+
+    /* Section labels between nav groups — small uppercase ledger headers. */
+    .nav-section-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .56rem;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--text-tertiary);
+      font-weight: 500;
+      padding: 18px 22px 8px;
+    }
+
+    /* Collapsed state — hamburger flips the sidebar to a 76px icon column.
+       Brand text, nav labels, and section headers hide; icon tiles stay,
+       centered. */
+    .nav.collapsed { width: 76px; }
+    .nav.collapsed .brand-text,
+    .nav.collapsed .ntab-text,
+    .nav.collapsed .nav-section-label { display: none; }
+    .nav.collapsed .brand { justify-content: center; padding: 18px 0; gap: 0; flex-direction: column; }
+    .nav.collapsed .brand-badge { margin: 0 0 12px; }
+    .nav.collapsed .nav-hamburger { position: static; }
+    .nav.collapsed .ntab { justify-content: center; padding: 12px; margin: 0 6px; }
 
     .nav-tabs {
       display: flex;
@@ -268,47 +327,93 @@
       overflow-y: auto;
     }
 
+    /* Nav tab — two-line layout with a colored square icon tile.
+       Inactive: light cream surface, dark text. Active: pale peach
+       wash, accent-orange text, brighter icon tile. */
     .ntab {
-      padding: 13px 22px 13px 26px;          /* +2 vertical, room for touch target ≥40px (hard rule 6) */
+      padding: 10px 18px 10px 16px;
       display: flex;
       align-items: center;
       gap: 12px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: .66rem;
-      letter-spacing: .07em;
-      text-transform: uppercase;
-      color: rgba(250, 248, 245, .78);       /* sidebar text near brand's 85% spec — inactive */
+      font-family: 'Inter', sans-serif;
+      color: var(--text-primary);
       cursor: pointer;
       border: none;
       background: none;
-      border-left: 3px solid transparent;
+      border-radius: 0;
+      margin: 0 8px;
+      border-radius: 10px;
       /* hard rule 4: never transition-all — specify properties */
-      transition: color .15s ease, background-color .15s ease, border-color .15s ease;
+      transition: color .15s ease, background-color .15s ease;
       white-space: nowrap;
       text-align: left;
-      width: 100%;
-      min-height: 42px;                      /* touch target ≥40 */
+      width: calc(100% - 16px);
+      min-height: 48px;                      /* touch target ≥40 (hard rule 6) */
     }
 
     .ntab:hover {
-      color: var(--sidebar-text);            /* full bright */
-      background: rgba(250, 248, 245, .05);  /* subtle white wash on dark */
+      background: rgba(232, 168, 124, .08);
     }
 
     .ntab.on {
-      color: var(--accent-yellow);            /* yellow text on active (hard rule 2: yellow = CTA + active nav) */
-      border-left-color: var(--accent-yellow);
-      background: rgba(232, 168, 124, .14);   /* sand-orange wash, ~20% per brand spec */
-      font-weight: 500;
+      background: rgba(232, 168, 124, .18);   /* peach wash per reference */
     }
 
+    /* Icon tile — small rounded square with the tab's accent color */
     .ntab-icon {
-      font-size: .9rem;
-      opacity: .75;
       flex-shrink: 0;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .95rem;
+      line-height: 1;
+      background: var(--bg-white);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-soft);
+      transition: background-color .15s ease, color .15s ease, border-color .15s ease;
+    }
+    .ntab:hover .ntab-icon {
+      border-color: var(--border-mid);
+      color: var(--text-primary);
     }
     .ntab.on .ntab-icon {
-      opacity: 1;
+      background: var(--accent-warm-tint);
+      color: var(--accent-orange);
+      border-color: rgba(232, 168, 124, .35);
+    }
+
+    /* Two-line text block — tiny uppercase category label + bigger title */
+    .ntab-text {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      line-height: 1.1;
+      gap: 2px;
+    }
+    .ntab-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .5rem;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--text-tertiary);
+      font-weight: 500;
+    }
+    .ntab-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: .9rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -.005em;
+    }
+    .ntab.on .ntab-title {
+      color: var(--accent-orange);            /* peach text on active per reference */
+    }
+    .ntab.on .ntab-label {
+      color: var(--text-secondary);
     }
 
     .nbadge {
@@ -581,15 +686,16 @@
       background: var(--bd-strong);
     }
 
-    /* Dark scrollbar inside the dark sidebar — default light scrollbar
-       would break the dark surface visually. */
+    /* Scrollbar inside the sidebar — quieter than the global default
+       so it doesn't compete with the nav items. */
+    .nav ::-webkit-scrollbar { width: 6px; }
     .nav ::-webkit-scrollbar-track { background: transparent; }
     .nav ::-webkit-scrollbar-thumb {
-      background: rgba(250, 248, 245, .12);
-      border-radius: 4px;
+      background: rgba(110, 105, 94, .15);
+      border-radius: 3px;
     }
     .nav ::-webkit-scrollbar-thumb:hover {
-      background: rgba(250, 248, 245, .25);
+      background: rgba(110, 105, 94, .30);
     }
 
     /* Global Know More button in the navbar */
@@ -793,20 +899,22 @@
 
     .hp-label {
       font-family: 'JetBrains Mono', monospace;
-      font-size: .54rem;
-      letter-spacing: .12em;
+      font-size: .62rem;
+      letter-spacing: .08em;
       text-transform: uppercase;
-      color: var(--mu2);
-      margin-bottom: 6px;
+      color: var(--text-secondary);
+      font-weight: 500;
+      margin-bottom: 8px;
     }
 
     .hp-value {
-      font-family: 'Roboto', sans-serif;
+      font-family: 'Space Grotesk', sans-serif;        /* brand display face — matches .kv */
       font-size: 2.6rem;
-      font-weight: 500;
+      font-weight: 600;
       line-height: 1;
-      letter-spacing: -.02em;
-      color: var(--txt);
+      letter-spacing: -.025em;
+      color: var(--text-primary);
+      font-feature-settings: "tnum", "ss01";
     }
 
     .hp-value.c-in {
@@ -2969,19 +3077,60 @@
 
 <body>
 
-  <!-- NAV SIDEBAR -->
-  <aside class="nav">
-    <div class="brand">सादा <span class="brand-sub">/ ops</span></div>
+  <!-- NAV SIDEBAR — light cream, editorial column with section labels -->
+  <aside class="nav" id="navSidebar">
+    <div class="brand">
+      <div class="brand-badge">सा</div>
+      <div class="brand-text">
+        <div class="brand-title">Saadaa</div>
+        <div class="brand-sub">Ops Dashboard</div>
+      </div>
+      <button class="nav-hamburger" id="navHamburger" onclick="toggleSidebar()" title="Toggle sidebar" aria-label="Toggle sidebar">
+        <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="2" y="3.5" width="12" height="1.6" rx=".8" fill="currentColor"/>
+          <rect x="2" y="7.2" width="12" height="1.6" rx=".8" fill="currentColor"/>
+          <rect x="2" y="10.9" width="12" height="1.6" rx=".8" fill="currentColor"/>
+        </svg>
+      </button>
+    </div>
     <div class="nav-tabs">
-      <button class="ntab on" id="nt-home" onclick="goPage('home')"><span class="ntab-icon">◈</span> Overview</button>
-      <button class="ntab" id="nt-inv" onclick="goPage('inv')"><span class="ntab-icon">▦</span> Inventory</button>
-      <button class="ntab" id="nt-traf" onclick="goPage('traf')"><span class="ntab-icon">↗</span> Traffic</button>
-      <button class="ntab" id="nt-ads" onclick="goPage('ads')"><span class="ntab-icon">◎</span> Ad Intelligence</button>
-      <button class="ntab" id="nt-sales" onclick="goPage('sales')"><span class="ntab-icon">₹</span> Sales</button>
-      <button class="ntab" id="nt-orders" onclick="goPage('orders')"><span class="ntab-icon">🛒</span> Orders</button>
-      <button class="ntab" id="nt-utm" onclick="goPage('utm')"><span class="ntab-icon">⇄</span> UTM Analysis</button>
-      <div style="height:1px;background:var(--sidebar-border);margin:14px 22px;"></div>
-      <button class="ntab" id="nt-settings" onclick="goPage('settings')"><span class="ntab-icon">⚙</span> Settings</button>
+      <div class="nav-section-label">Analytics</div>
+      <button class="ntab on" id="nt-home" onclick="goPage('home')">
+        <span class="ntab-icon">◈</span>
+        <div class="ntab-text"><div class="ntab-label">Dashboard</div><div class="ntab-title">Overview</div></div>
+      </button>
+      <button class="ntab" id="nt-inv" onclick="goPage('inv')">
+        <span class="ntab-icon">▦</span>
+        <div class="ntab-text"><div class="ntab-label">Catalog</div><div class="ntab-title">Inventory</div></div>
+      </button>
+      <button class="ntab" id="nt-traf" onclick="goPage('traf')">
+        <span class="ntab-icon">↗</span>
+        <div class="ntab-text"><div class="ntab-label">Visitors</div><div class="ntab-title">Traffic</div></div>
+      </button>
+      <button class="ntab" id="nt-ads" onclick="goPage('ads')">
+        <span class="ntab-icon">◎</span>
+        <div class="ntab-text"><div class="ntab-label">Acquisition</div><div class="ntab-title">Ad Intelligence</div></div>
+      </button>
+
+      <div class="nav-section-label">Commerce</div>
+      <button class="ntab" id="nt-sales" onclick="goPage('sales')">
+        <span class="ntab-icon">₹</span>
+        <div class="ntab-text"><div class="ntab-label">Revenue</div><div class="ntab-title">Sales</div></div>
+      </button>
+      <button class="ntab" id="nt-orders" onclick="goPage('orders')">
+        <span class="ntab-icon">🛒</span>
+        <div class="ntab-text"><div class="ntab-label">Transactions</div><div class="ntab-title">Orders</div></div>
+      </button>
+      <button class="ntab" id="nt-utm" onclick="goPage('utm')">
+        <span class="ntab-icon">⇄</span>
+        <div class="ntab-text"><div class="ntab-label">Attribution</div><div class="ntab-title">UTM Analysis</div></div>
+      </button>
+
+      <div class="nav-section-label">Config</div>
+      <button class="ntab" id="nt-settings" onclick="goPage('settings')">
+        <span class="ntab-icon">⚙</span>
+        <div class="ntab-text"><div class="ntab-label">Preferences</div><div class="ntab-title">Settings</div></div>
+      </button>
     </div>
   </aside>
 
@@ -4457,6 +4606,25 @@
     // Keep the badge accurate after the option-list-populating helpers run
     // on data load (they call .innerHTML = …, which can reset the value).
     document.addEventListener('DOMContentLoaded', refreshInvFiltersBadge);
+
+    // ── Sidebar collapse toggle (hamburger top-left) ──
+    // Hides the brand text + nav-text leaving just the icon column. State
+    // persists to localStorage so a refresh doesn't undo the user's choice.
+    function toggleSidebar() {
+      const nav = document.getElementById('navSidebar');
+      if (!nav) return;
+      const next = !nav.classList.contains('collapsed');
+      nav.classList.toggle('collapsed', next);
+      try { localStorage.setItem('ops_nav_collapsed', next ? '1' : '0'); } catch (e) {}
+    }
+    (function _restoreNavState() {
+      try {
+        if (localStorage.getItem('ops_nav_collapsed') === '1') {
+          const nav = document.getElementById('navSidebar');
+          if (nav) nav.classList.add('collapsed');
+        }
+      } catch (e) {}
+    })();
 
     // ── NAV ──
     let _currentPage = 'home';
