@@ -844,7 +844,7 @@
 
     .tbl-scr {
       overflow-x: auto;
-      overflow-y: clip;          /* explicit clip prevents the implicit auto y-scroll that causes double scrollbars */
+      overflow-y: visible;       /* visible (not clip/hidden) so the sticky thead can pin to the .scroll ancestor on page scroll */
       width: 100%;
     }
 
@@ -1494,7 +1494,8 @@
       background: var(--bg-white);
       border: 1px solid var(--bd);
       border-radius: var(--r);
-      overflow: clip;            /* clip — keeps rounded corners without creating a scroll container */
+      overflow-x: clip;          /* x: clip preserves rounded corners on horizontal overflow */
+      overflow-y: visible;       /* y: visible so the sticky thead can escape this box and pin to the page-scroll ancestor */
       margin-bottom: 14px;
       transition: box-shadow .2s;
     }
@@ -1540,6 +1541,8 @@
       position: sticky;
       top: 0;
       z-index: 10;
+      /* subtle drop shadow that only "shows up" when the row is stuck and rows scroll underneath */
+      box-shadow: 0 1px 0 var(--bd), 0 4px 8px -4px rgba(44, 36, 32, .08);
     }
 
     .dtbl td {
