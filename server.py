@@ -506,11 +506,7 @@ SALES_DIMENSION_FIELDS = (
     "order_utm_medium",
     "order_utm_source",
     "order_utm_term",
-    "line_item_id",
-    "customer_id",
     "new_or_returning_customer",
-    "customer_last_order_date",
-    "customer_number_of_orders",
     # __totals columns Shopify appends because of WITH TOTALS
     "net_items_sold__totals",
     "gross_sales__totals",
@@ -591,6 +587,15 @@ def fetch_sales(since: str, until: str) -> dict:
     #     SHOW are selectable in their __last_click form. Attribution still
     #     comes through via order_utm_* (the UTMs Shopify stamps on the order
     #     at checkout — i.e. last-click already baked in).
+    # Detail query — slim 9-dim GROUP BY + explicit LIMIT 10000. The previous
+    # 13-dim version (line_item_id, customer_id, customer_last_order_date,
+    # customer_number_of_orders) was a row-count bomb that silently hit the
+    # default 1000-row cap on busy days. Probe on 2026-05-19 confirmed:
+    #   - 13 dims, no LIMIT  → 1000 rows (CAPPED, totals 40% short)
+    #   - 13 dims, LIMIT 10k → 2546 rows (totals exact)
+    #   -  9 dims, no LIMIT  →  490 rows (totals exact, 5x smaller)
+    # The four dropped dims aren't consumed downstream — they were just
+    # row-multipliers. Keeping LIMIT 10000 as a safety net.
     ql_detail = (
         "FROM sales "
         "SHOW net_items_sold, gross_sales, discounts, returns, net_sales, taxes, total_sales "
@@ -598,11 +603,11 @@ def fetch_sales(since: str, until: str) -> dict:
         "AND sales_channel != 'Return Prime: Order Return' "
         "GROUP BY day, product_title, product_type, "
         "order_utm_campaign, order_utm_content, order_utm_medium, order_utm_source, order_utm_term, "
-        "line_item_id, customer_id, new_or_returning_customer, "
-        "customer_last_order_date, customer_number_of_orders "
+        "new_or_returning_customer "
         "WITH TOTALS "
         f"SINCE {since} UNTIL {until} "
         "ORDER BY day ASC "
+        "LIMIT 10000 "
     )
 
     # Per-product totals query — server-aggregates so the per-product table

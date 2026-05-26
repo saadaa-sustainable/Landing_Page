@@ -472,11 +472,7 @@ SALES_DIMENSION_FIELDS = (
     "order_utm_medium",
     "order_utm_source",
     "order_utm_term",
-    "line_item_id",
-    "customer_id",
     "new_or_returning_customer",
-    "customer_last_order_date",
-    "customer_number_of_orders",
     # __totals columns Shopify appends because of WITH TOTALS
     "net_items_sold__totals",
     "gross_sales__totals",
@@ -541,6 +537,15 @@ def fetch_sales(since: str, until: str) -> dict:
     no LIMIT cap; byProduct is one row per product (no cap issue) so the
     main Sales tab always matches Shopify "Total sales by product" exactly.
     """
+    # Detail query — used for raw-row mode + UTM Analysis. The previous
+    # 13-dim GROUP BY (including line_item_id, customer_id,
+    # customer_last_order_date, customer_number_of_orders) was a row-count
+    # bomb: a single day could blow past the default 1000-row cap silently.
+    # Probe confirmed those four dims are not consumed anywhere downstream
+    # — dropping them cuts row count ~5x (2,546 → 490 on 2026-05-19) and
+    # the totals still match the byProduct grand total to the rupee.
+    # Explicit LIMIT 10000 is a belt-and-suspenders safety net for huge
+    # date ranges.
     ql_detail = (
         "FROM sales "
         "SHOW net_items_sold, gross_sales, discounts, returns, net_sales, taxes, total_sales "
@@ -548,11 +553,11 @@ def fetch_sales(since: str, until: str) -> dict:
         "AND sales_channel != 'Return Prime: Order Return' "
         "GROUP BY day, product_title, product_type, "
         "order_utm_campaign, order_utm_content, order_utm_medium, order_utm_source, order_utm_term, "
-        "line_item_id, customer_id, new_or_returning_customer, "
-        "customer_last_order_date, customer_number_of_orders "
+        "new_or_returning_customer "
         "WITH TOTALS "
         f"SINCE {since} UNTIL {until} "
         "ORDER BY day ASC "
+        "LIMIT 10000 "
     )
     ql_byproduct = (
         "FROM sales "
