@@ -8992,6 +8992,78 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
     // Cache for the row-click handler
     let _utmAdsJoined = [];
 
+    // ── Manual ad → landing-page assignments (persisted per browser) ────────
+    // Lets the user attach an ad_id to a landing_page_path when the Meta ad
+    // creative didn't carry an ad_link (catalog / multi-product / carousel
+    // ads). Stored as { adId → path } in localStorage so the mappings
+    // survive refresh and re-fetch.
+    const MANUAL_AD_LINK_KEY = 'ops_manual_ad_links';
+    let MANUAL_AD_LINKS = {};
+    try { MANUAL_AD_LINKS = JSON.parse(localStorage.getItem(MANUAL_AD_LINK_KEY) || '{}') || {}; } catch (e) { MANUAL_AD_LINKS = {}; }
+
+    function setManualAdLink(adId, path) {
+      const id = String(adId || '').trim();
+      const p  = String(path || '').trim();
+      if (!id) return;
+      if (p) MANUAL_AD_LINKS[id] = p; else delete MANUAL_AD_LINKS[id];
+      try { localStorage.setItem(MANUAL_AD_LINK_KEY, JSON.stringify(MANUAL_AD_LINKS)); } catch (e) { }
+    }
+
+    // Read the effective ad_link for an ad — prefer the Meta-supplied
+    // link, fall back to any manual override the user has saved.
+    function effectiveAdLink(ad) {
+      const native = (ad && ad.adLink || '').trim();
+      if (native) return native;
+      const manual = MANUAL_AD_LINKS[String(ad && ad.adId || '')];
+      return manual || '';
+    }
+
+    // Re-render after an inline edit
+    function onManualAdLinkChange(adId, value, refreshTable) {
+      setManualAdLink(adId, value);
+      const rowPreview = document.getElementById('manual-ad-preview-' + adId);
+      if (rowPreview) rowPreview.innerHTML = _renderManualAdPreview(value);
+      if (refreshTable) renderUtmAds();
+    }
+
+    // Build the live "if you assign this path, here's what session data exists" preview
+    function _renderManualAdPreview(rawPath) {
+      const p = _adLinkToPath(rawPath || '');
+      if (!p) return '<span style="color:var(--mu2);font-size:.6rem;">— enter a path —</span>';
+      // sessionsByPath is built locally to renderUtmAds, so we re-derive here.
+      // (Cheap — only iterates 3 small arrays.)
+      let sessions = 0, visitors = 0, cartAdds = 0, checkout = 0;
+      function tally(rows) {
+        rows.forEach(r => {
+          sessions += +r.sessions || 0;
+          visitors += +r.visitors || 0;
+          cartAdds += +r.cartAdds || 0;
+          checkout += +r.checkout || 0;
+        });
+      }
+      (DATA || []).forEach(prod => {
+        const path = prod._pagePath || ('/products/' + prod.slug);
+        if (path.toLowerCase().replace(/\/$/, '') === p) tally(prod._utmRows || []);
+      });
+      (COLLECTION_DATA || []).forEach(c => {
+        if ((c.path || '').toLowerCase().replace(/\/$/, '') === p) tally(c._utmRows || []);
+      });
+      (HOME_DATA || []).forEach(h => {
+        if ((h.path || '/').toLowerCase().replace(/\/$/, '') === p) tally(h._utmRows || []);
+      });
+      const atc = sessions > 0 ? Math.round(cartAdds / sessions * 1000) / 10 : 0;
+      if (sessions === 0) {
+        return '<span style="color:var(--mu2);font-size:.62rem;">no sessions logged for ' + sh(p) + '</span>';
+      }
+      const atcColor = atc >= 10 ? '#4ade80' : atc >= 5 ? 'var(--low)' : 'var(--out)';
+      return '<span style="font-size:.62rem;">'
+        + '<span style="color:var(--mu2);">' + sh(p) + ' →</span> '
+        + '<b>' + fmt(sessions) + '</b> sess · '
+        + '<b>' + fmt(cartAdds) + '</b> cart · '
+        + '<b style="color:' + atcColor + ';">' + atc + '%</b> ATC'
+        + '</span>';
+    }
+
     function renderUtmAds() {
       const emptyEl = document.getElementById('utmEmpty');
       const viewEl = document.getElementById('utmView');
@@ -9074,8 +9146,21 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
       // gaps visible.
       Object.keys(sessionsByPath).forEach(_initBucket);
 
+      // Snapshot which ads have no Meta-supplied ad_link — we'll surface
+      // them in a dedicated "Unlinked Ads" section so the user can manually
+      // assign a path. Manual assignments (stored in MANUAL_AD_LINKS) are
+      // applied here so the ad still rolls up into the main table.
+      const unlinkedAds = [];
       (META_ADS_DATA || []).forEach(ad => {
-        const path = _adLinkToPath(ad.adLink);
+        const native = (ad.adLink || '').trim();
+        const manualPath = MANUAL_AD_LINKS[String(ad.adId || '')] || '';
+        const effective = native || manualPath;
+        if (!native) {
+          // Always show the ad in the "unlinked" section even if a manual
+          // path has been saved — the user might want to clear / change it.
+          unlinkedAds.push({ ad, manualPath });
+        }
+        const path = _adLinkToPath(effective);
         if (!path) return;
         const b = _initBucket(path);
         b.adClicks += +ad.clicks || 0;
@@ -9271,8 +9356,65 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
           + '</tr>';
       });
       html += '</tbody></table></div></div>';
+
+      // ── Unlinked Ads section ──────────────────────────────────────────
+      // Ads where Meta didn't expose an ad_link (catalog / carousel / dynamic
+      // creatives). Show each with an editable input so the user can manually
+      // attach a landing path; a live preview shows what sessions data would
+      // join in for that path. Saved manual paths flow back into the main
+      // table on the next render.
+      if (unlinkedAds.length) {
+        // Sort by spend descending — most impactful first
+        unlinkedAds.sort((a, b) => (+b.ad.spend || 0) - (+a.ad.spend || 0));
+
+        // Build a datalist of every landing path the sessions data has
+        // touched today, so the input shows an autocomplete dropdown.
+        const knownPaths = [...new Set(Object.keys(sessionsByPath))].sort();
+        const dlOptions = knownPaths.map(p => '<option value="' + attrEsc(p) + '"></option>').join('');
+
+        const totalUnlinkedSpend = unlinkedAds.reduce((a, x) => a + (+x.ad.spend || 0), 0);
+        const totalUnlinkedImps  = unlinkedAds.reduce((a, x) => a + (+x.ad.impressions || 0), 0);
+        const totalAssigned      = unlinkedAds.filter(x => x.manualPath).length;
+
+        html += '<div class="tbl-wrap" style="margin-top:18px;"><div class="tbl-hdr">'
+          + '<span class="tbl-title">Unlinked Ads · ' + unlinkedAds.length + '</span>'
+          + '<span class="sec-meta" style="margin-left:8px;">'
+          + 'Meta didn\'t expose an ad_link for these creatives (typically catalog / carousel ads). '
+          + 'Pick a landing path to attach the ad\'s spend to that page row above. '
+          + 'Manual assignments persist in this browser.</span>'
+          + '<span class="sec-meta" style="margin-left:auto;color:var(--mu2);">'
+          + 'spend Rs ' + fmtRs(totalUnlinkedSpend).replace('₹', '') + ' · '
+          + fmt(totalUnlinkedImps) + ' impressions · '
+          + totalAssigned + ' / ' + unlinkedAds.length + ' assigned'
+          + '</span></div>';
+        html += '<datalist id="ulAdLandingPaths">' + dlOptions + '</datalist>';
+        html += '<div class="tbl-scr"><table class="dtbl"><thead><tr>'
+          + '<th>Ad</th><th>Campaign</th><th>Account</th><th>Spend</th><th>Clicks</th><th>Impressions</th>'
+          + '<th style="min-width:260px;">Manual landing path</th>'
+          + '<th>Session preview</th>'
+          + '</tr></thead><tbody>';
+        unlinkedAds.slice(0, 500).forEach(({ ad, manualPath }) => {
+          const adId = String(ad.adId || '');
+          const adIdEsc = adId.replace(/'/g, "\\'");
+          html += '<tr>'
+            + '<td><div class="tn" data-tip="' + attrEsc(ad.adName) + '" title="' + attrEsc(ad.adName) + '">' + sh(ad.adName || '(unnamed)') + '</div><div class="tm">' + sh(adId) + '</div></td>'
+            + '<td><div class="tm">' + sh(ad.campaignName || '—') + '</div></td>'
+            + '<td><div class="tm">' + sh(ad.account || '—') + '</div></td>'
+            + '<td><div class="tnum" style="color:var(--out);">' + fmtRs(ad.spend || 0) + '</div></td>'
+            + '<td><div class="tnum">' + fmt(ad.clicks || 0) + '</div></td>'
+            + '<td><div class="tnum">' + fmt(ad.impressions || 0) + '</div></td>'
+            + '<td><input type="text" list="ulAdLandingPaths" value="' + attrEsc(manualPath || '') + '" placeholder="/collections/…" '
+              + 'oninput="onManualAdLinkChange(\'' + adIdEsc + '\', this.value, false)" '
+              + 'onblur="onManualAdLinkChange(\'' + adIdEsc + '\', this.value, true)" '
+              + 'style="font-family:JetBrains Mono,monospace;font-size:.65rem;padding:5px 8px;border:1px solid var(--bd2);border-radius:5px;background:var(--bg-white);color:var(--tx);width:100%;" /></td>'
+            + '<td><div id="manual-ad-preview-' + adIdEsc + '">' + _renderManualAdPreview(manualPath || '') + '</div></td>'
+            + '</tr>';
+        });
+        html += '</tbody></table></div></div>';
+      }
+
       viewEl.innerHTML = html;
-      if (metaEl) metaEl.textContent = rows.length + ' landing pages · ' + rows.reduce((a, r) => a + r.adCount, 0) + ' ads · click for breakdown';
+      if (metaEl) metaEl.textContent = rows.length + ' landing pages · ' + rows.reduce((a, r) => a + r.adCount, 0) + ' ads · ' + (unlinkedAds.length ? unlinkedAds.length + ' unlinked' : 'all ads linked');
     }
 
     function openUtmAdsDetail(idx) {
