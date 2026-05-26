@@ -37,10 +37,10 @@ SUPABASE_URL         = (os.environ.get("SUPABASE_URL") or "").strip().rstrip("/"
 SUPABASE_SERVICE_KEY = (os.environ.get("SUPABASE_SERVICE_KEY") or "").strip()
 
 # Second Supabase project — holds `sessions`, `orders`, `order_line_items`.
-# When set, /api/traffic and /api/orders read from here first and fall back
-# to Shopify only if the call fails.
-SUPABASE_DATA_URL         = (os.environ.get("SUPABASE_DATA_URL") or "").strip().rstrip("/")
-SUPABASE_DATA_SERVICE_KEY = (os.environ.get("SUPABASE_DATA_SERVICE_KEY") or "").strip()
+# When SAADAA_VAR / SAADAA_KEY are set, /api/traffic and /api/orders read
+# from this project first and fall back to Shopify only on failure.
+SAADAA_VAR = (os.environ.get("SAADAA_VAR") or "").strip().rstrip("/")
+SAADAA_KEY = (os.environ.get("SAADAA_KEY") or "").strip()
 
 app = Flask(__name__, static_folder=None)
 
@@ -169,7 +169,7 @@ def rows_to_dicts(columns: list, raw_rows: list) -> list:
 
 def fetch_traffic(since: str, until: str) -> dict:
     """Traffic source — Supabase `sessions` table first, Shopify fallback."""
-    if SUPABASE_DATA_URL and SUPABASE_DATA_SERVICE_KEY:
+    if SAADAA_VAR and SAADAA_KEY:
         try:
             payload = fetch_traffic_from_supabase(since, until)
             if payload.get("byPath") or payload.get("rows"):
@@ -575,7 +575,7 @@ def fetch_sales(since: str, until: str) -> dict:
 def fetch_orders(since: str, until: str) -> list:
     """Orders source — Supabase `orders` + `order_line_items` first,
     Shopify Admin GraphQL fallback."""
-    if SUPABASE_DATA_URL and SUPABASE_DATA_SERVICE_KEY:
+    if SAADAA_VAR and SAADAA_KEY:
         try:
             rows = fetch_orders_from_supabase(since, until)
             if rows:
@@ -741,13 +741,13 @@ def _supabase_get(table: str, params: list) -> list:
 def _supabase_data_get(table: str, params: list) -> list:
     """Paginated GET against the SECOND Supabase project (sessions / orders /
     order_line_items). Raises ValueError if env vars aren't set."""
-    if not SUPABASE_DATA_URL or not SUPABASE_DATA_SERVICE_KEY:
+    if not SAADAA_VAR or not SAADAA_KEY:
         raise ValueError("Second Supabase project not configured. "
-                         "Add SUPABASE_DATA_URL and SUPABASE_DATA_SERVICE_KEY env vars.")
-    url = f"{SUPABASE_DATA_URL}/rest/v1/{table}"
+                         "Add SAADAA_VAR and SAADAA_KEY env vars.")
+    url = f"{SAADAA_VAR}/rest/v1/{table}"
     base_headers = {
-        "apikey": SUPABASE_DATA_SERVICE_KEY,
-        "Authorization": f"Bearer {SUPABASE_DATA_SERVICE_KEY}",
+        "apikey": SAADAA_KEY,
+        "Authorization": f"Bearer {SAADAA_KEY}",
         "Content-Type": "application/json",
         "Range-Unit": "items",
     }

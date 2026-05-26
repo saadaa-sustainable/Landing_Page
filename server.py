@@ -37,11 +37,13 @@ SUPABASE_URL         = (os.getenv("SUPABASE_URL") or "").strip().rstrip("/")
 SUPABASE_SERVICE_KEY = (os.getenv("SUPABASE_SERVICE_KEY") or "").strip()
 
 # Second Supabase project (different project in the same org) — holds the
-# `sessions`, `orders`, and `order_line_items` tables. When these are set,
-# fetch_traffic / fetch_orders read from Supabase first and fall back to
-# Shopify only if the call fails (so the dashboard never goes blank).
-SUPABASE_DATA_URL         = (os.getenv("SUPABASE_DATA_URL") or "").strip().rstrip("/")
-SUPABASE_DATA_SERVICE_KEY = (os.getenv("SUPABASE_DATA_SERVICE_KEY") or "").strip()
+# `sessions`, `orders`, and `order_line_items` tables. When SAADAA_VAR /
+# SAADAA_KEY are set, fetch_traffic / fetch_orders read from this project
+# first and fall back to Shopify only if the call fails (so the dashboard
+# never goes blank). Names chosen to avoid colliding with the existing
+# SUPABASE_* vars that already point at the ads project (primary_table).
+SAADAA_VAR = (os.getenv("SAADAA_VAR") or "").strip().rstrip("/")
+SAADAA_KEY = (os.getenv("SAADAA_KEY") or "").strip()
 
 if not SHOP_DOMAIN or not ADMIN_ACCESS_TOKEN:
     raise SystemExit(
@@ -56,7 +58,7 @@ def fetch_traffic(since: str, until: str) -> dict:
     """Traffic data source — Supabase `sessions` table first, Shopify fallback.
 
     Source order:
-      1. If SUPABASE_DATA_URL + SUPABASE_DATA_SERVICE_KEY are set, query the
+      1. If SAADAA_VAR + SAADAA_KEY are set, query the
          Supabase `sessions` table (filtered by session_date BETWEEN since
          AND until). Cheaper, faster, no Shopify rate limits.
       2. On any failure (creds missing, network, table empty), fall back to
@@ -65,7 +67,7 @@ def fetch_traffic(since: str, until: str) -> dict:
     Returns { byPath, rows, totals, _source }. See _from_shopify path below
     for the dimension-by-dimension query semantics.
     """
-    if SUPABASE_DATA_URL and SUPABASE_DATA_SERVICE_KEY:
+    if SAADAA_VAR and SAADAA_KEY:
         try:
             payload = fetch_traffic_from_supabase(since, until)
             if payload.get("byPath") or payload.get("rows"):
@@ -659,7 +661,7 @@ def fetch_orders(since: str, until: str) -> list:
     Shopify Admin GraphQL fallback. Same output shape regardless of source
     so the dashboard JS doesn't have to care which one ran.
     """
-    if SUPABASE_DATA_URL and SUPABASE_DATA_SERVICE_KEY:
+    if SAADAA_VAR and SAADAA_KEY:
         try:
             rows = fetch_orders_from_supabase(since, until)
             if rows:
@@ -847,13 +849,13 @@ def _supabase_data_get(table: str, params: list) -> list:
     `sessions`, `orders`, `order_line_items`). Falls back to raising
     ValueError when env vars aren't set so the caller can degrade gracefully.
     """
-    if not SUPABASE_DATA_URL or not SUPABASE_DATA_SERVICE_KEY:
+    if not SAADAA_VAR or not SAADAA_KEY:
         raise ValueError("Second Supabase project not configured. "
-                         "Add SUPABASE_DATA_URL and SUPABASE_DATA_SERVICE_KEY to .env")
-    url = f"{SUPABASE_DATA_URL}/rest/v1/{table}"
+                         "Add SAADAA_VAR and SAADAA_KEY to .env")
+    url = f"{SAADAA_VAR}/rest/v1/{table}"
     base_headers = {
-        "apikey": SUPABASE_DATA_SERVICE_KEY,
-        "Authorization": f"Bearer {SUPABASE_DATA_SERVICE_KEY}",
+        "apikey": SAADAA_KEY,
+        "Authorization": f"Bearer {SAADAA_KEY}",
         "Content-Type": "application/json",
         "Range-Unit": "items",
     }
