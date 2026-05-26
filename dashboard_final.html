@@ -1360,83 +1360,125 @@
       grid-template-columns: repeat(4, 1fr);
     }
 
+    /* ── KPI CARDS — editorial "ledger" treatment ──
+       Layout: tiny mono label up top with a 2px color tick to its left,
+       big Space Grotesk numeral as the hero, sub-label in a separate
+       paragraph block below a hairline divider. Asymmetric padding gives
+       the value its own real estate; left vertical color rail replaces
+       the old top stripe for a more editorial / ledger feel. */
     .kpi {
       background: var(--bg-white);
-      border: 1px solid var(--bd);
-      border-radius: 10px;                   /* slightly softer than the default var(--r) — feels less geometric */
-      padding: 22px 24px 20px;               /* asymmetric — extra top to seat the accent line; tighter bottom hugs the sub label */
+      border: 1px solid var(--border-soft);
+      border-radius: 10px;
+      padding: 20px 22px 18px 28px;         /* extra left padding to clear the color rail */
       position: relative;
       overflow: hidden;
-      /* baseline elevation so the card feels lifted off the page even at rest;
-         hover adds a stronger lift. */
       box-shadow: 0 1px 0 rgba(44, 36, 32, .03), 0 4px 14px -8px rgba(44, 36, 32, .08);
-      transition: transform .25s cubic-bezier(.2,.7,.2,1), box-shadow .25s, border-color .2s;
+      transition: transform .25s cubic-bezier(.2,.7,.2,1),
+                  box-shadow .25s ease,
+                  border-color .2s ease;
     }
 
     .kpi:hover {
       transform: translateY(-3px);
-      border-color: var(--bd-strong);
-      box-shadow: 0 1px 0 rgba(44, 36, 32, .04), 0 14px 30px -12px rgba(44, 36, 32, .14);
+      border-color: var(--border-mid);
+      box-shadow: 0 1px 0 rgba(44, 36, 32, .04), 0 16px 32px -12px rgba(44, 36, 32, .16);
+    }
+    .kpi:hover::before {
+      width: 6px;                           /* color rail thickens on hover */
     }
 
+    /* Left vertical color rail — replaces the old top stripe. Feels more
+       like a ledger / magazine stat column. Grows on hover. */
     .kpi::before {
       content: '';
       position: absolute;
-      top: 0;
+      top: 16px;
+      bottom: 16px;
       left: 0;
+      width: 4px;
+      border-radius: 0 2px 2px 0;
+      transition: width .25s cubic-bezier(.2,.7,.2,1), background-color .2s ease;
+    }
+
+    /* Status color mapping — paired tokens per brand hard rule 7 */
+    .kpi.ca::before { background: var(--accent-sand); }
+    .kpi.ci::before { background: var(--success-mid); }
+    .kpi.cl::before { background: var(--warning-mid); }
+    .kpi.co::before { background: var(--error-mid); }
+    .kpi.ct::before { background: var(--info-link); }
+    .kpi.cc::before { background: var(--accent-purple); }
+
+    /* Soft tint at the top-right of the card — picks up the rail color
+       for a subtle gradient bloom. Identity without being noisy. */
+    .kpi::after {
+      content: '';
+      position: absolute;
+      top: 0;
       right: 0;
-      height: 3px;                           /* +1 — accent line is the card's identity, deserves to be seen */
+      width: 90px;
+      height: 90px;
+      pointer-events: none;
+      opacity: .35;
+      background: radial-gradient(circle at 100% 0%, currentColor 0%, transparent 60%);
+      color: var(--border-warm);
     }
+    .kpi.ca::after { color: rgba(201, 168, 130, .22); }
+    .kpi.ci::after { color: rgba(61, 158, 107, .14); }
+    .kpi.cl::after { color: rgba(217, 146, 42, .14); }
+    .kpi.co::after { color: rgba(201, 67, 67, .12); }
+    .kpi.ct::after { color: rgba(59, 111, 212, .12); }
+    .kpi.cc::after { color: rgba(123, 79, 191, .12); }
 
-    .kpi.ca::before {
-      background: var(--sand);
-    }
-
-    .kpi.ci::before {
-      background: var(--in);
-    }
-
-    .kpi.cl::before {
-      background: var(--low);
-    }
-
-    .kpi.co::before {
-      background: var(--out);
-    }
-
-    .kpi.ct::before {
-      background: var(--traf);
-    }
-
-    .kpi.cc::before {
-      background: var(--cart);
-    }
-
+    /* Label — tiny mono caps, with a 2px color dot to anchor the eye */
     .kl {
       font-family: 'JetBrains Mono', monospace;
-      font-size: .62rem;                     /* up from .5rem — at body 14.5px this lands ~9px, the legibility floor for caps */
-      color: var(--mu2);
+      font-size: .6rem;
+      color: var(--text-secondary);
       text-transform: uppercase;
-      letter-spacing: .07em;                 /* down from .1em — tracking that wide on tiny caps actually hurts reading */
-      font-weight: 400;
-      margin-bottom: 6px;
-    }
-
-    .kv {
-      font-family: 'Roboto', sans-serif;
-      font-size: 1.8rem;
+      letter-spacing: .08em;
       font-weight: 500;
-      letter-spacing: -.015em;
-      line-height: 1;
-      color: var(--txt);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      position: relative;
+    }
+    .kl::before {
+      content: '';
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: currentColor;
+      opacity: .5;
+      flex-shrink: 0;
     }
 
-    .ks {
-      font-size: .66rem;                     /* up from .57rem — sub-labels need to be readable on first scan */
-      color: var(--mu2);
-      line-height: 1.4;                      /* breathing room when sub wraps to two lines */
-      margin-top: 4px;
+    /* Value — the hero. Space Grotesk 600/700 lands with confidence
+       and pairs naturally with the brand display face. */
+    .kv {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.95rem;
+      font-weight: 600;
+      letter-spacing: -.025em;             /* Space Grotesk wants tight tracking on display sizes */
+      line-height: 1.05;
+      color: var(--text-primary);
+      font-feature-settings: "tnum", "ss01";
     }
+
+    /* Hairline divider above the sub-label gives the card a clear
+       "data → footnote" rhythm without using a visible <hr>. */
+    .ks {
+      font-family: 'Inter', sans-serif;
+      font-size: .68rem;
+      color: var(--text-secondary);
+      line-height: 1.45;
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border-soft);
+      font-weight: 400;
+    }
+    /* If the kpi has no .ks, that's fine — the divider doesn't render */
 
     .kd {
       font-family: 'Roboto', sans-serif;
@@ -2835,19 +2877,17 @@
     /* Sticky filter bar at top of Overview */
     #homeSticky { padding: 18px 26px 14px !important; }
 
-    /* KPIs and hero panels — these !important rules used to clamp the cards
-       back to a tight 12/16/18 layout; they now align with the new generous
-       defaults so the spacing pass actually takes effect. */
+    /* KPIs — overrides aligned to the new editorial card geometry. */
     .krow { gap: 14px !important; margin-bottom: 26px !important; }
     /* Enable container queries on the KPI card so .kv can shrink to fit
        width without breaking mid-digit. */
-    .kpi { padding: 22px 24px 20px !important; min-width: 0; container-type: inline-size; }
+    .kpi { padding: 20px 22px 18px 28px !important; min-width: 0; container-type: inline-size; }
     /* Numbers must never wrap mid-character (no "1" on its own line!). With
        container queries we scale the font down on narrow cards instead.
-       At full width the value stays 1.8rem; on narrow cards (~150px) it
-       shrinks toward 1.05rem so "₹3,36,891.31" stays on one line. */
+       At full width the value stays 1.95rem; on narrow cards (~150px) it
+       shrinks toward 1.15rem so long values keep a single line. */
     .kpi .kv {
-      font-size: clamp(1.05rem, 5.5cqi, 1.8rem);
+      font-size: clamp(1.15rem, 5.8cqi, 1.95rem);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: clip;
@@ -2874,17 +2914,24 @@
     .dsec .krow.k6 {
       grid-template-columns: repeat(auto-fit, minmax(125px, 1fr)) !important;
     }
-    .dsec .krow .kpi { padding: 14px 16px !important; min-width: 0; }
+    /* Modal KPIs — compact variant of the editorial card */
+    .dsec .krow .kpi { padding: 14px 16px 12px 22px !important; min-width: 0; }
     .dsec .krow .kv {
-      font-size: 1.05rem;          /* up from .95 — modal KPIs were undersized vs page KPIs */
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 600;
+      letter-spacing: -.02em;
       line-height: 1.2;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: clip;
-      font-feature-settings: "tnum";
+      font-feature-settings: "tnum", "ss01";
     }
-    .dsec .krow .kl { font-size: .58rem; margin-bottom: 5px; letter-spacing: .06em; }
-    .dsec .krow .ks { font-size: .6rem; line-height: 1.4; margin-top: 4px; }
+    .dsec .krow .kl { font-size: .56rem; margin-bottom: 6px; letter-spacing: .07em; gap: 6px; }
+    .dsec .krow .kl::before { width: 4px; height: 4px; }
+    .dsec .krow .ks { font-size: .6rem; line-height: 1.4; margin-top: 8px; padding-top: 8px; }
+    .dsec .krow .kpi::before { top: 12px; bottom: 12px; width: 3px; }
+    .dsec .krow .kpi:hover::before { width: 5px; }
     /* Phone widths — cap at 2 columns regardless */
     @media (max-width: 560px) {
       .dsec .krow.k4, .dsec .krow.k5, .dsec .krow.k6 {
