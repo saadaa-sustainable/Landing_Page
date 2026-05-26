@@ -850,14 +850,19 @@ def fetch_traffic_from_supabase(since: str, until: str) -> dict:
 def fetch_orders_from_supabase(since: str, until: str) -> list:
     """Pull from orders + order_line_items, reshape to the legacy /api/orders
     flat-dict-per-order shape so the dashboard JS doesn't change."""
+    # No ORDER BY — the user's Supabase `orders` table doesn't have an
+    # index on created_at, so any server-side sort triggers a full table
+    # scan that exceeds Postgres's 5s statement_timeout (error 57014).
+    # Sorting happens client-side after fetch.
+    # Permanent fix: `CREATE INDEX orders_created_at_idx ON orders (created_at);`
     orders = _supabase_data_get("orders", [
         ("select", "*"),
         ("created_at", f"gte.{since}T00:00:00"),
         ("created_at", f"lte.{until}T23:59:59"),
-        ("order", "created_at.desc"),
     ])
     if not orders:
         return []
+    orders.sort(key=lambda o: o.get("created_at") or "", reverse=True)
 
     order_ids = [o.get("id") for o in orders if o.get("id")]
     line_items_by_order = {}

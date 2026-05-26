@@ -982,14 +982,20 @@ def fetch_orders_from_supabase(since: str, until: str) -> list:
     """
     # Inclusive day range on created_at — orders.created_at is a timestamptz so
     # we filter on date boundaries in IST-neutral form (gte midnight, lte 23:59:59).
+    # NOTE: no ORDER BY — the orders table doesn't have an index on
+    # created_at in the user's Supabase project, and Postgres falls back
+    # to a full-table sort that exceeds the 5s statement timeout.
+    # Adding `CREATE INDEX orders_created_at_idx ON orders (created_at);`
+    # in Supabase SQL editor would let us sort server-side again.
+    # For now we sort client-side after the fetch.
     orders = _supabase_data_get("orders", [
         ("select", "*"),
         ("created_at", f"gte.{since}T00:00:00"),
         ("created_at", f"lte.{until}T23:59:59"),
-        ("order", "created_at.desc"),
     ])
     if not orders:
         return []
+    orders.sort(key=lambda o: o.get("created_at") or "", reverse=True)
 
     # Pull all line items for these orders in one batched call.
     order_ids = [o.get("id") for o in orders if o.get("id")]
