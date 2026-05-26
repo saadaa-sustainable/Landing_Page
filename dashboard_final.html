@@ -179,24 +179,24 @@
       font-variant-numeric: tabular-nums;
     }
 
-    /* ── SIDEBAR — warm tan column with editorial section labels.
-       Per user reference: circular brand badge, hamburger top-right,
-       gray uppercase section headers, two-line nav items with colored
-       icon tiles, peach wash on the active item. The tan tone is
-       derived from --accent-sand layered over --bg-ecru so it reads
-       distinctly browner than the page surface without leaving the
-       brand palette. ── */
+    /* ── SIDEBAR — deep brown surface (#6E260E) per user spec.
+       Dark editorial column: light text, peach-tinted icon tiles,
+       cream/yellow active state. The chosen hue is a rich burnt-umber
+       that pops the orange brand badge and reads warm next to the
+       cream content area. ── */
     .nav {
       flex-shrink: 0;
       width: 250px;
       display: flex;
       flex-direction: column;
+      /* layered: subtle radial top-left bloom + a very faint vertical
+         gradient so the dark surface has depth instead of looking flat */
       background:
-        linear-gradient(180deg, rgba(201, 168, 130, .38), rgba(201, 168, 130, .28)),
-        var(--bg-ecru);
-      color: var(--text-primary);
-      border-right: 1px solid rgba(155, 130, 92, .28);
-      box-shadow: inset -1px 0 0 rgba(255, 255, 255, .22);
+        radial-gradient(circle at 18% 0%, rgba(232, 168, 124, .10) 0%, transparent 55%),
+        linear-gradient(180deg, #7A2C12 0%, #6E260E 40%, #5C1F0A 100%);
+      color: var(--bg-base);
+      border-right: 1px solid rgba(0, 0, 0, .35);
+      box-shadow: 3px 0 18px rgba(44, 16, 8, .22);
       height: 100%;
     }
 
@@ -232,7 +232,7 @@
       align-items: center;
       gap: 12px;
       padding: 18px 18px 18px 20px;
-      border-bottom: 1px solid rgba(155, 130, 92, .25);
+      border-bottom: 1px solid rgba(255, 248, 240, .10);
     }
 
     .brand-badge {
@@ -264,53 +264,53 @@
       font-family: 'Space Grotesk', sans-serif;
       font-size: 1.05rem;
       font-weight: 700;
-      color: var(--text-primary);
+      color: var(--bg-base);                  /* light cream on dark brown */
       letter-spacing: -.015em;
     }
 
     .brand-sub {
       font-size: .56rem;
       font-family: 'JetBrains Mono', monospace;
-      color: rgba(73, 70, 64, .80);          /* readable on tan */
+      color: rgba(250, 248, 245, .60);        /* dimmed cream sub-label */
       letter-spacing: .08em;
       text-transform: uppercase;
       font-weight: 500;
       margin-top: 3px;
     }
 
-    /* Hamburger toggle — circular dark icon top-right of the brand row */
+    /* Hamburger toggle — light circular icon on the dark brown sidebar */
     .nav-hamburger {
       flex-shrink: 0;
       width: 32px;
       height: 32px;
       border-radius: 50%;
-      background: var(--text-charcoal);
-      color: var(--bg-white);
-      border: none;
+      background: rgba(255, 248, 240, .10);
+      color: var(--bg-base);
+      border: 1px solid rgba(255, 248, 240, .18);
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: .85rem;
       line-height: 1;
-      transition: background-color .15s ease, transform .15s ease;
+      transition: background-color .15s ease, transform .15s ease, border-color .15s ease;
     }
     .nav-hamburger:hover {
-      background: var(--text-primary);
+      background: rgba(255, 248, 240, .20);
+      border-color: rgba(255, 248, 240, .35);
       transform: scale(1.05);
     }
     .nav-hamburger svg { width: 14px; height: 14px; }
 
-    /* Section labels between nav groups — small uppercase ledger headers.
-       Darker than text-tertiary so they hold their own against the tan bg. */
+    /* Section labels — light cream at low opacity, readable on dark brown */
     .nav-section-label {
       font-family: 'JetBrains Mono', monospace;
       font-size: .56rem;
-      letter-spacing: .14em;
+      letter-spacing: .16em;
       text-transform: uppercase;
-      color: rgba(73, 70, 64, .85);          /* text-mid at high opacity — readable on tan */
-      font-weight: 600;
-      padding: 18px 22px 8px;
+      color: rgba(250, 248, 245, .50);
+      font-weight: 500;
+      padding: 20px 22px 8px;
     }
 
     /* Collapsed state — hamburger flips the sidebar to a 76px icon column.
@@ -359,16 +359,15 @@
     }
 
     .ntab:hover {
-      background: rgba(255, 252, 248, .35);    /* cream wash over tan — visible without competing */
+      background: rgba(255, 248, 240, .08);   /* faint cream wash on dark brown */
     }
 
     .ntab.on {
-      background: rgba(255, 252, 248, .65);    /* strong cream pane — pops off the tan surface */
-      box-shadow: 0 1px 0 rgba(155, 130, 92, .18), 0 4px 12px -6px rgba(155, 130, 92, .25);
+      background: rgba(255, 248, 240, .14);   /* stronger cream pane for active */
+      box-shadow: inset 0 0 0 1px rgba(232, 168, 124, .25);
     }
 
-    /* Icon tile — small rounded square with the tab's accent color.
-       Softer cream bg so it doesn't fight the tan sidebar surface. */
+    /* Icon tile — soft cream square that holds visual weight on dark brown */
     .ntab-icon {
       flex-shrink: 0;
       width: 32px;
@@ -379,20 +378,20 @@
       justify-content: center;
       font-size: .95rem;
       line-height: 1;
-      background: rgba(255, 252, 248, .65);   /* cream wash, softer than solid white */
-      color: var(--text-mid);
-      border: 1px solid rgba(155, 130, 92, .22);
+      background: rgba(255, 248, 240, .12);
+      color: rgba(250, 248, 245, .85);
+      border: 1px solid rgba(255, 248, 240, .15);
       transition: background-color .15s ease, color .15s ease, border-color .15s ease;
     }
     .ntab:hover .ntab-icon {
-      background: var(--bg-white);
-      border-color: rgba(155, 130, 92, .35);
-      color: var(--text-primary);
+      background: rgba(255, 248, 240, .22);
+      border-color: rgba(255, 248, 240, .30);
+      color: var(--bg-base);
     }
     .ntab.on .ntab-icon {
-      background: var(--accent-warm-tint);
-      color: var(--accent-orange);
-      border-color: rgba(232, 168, 124, .45);
+      background: var(--accent-warm-tint);    /* warm pale yellow — pops on dark brown */
+      color: #6E260E;                          /* echoes the sidebar surface inside the tile */
+      border-color: rgba(232, 200, 122, .60);
     }
 
     /* Two-line text block — tiny uppercase category label + bigger title */
@@ -409,21 +408,21 @@
       font-size: .5rem;
       letter-spacing: .12em;
       text-transform: uppercase;
-      color: var(--text-tertiary);
+      color: rgba(250, 248, 245, .50);        /* dim cream */
       font-weight: 500;
     }
     .ntab-title {
       font-family: 'Space Grotesk', sans-serif;
       font-size: .9rem;
       font-weight: 600;
-      color: var(--text-primary);
+      color: rgba(250, 248, 245, .92);
       letter-spacing: -.005em;
     }
     .ntab.on .ntab-title {
-      color: var(--accent-orange);            /* peach text on active per reference */
+      color: var(--accent-warm-tint);         /* pale warm yellow — pops on dark brown */
     }
     .ntab.on .ntab-label {
-      color: var(--text-secondary);
+      color: rgba(250, 248, 245, .75);
     }
 
     .nbadge {
@@ -696,17 +695,16 @@
       background: var(--bd-strong);
     }
 
-    /* Scrollbar inside the sidebar — quieter than the global default
-       so it doesn't compete with the nav items. Brown-tinted thumb to
-       match the tan surface. */
+    /* Scrollbar inside the dark sidebar — light thumb so it's visible
+       against the deep brown surface without dominating. */
     .nav ::-webkit-scrollbar { width: 6px; }
     .nav ::-webkit-scrollbar-track { background: transparent; }
     .nav ::-webkit-scrollbar-thumb {
-      background: rgba(155, 130, 92, .20);
+      background: rgba(255, 248, 240, .14);
       border-radius: 3px;
     }
     .nav ::-webkit-scrollbar-thumb:hover {
-      background: rgba(155, 130, 92, .40);
+      background: rgba(255, 248, 240, .28);
     }
 
     /* Global Know More button in the navbar */
