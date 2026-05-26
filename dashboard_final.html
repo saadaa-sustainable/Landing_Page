@@ -1529,7 +1529,13 @@
 
     .dtbl {
       width: 100%;
-      border-collapse: collapse;
+      /* border-separate (not collapse) — required for position:sticky on <th>
+         to render with a fully opaque background. With collapsed borders,
+         the shared border between th and the row below leaks the scrolling
+         row's content through the sticky header (the "transparent preview"
+         artifact). Each cell now owns its own bottom border instead. */
+      border-collapse: separate;
+      border-spacing: 0;
     }
 
     .dtbl th {
@@ -1542,16 +1548,15 @@
       padding: 9px 13px;
       border-bottom: 1px solid var(--bd);
       font-weight: 500;
-      /* opaque warm-cream — distinct from both the white .tbl-wrap and the
-         page background, so the header stays clearly visible whether stuck
-         to the page top or sitting normally at the top of its table */
-      background: var(--bg-surface);
+      /* fully opaque warm-cream — solid colour so scrolling rows cannot
+         show through. Now that border-collapse is separate, this background
+         is painted on the th alone (no shared border with the row below). */
+      background-color: var(--bg-surface);
       white-space: nowrap;
       position: sticky;
       top: 0;
       z-index: 20;
-      /* dropped shadow that becomes visible when content scrolls underneath
-         the stuck header — gives a "lifted" feel while pinned */
+      /* lift shadow that becomes visible when content scrolls underneath */
       box-shadow: 0 1px 0 var(--bd), 0 6px 10px -6px rgba(44, 36, 32, .14);
     }
 
