@@ -5954,14 +5954,17 @@
             captured_at: r.captured_at || '',
           }));
 
-          // Key the daily map by the REQUESTED date, not by whatever Shopify
-          // returned. Since we've already gated out isFallback above, the
-          // returned snapshot_date == requested date, so this is just a tidy
-          // alignment of bookkeeping.
+          // Build the per-day product-level total_stock map. Older snapshots
+          // had both product-level rows (no color_sku) AND variant-level rows;
+          // newer snapshots from the daily cron only write variant-level rows.
+          // Either way, summing total_stock across every row that shares a
+          // product_title yields the same product-level total. So we always
+          // aggregate up — don't skip variant rows or May-16-style snapshots
+          // (705 rows, 100% variant-level) produce an empty map and STR
+          // silently falls back to the range-summed approximation.
           const dateKey = dates[0];
           STR_SNAPSHOT_DAILY[dateKey] = {};
           rows.forEach(r => {
-            if (r.color_sku) return; // product-level only
             const k = (r.product_title || '').toLowerCase().trim();
             if (!k) return;
             STR_SNAPSHOT_DAILY[dateKey][k] = (STR_SNAPSHOT_DAILY[dateKey][k] || 0) + (parseInt(r.total_stock) || 0);
@@ -6018,8 +6021,10 @@
                 agg[key].latestDate = r.snapshot_date;
                 agg[key].latestCapture = r.captured_at;
               }
-              // Per-day map uses product-level rows only.
-              if (!sku && title) {
+              // Per-day map — aggregate variant rows up to product-level.
+              // Mirrors the single-day fix so snapshots that only carry
+              // variant-level rows still produce real per-day product totals.
+              if (title) {
                 STR_SNAPSHOT_DAILY[dateKey][title] = (STR_SNAPSHOT_DAILY[dateKey][title] || 0) + stock;
               }
             });
