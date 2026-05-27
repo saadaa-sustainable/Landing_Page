@@ -3187,6 +3187,177 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
 
     function closeDetail() { document.getElementById('detailPanel').classList.remove('open'); }
 
+    // ════════════════════════════════════════════════════════════════════════
+    // EXPORT MODULE
+    // ────────────────────────────────────────────────────────────────────────
+    // Single entry point exportSection(tabKey) writes an .xlsx of every
+    // .dtbl visible in that tab, plus a Filters sheet capturing the active
+    // filter state (every <select> + search input + the master date range).
+    //
+    // DOM-scraping intentional: what the user SEES is what gets exported.
+    // The dashboard's filter pipeline is already applied before render —
+    // re-implementing it per-tab would mean another N-way switch to
+    // maintain. Numbers come out as strings ("₹17,49,664.73") which Excel
+    // shows verbatim; that matches what's on screen.
+    // ════════════════════════════════════════════════════════════════════════
+
+    function exportSection(tabKey) {
+      if (typeof XLSX === 'undefined') { alert('XLSX library not loaded'); return; }
+      const pageEl = document.getElementById('page-' + tabKey);
+      if (!pageEl) { alert('Unknown tab: ' + tabKey); return; }
+
+      const tabTitle = ({
+        home: 'Overview', inv: 'Inventory', traf: 'Traffic',
+        ads: 'Ad-Intelligence', sales: 'Sales', orders: 'Orders',
+        utm: 'UTM-Analysis', settings: 'Settings'
+      })[tabKey] || tabKey;
+
+      // ── 1.  Filters sheet ────────────────────────────────────────────
+      const filters = [
+        ['Saadaa Ops Dashboard — ' + tabTitle + ' export'],
+        [],
+        ['Exported at',     new Date().toString()],
+        ['Tab',             tabTitle],
+        ['URL',             location.href],
+      ];
+
+      // Master date range (always in topbar)
+      const mSince = document.getElementById('masterSince');
+      const mUntil = document.getElementById('masterUntil');
+      if (mSince && mUntil && (mSince.value || mUntil.value)) {
+        filters.push(['Date range', (mSince.value || '?') + '  →  ' + (mUntil.value || '?')]);
+      }
+
+      filters.push([]);
+      filters.push(['Active filters at export time']);
+      filters.push(['Filter', 'Value']);
+
+      // Every <select> + search input + button-toggle inside this tab
+      const seen = new Set();
+      pageEl.querySelectorAll('select').forEach(el => {
+        if (!el.value || el.value === 'all') return;
+        const opt = el.options[el.selectedIndex];
+        const label = _exportLabelFor(el) || el.id || '(unnamed select)';
+        if (seen.has(label)) return; seen.add(label);
+        filters.push([label, opt ? opt.text : el.value]);
+      });
+      pageEl.querySelectorAll('input.srch, input[type="search"], input[placeholder*="earch"]').forEach(el => {
+        if (!el.value) return;
+        const label = _exportLabelFor(el) || el.id || 'Search';
+        if (seen.has(label)) return; seen.add(label);
+        filters.push([label, el.value]);
+      });
+      // Active button-toggles (.vtog .vb.on, .pill.on, .ntab.on inside this tab)
+      pageEl.querySelectorAll('.vtog .vb.on, .pill.on').forEach(btn => {
+        // Group label = the closest .tb-lbl sibling or the parent's preceding label
+        const wrap = btn.closest('.tg, .toolbar, .pcontrols');
+        const lbl = wrap ? wrap.querySelector('.tb-lbl') : null;
+        const groupName = lbl ? lbl.textContent.trim() : (btn.parentElement && btn.parentElement.previousElementSibling ? btn.parentElement.previousElementSibling.textContent.trim() : 'View');
+        const key = 'btn:' + groupName;
+        if (seen.has(key)) return; seen.add(key);
+        filters.push([groupName, (btn.textContent || '').trim()]);
+      });
+
+      if (filters[filters.length - 1][0] === 'Filter') {
+        filters.push(['(none — all filters at default)', '']);
+      }
+
+      // ── 2.  Data sheet(s) — every visible .dtbl in the tab ───────────
+      const tables = [];
+      pageEl.querySelectorAll('.dtbl').forEach((tableEl, i) => {
+        // Skip tables inside hidden containers (e.g. cards view while table is showing)
+        if (!_exportIsVisible(tableEl)) return;
+        const headerCells = tableEl.querySelectorAll('thead th');
+        if (!headerCells.length) return;
+        const headers = [...headerCells].map(th => th.textContent.trim());
+        const rows = [...tableEl.querySelectorAll('tbody tr')].map(tr =>
+          [...tr.querySelectorAll('td')].map(td => _exportCellText(td))
+        );
+        if (!rows.length) return;
+        // Try to use the .tbl-title preceding this table as the sheet name
+        const wrap = tableEl.closest('.tbl-wrap');
+        const titleEl = wrap ? wrap.querySelector('.tbl-title') : null;
+        let name = titleEl ? titleEl.textContent.trim().replace(/[\\/*?\[\]:]/g, '').slice(0, 28) : ('Data ' + (i + 1));
+        if (!name) name = 'Data ' + (i + 1);
+        // Excel sheet names must be unique
+        let suffix = 2;
+        const baseName = name;
+        while (tables.some(t => t.name === name)) { name = (baseName + ' ' + suffix++).slice(0, 31); }
+        tables.push({ name, headers, rows });
+      });
+
+      // ── 3.  KPI cards as a separate sheet ────────────────────────────
+      const kpiSheet = [['Label', 'Value', 'Sub-label']];
+      pageEl.querySelectorAll('.kpi').forEach(kpi => {
+        if (!_exportIsVisible(kpi)) return;
+        const label = (kpi.querySelector('.kl') || {}).textContent || '';
+        const value = (kpi.querySelector('.kv') || {}).textContent || '';
+        const sub   = (kpi.querySelector('.ks') || {}).textContent || '';
+        if (!label && !value) return;
+        kpiSheet.push([label.trim(), value.trim(), sub.trim()]);
+      });
+      pageEl.querySelectorAll('.hero-panel').forEach(hp => {
+        if (!_exportIsVisible(hp)) return;
+        const label = (hp.querySelector('.hp-label') || {}).textContent || '';
+        const value = (hp.querySelector('.hp-value') || {}).textContent || '';
+        const sub   = (hp.querySelector('.hp-sub')   || {}).textContent || '';
+        if (!label && !value) return;
+        kpiSheet.push([label.trim(), value.trim(), sub.trim()]);
+      });
+
+      // ── 4.  Build workbook ───────────────────────────────────────────
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(filters), 'Filters');
+      if (kpiSheet.length > 1) {
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(kpiSheet), 'KPIs');
+      }
+      tables.forEach(t => {
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([t.headers, ...t.rows]), t.name);
+      });
+      if (tables.length === 0 && kpiSheet.length === 1) {
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['No table data on this tab — only filters captured.']]), 'Empty');
+      }
+
+      // ── 5.  Trigger download ─────────────────────────────────────────
+      const stamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19);
+      XLSX.writeFile(wb, 'saadaa-' + tabKey + '-' + stamp + '.xlsx');
+    }
+
+    // Resolve a friendly label for an input — prefers the .tb-lbl in the
+    // same .tg group, falls back to a previous text node or the id.
+    function _exportLabelFor(el) {
+      const tg = el.closest('.tg');
+      if (tg) {
+        const lbl = tg.querySelector('.tb-lbl');
+        if (lbl) return lbl.textContent.trim();
+      }
+      const prev = el.previousElementSibling;
+      if (prev && prev.classList && prev.classList.contains('tb-lbl')) return prev.textContent.trim();
+      return null;
+    }
+
+    // Read a table cell as plain text, joining nested .tn/.tm/.tnum with " · ".
+    function _exportCellText(td) {
+      // Special-case cells that carry a single value
+      const tnum = td.querySelector('.tnum');
+      const tn   = td.querySelector('.tn');
+      const tm   = td.querySelector('.tm');
+      if (tnum && !tn && !tm) return tnum.textContent.trim();
+      if (tn || tm) {
+        return [tn ? tn.textContent.trim() : '', tm ? tm.textContent.trim() : '']
+          .filter(s => s).join('  ·  ');
+      }
+      // Skip inputs/buttons (e.g. unlinked-ad path inputs) — capture their value
+      const inp = td.querySelector('input, select, button');
+      if (inp) return (inp.value || inp.textContent || '').trim();
+      return td.textContent.replace(/\s+/g, ' ').trim();
+    }
+
+    // Visible = has paint area (offsetParent test).
+    function _exportIsVisible(el) {
+      return !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+    }
+
     // ── CHART HELPERS ──
     function ch(id, type, data, opts) { if (C[id]) C[id].destroy(); C[id] = new Chart(document.getElementById(id), { type, data, options: { responsive: true, maintainAspectRatio: false, ...opts } }); }
     function hbar(pct) { return { x: { grid: { color: '#2a2d38' }, ticks: { color: '#7a7d90', font: { family: 'JetBrains Mono', size: 8 }, callback: pct ? v => v + '%' : undefined } }, y: { grid: { color: '#2a2d38' }, ticks: { color: '#9a9cb0', font: { family: 'JetBrains Mono', size: 8 } } } }; }

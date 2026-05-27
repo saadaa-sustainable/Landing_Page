@@ -196,6 +196,7 @@
             <button class="vb on" id="hv-table" onclick="setHomeView('table')">Table</button>
             <button class="vb" id="hv-cards" onclick="setHomeView('cards')">Cards</button>
           </div>
+          <button class="ibtn export-btn" onclick="exportSection('home')" title="Export current view + filters as Excel">↓ Export</button>
           <input class="srch" id="homeSrch" placeholder="Search product…" oninput="renderHome()"
             style="margin-left:auto;">
         </div>
@@ -336,6 +337,7 @@
         <div style="flex:1;"></div>
         <button class="ibtn" id="strToggleBtn" onclick="toggleSTRView()"
           style="background:rgba(34,255,204,.08);border-color:var(--in);color:var(--in);">▦ Sell-Through Rate</button>
+        <button class="ibtn export-btn" onclick="exportSection('inv')" title="Export current view + filters as Excel">↓ Export</button>
         <div class="vtog">
           <button class="vb on" id="iv-table" onclick="setIV('table')">Table</button>
           <button class="vb" id="iv-cards" onclick="setIV('cards')">Cards</button>
@@ -477,6 +479,7 @@
           </select>
         </div>
         <div style="flex:1;"></div>
+        <button class="ibtn export-btn" onclick="exportSection('traf')" title="Export current view + filters as Excel">↓ Export</button>
         <div class="vtog">
           <button class="vb on" id="tv-table" onclick="setTV('table')">Table</button>
           <button class="vb" id="tv-cards" onclick="setTV('cards')">Cards</button>
@@ -594,6 +597,7 @@
         </select>
       </div>
       <div style="flex:1;"></div>
+      <button class="ibtn export-btn" onclick="exportSection('ads')" title="Export current view + filters as Excel">↓ Export</button>
       <button class="ibtn" onclick="openAdDefinitionPopup()"
         style="background:rgba(212,180,131,.10);border-color:var(--sand);color:var(--sand);">◈ Definitions</button>
     </div>
@@ -801,6 +805,7 @@
         </div>
         <span class="sec-meta" id="salesRowMeta" style="font-size:.6rem;color:var(--mu2);"></span>
         <div style="flex:1;"></div>
+        <button class="ibtn export-btn" onclick="exportSection('sales')" title="Export current view + filters as Excel">↓ Export</button>
         <div class="vtog">
           <button class="vb on" id="sv-table" onclick="setSalesView('table')">Table</button>
           <button class="vb" id="sv-cards" onclick="setSalesView('cards')">Cards</button>
@@ -872,6 +877,7 @@
         </div>
         <div style="flex:1;"></div>
         <span class="sec-meta" id="ordersAutoLabel" style="font-size:.6rem;color:var(--mu2);"></span>
+        <button class="ibtn export-btn" onclick="exportSection('orders')" title="Export current view + filters as Excel">↓ Export</button>
         <div class="vtog">
           <button class="vb on" id="ov-table" onclick="setOrdersView('table')">Table</button>
           <button class="vb" id="ov-cards" onclick="setOrdersView('cards')">Cards</button>
@@ -918,6 +924,7 @@
         </div>
         <div style="flex:1;"></div>
         <span class="sec-meta" id="utmRowMeta" style="font-size:.6rem;color:var(--mu2);"></span>
+        <button class="ibtn export-btn" onclick="exportSection('utm')" title="Export current view + filters as Excel">↓ Export</button>
       </div>
     </div>
     <div class="scroll" id="utmScroll">
@@ -1001,6 +1008,7 @@
           style="flex:1;min-width:200px;max-width:340px;" />
         <span class="sec-meta" id="setMeta" style="font-size:.6rem;color:var(--mu2);"></span>
         <div style="flex:1;"></div>
+        <button class="ibtn export-btn" onclick="exportSection('settings')" title="Export current view + filters as Excel">↓ Export</button>
         <button class="ibtn" onclick="bulkSetUserDisabled(false)" style="font-size:.6rem;">Enable all in view</button>
         <button class="ibtn" onclick="bulkSetUserDisabled(true)" style="font-size:.6rem;color:var(--out);">Disable all in view</button>
       </div>

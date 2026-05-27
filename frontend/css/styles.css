@@ -1449,6 +1449,21 @@
       border-color: var(--cta-hover);
     }
 
+    /* ── Export button — sand-tinted variant of .ibtn ──
+       Used in every tab toolbar (calls exportSection(tabKey) which writes
+       an .xlsx of the visible tables + currently-active filter state). */
+    .ibtn.export-btn {
+      border-color: rgba(201, 168, 130, .55);
+      color: var(--text-mid);
+      background: rgba(201, 168, 130, .10);
+      font-weight: 500;
+    }
+    .ibtn.export-btn:hover {
+      background: rgba(201, 168, 130, .22);
+      border-color: var(--accent-sand);
+      color: var(--text-primary);
+    }
+
     /* ── KPI ── */
     .krow {
       display: grid;
