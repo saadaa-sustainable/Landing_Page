@@ -28,8 +28,8 @@ if hasattr(sys.stdout, 'reconfigure'):
 if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
-# ── Load credentials from .env ──
-load_dotenv()
+# ── Load credentials from .env at the PROJECT ROOT (one level above backend/) ──
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"))
 
 SHOP_DOMAIN          = os.getenv("SHOP_DOMAIN")
 ADMIN_ACCESS_TOKEN   = os.getenv("ADMIN_ACCESS_TOKEN")
@@ -1223,23 +1223,45 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Headers", "Content-Type, *")
         self.end_headers()
 
+    def _serve_static(self, abs_path, content_type):
+        """Read a file from disk and stream it back with the right Content-Type."""
+        try:
+            with open(abs_path, "rb") as f:
+                content = f.read()
+            self.send_response(200)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(content)))
+            self.send_header("Cache-Control", "no-cache")
+            self.end_headers()
+            self.wfile.write(content)
+        except FileNotFoundError:
+            self.send_json(404, {"error": os.path.basename(abs_path) + " not found"})
+
     def do_GET(self):
         parsed = urlparse(self.path)
         params = parse_qs(parsed.query)
 
-        # ── GET / → serve dashboard_final.html ──
+        # Project layout after restructure:
+        #   D:/landing_page/
+        #     backend/server.py    ← this file
+        #     frontend/
+        #       index.html
+        #       css/styles.css
+        #       js/app.js
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        frontend_dir = os.path.join(project_root, "frontend")
+
+        # ── GET / → serve frontend/index.html ──
         if parsed.path == "/":
-            html_path = os.path.join(os.path.dirname(__file__), "dashboard_final.html")
-            try:
-                with open(html_path, "r", encoding="utf-8") as f:
-                    content = f.read().encode("utf-8")
-                self.send_response(200)
-                self.send_header("Content-Type", "text/html; charset=utf-8")
-                self.send_header("Content-Length", str(len(content)))
-                self.end_headers()
-                self.wfile.write(content)
-            except FileNotFoundError:
-                self.send_json(404, {"error": "dashboard_final.html not found"})
+            self._serve_static(os.path.join(frontend_dir, "index.html"), "text/html; charset=utf-8")
+            return
+
+        # ── GET /css/<file> and /js/<file> → serve static asset ──
+        if parsed.path.startswith("/css/") or parsed.path.startswith("/js/"):
+            # Strip leading slash, prevent path traversal
+            rel = parsed.path.lstrip("/").replace("..", "")
+            ctype = "text/css; charset=utf-8" if rel.startswith("css/") else "application/javascript; charset=utf-8"
+            self._serve_static(os.path.join(frontend_dir, rel), ctype)
             return
 
         # ── GET /api/health ──

@@ -1047,11 +1047,25 @@ def fetch_inventory_snapshot(date: str = "") -> dict:
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
+# Project root and the frontend directory. After the restructure the static
+# SPA lives under frontend/ — HTML + css/ + js/ relative paths inside.
+PROJECT_ROOT  = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FRONTEND_DIR  = os.path.join(PROJECT_ROOT, "frontend")
+
 @app.route("/")
 def serve_dashboard():
-    """Serve the dashboard HTML from the project root."""
-    root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    return send_from_directory(root_dir, "dashboard_final.html")
+    """Serve the dashboard HTML from frontend/."""
+    return send_from_directory(FRONTEND_DIR, "index.html")
+
+
+@app.route("/css/<path:fname>")
+def serve_css(fname):
+    return send_from_directory(os.path.join(FRONTEND_DIR, "css"), fname)
+
+
+@app.route("/js/<path:fname>")
+def serve_js(fname):
+    return send_from_directory(os.path.join(FRONTEND_DIR, "js"), fname)
 
 
 @app.route("/api/health")

@@ -9,7 +9,8 @@ REM  server.py isn't running.
 REM ─────────────────────────────────────────────────────────────────────
 
 setlocal
-cd /d "%~dp0"
+REM cd to the project root (one level above backend/) so logs/ resolves correctly
+cd /d "%~dp0\.."
 
 REM Force UTF-8 for Python's stdout/stderr — prevents UnicodeEncodeError on
 REM characters like the success-tick when the script is invoked via this bat
@@ -18,7 +19,8 @@ REM the unicode chars used by print statements). Without this, the inserts
 REM succeed but the script exits with code 1, making the task look failed.
 set "PYTHONIOENCODING=utf-8"
 
-set "LOG_DIR=%~dp0logs"
+REM Use the project-root logs/ folder so cron logs sit alongside server logs
+set "LOG_DIR=%CD%\logs"
 if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
 
 REM Use date for the log filename (YYYY-MM-DD via PowerShell — locale-safe)
@@ -30,7 +32,7 @@ echo ============================================== >> "%LOG_FILE%"
 echo Snapshot run started at %DATE% %TIME% >> "%LOG_FILE%"
 echo ============================================== >> "%LOG_FILE%"
 
-python "%~dp0snapshot_inventory.py" >> "%LOG_FILE%" 2>&1
+python "%~dp0\snapshot_inventory.py" >> "%LOG_FILE%" 2>&1
 set "RC=%ERRORLEVEL%"
 
 echo Snapshot run finished at %DATE% %TIME% (exit code %RC%) >> "%LOG_FILE%"

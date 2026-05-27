@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>सादा — Ops</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500&family=Inter:wght@300;400;500;600&display=swap"
+    rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+
+
+<body>
+
+  <!-- NAV SIDEBAR — light cream, editorial column with section labels -->
+  <aside class="nav" id="navSidebar">
+    <div class="brand">
+      <div class="brand-badge">सा</div>
+      <div class="brand-text">
+        <div class="brand-title">Saadaa</div>
+        <div class="brand-sub">Ops Dashboard</div>
+      </div>
+      <button class="nav-hamburger" id="navHamburger" onclick="toggleSidebar()" title="Toggle sidebar" aria-label="Toggle sidebar">
+        <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="2" y="3.5" width="12" height="1.6" rx=".8" fill="currentColor"/>
+          <rect x="2" y="7.2" width="12" height="1.6" rx=".8" fill="currentColor"/>
+          <rect x="2" y="10.9" width="12" height="1.6" rx=".8" fill="currentColor"/>
+        </svg>
+      </button>
+    </div>
+    <div class="nav-tabs">
+      <div class="nav-section-label">Analytics</div>
+      <button class="ntab on" id="nt-home" onclick="goPage('home')">
+        <span class="ntab-icon">◈</span>
+        <div class="ntab-text"><div class="ntab-label">Dashboard</div><div class="ntab-title">Overview</div></div>
+      </button>
+      <button class="ntab" id="nt-inv" onclick="goPage('inv')">
+        <span class="ntab-icon">▦</span>
+        <div class="ntab-text"><div class="ntab-label">Catalog</div><div class="ntab-title">Inventory</div></div>
+      </button>
+      <button class="ntab" id="nt-traf" onclick="goPage('traf')">
+        <span class="ntab-icon">↗</span>
+        <div class="ntab-text"><div class="ntab-label">Visitors</div><div class="ntab-title">Traffic</div></div>
+      </button>
+      <button class="ntab" id="nt-ads" onclick="goPage('ads')">
+        <span class="ntab-icon">◎</span>
+        <div class="ntab-text"><div class="ntab-label">Acquisition</div><div class="ntab-title">Ad Intelligence</div></div>
+      </button>
+
+      <div class="nav-section-label">Commerce</div>
+      <button class="ntab" id="nt-sales" onclick="goPage('sales')">
+        <span class="ntab-icon">₹</span>
+        <div class="ntab-text"><div class="ntab-label">Revenue</div><div class="ntab-title">Sales</div></div>
+      </button>
+      <button class="ntab" id="nt-orders" onclick="goPage('orders')">
+        <span class="ntab-icon">🛒</span>
+        <div class="ntab-text"><div class="ntab-label">Transactions</div><div class="ntab-title">Orders</div></div>
+      </button>
+      <button class="ntab" id="nt-utm" onclick="goPage('utm')">
+        <span class="ntab-icon">⇄</span>
+        <div class="ntab-text"><div class="ntab-label">Attribution</div><div class="ntab-title">UTM Analysis</div></div>
+      </button>
+
+      <div class="nav-section-label">Config</div>
+      <button class="ntab" id="nt-settings" onclick="goPage('settings')">
+        <span class="ntab-icon">⚙</span>
+        <div class="ntab-text"><div class="ntab-label">Preferences</div><div class="ntab-title">Settings</div></div>
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN AREA -->
+  <div class="app-main">
+    <!-- TOPBAR (Know more + date range) -->
+    <div class="topbar">
+      <button class="nav-info-btn" onclick="openTabInfo(_currentPage)" title="About this tab">ⓘ Know more</button>
+      <div class="nav-date">
+        <button id="dateRangeBtn" class="nav-date-btn" onclick="openDateRangePicker()" type="button">
+          <span class="nav-date-icon">📅</span>
+          <span id="dateRangeBtnLabel">Pick date range</span>
+          <span class="nav-date-caret">▾</span>
+        </button>
+        <input type="hidden" id="masterServerUrl" value="" />
+        <input type="hidden" id="masterDate" value="" />
+        <input type="hidden" id="masterSince" value="" />
+        <input type="hidden" id="masterUntil" value="" />
+        <span id="masterFetchStatus" class="nav-date-status">Not loaded</span>
+      </div>
+    </div>
+
+  <!-- ===== Empty-state notice (shown until a date range is applied) ===== -->
+  <div id="dateRangeNotice" class="date-range-notice" role="status" style="display:none;">
+    <span class="date-range-notice-icon">📅</span>
+    <span class="date-range-notice-text">
+      Select a date range to view dashboard data.
+      <button type="button" class="date-range-notice-cta" onclick="openDateRangePicker()">Pick a range</button>
+    </span>
+  </div>
+
+  <!-- ===== Date Range Picker Popover ===== -->
+  <div id="dateRangeBackdrop" class="drp-backdrop" onclick="if(event.target===this)closeDateRangePicker()"></div>
+  <div id="dateRangePopover" class="drp-popover" role="dialog" aria-label="Choose date range">
+    <div class="drp-presets">
+      <button class="drp-preset" data-preset="today" onclick="setDrpPreset('today')">Today</button>
+      <button class="drp-preset" data-preset="yesterday" onclick="setDrpPreset('yesterday')">Yesterday</button>
+      <button class="drp-preset" data-preset="7days" onclick="setDrpPreset('7days')">Last 7 Days</button>
+      <button class="drp-preset" data-preset="30days" onclick="setDrpPreset('30days')">Last 30 Days</button>
+      <button class="drp-preset" data-preset="thisMonth" onclick="setDrpPreset('thisMonth')">This Month</button>
+      <button class="drp-preset" data-preset="lastMonth" onclick="setDrpPreset('lastMonth')">Last Month</button>
+      <button class="drp-preset" data-preset="lifetime" onclick="setDrpPreset('lifetime')">Lifetime</button>
+      <button class="drp-preset" data-preset="custom" onclick="setDrpPreset('custom')">Custom Range</button>
+    </div>
+    <div class="drp-cal-wrap">
+      <div class="drp-cal-grids">
+        <div>
+          <div class="drp-cal-header">
+            <button class="drp-cal-nav-btn" onclick="_drpShiftMonth(-1)" type="button" aria-label="Previous month">‹</button>
+            <div class="drp-cal-month-title" id="drpMonthTitle1"></div>
+            <span style="width:24px;"></span>
+          </div>
+          <div class="drp-cal-grid" id="drpCal1"></div>
+        </div>
+        <div>
+          <div class="drp-cal-header">
+            <span style="width:24px;"></span>
+            <div class="drp-cal-month-title" id="drpMonthTitle2"></div>
+            <button class="drp-cal-nav-btn" onclick="_drpShiftMonth(1)" type="button" aria-label="Next month">›</button>
+          </div>
+          <div class="drp-cal-grid" id="drpCal2"></div>
+        </div>
+      </div>
+      <div class="drp-footer">
+        <span class="drp-range-display" id="drpRangeDisplay"></span>
+        <button class="drp-btn drp-btn-cancel" onclick="closeDateRangePicker()" type="button">Cancel</button>
+        <button class="drp-btn drp-btn-apply" onclick="applyDateRange()" type="button">Apply</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== HOME PAGE ===== -->
+  <div class="page on" id="page-home">
+
+    <!-- SINGLE scroll zone: hero + sticky header + table -->
+    <div class="scroll" id="homeScroll" style="padding:0;">
+      <div class="home-hero" id="homeHero"></div>
+      <!-- Sticky bar: title + filters (pins when hero scrolls away) -->
+      <div id="homeSticky"
+        style="position:sticky;top:0;z-index:20;background:var(--bg);padding:10px 14px 6px;border-bottom:1px solid var(--bd);">
+        <div class="sec-hdr" style="margin-bottom:6px;">
+          <div class="sec-title">Product Overview</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span class="sec-meta" id="homeCount">— products</span>
+            <div class="nav-btns"></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+          <div class="tg"><span class="tb-lbl">Lifecycle</span>
+            <select class="filter-select" id="hlcSelect" onchange="setHLC(this.value)">
+              <option value="all">All</option>
+              <option value="npd">🌱 NPD</option>
+              <option value="active">Active</option>
+              <option value="draft">Draft</option>
+              <option value="discontinued">Discontinued</option>
+            </select>
+          </div>
+          <div class="tg"><span class="tb-lbl">Stock</span>
+            <select class="filter-select" id="hfSelect" onchange="setHF(this.value)">
+              <option value="all">All</option>
+              <option value="in">In Stock</option>
+              <option value="low">Low Stock</option>
+              <option value="out">Out of Stock</option>
+              <option value="leak">⚠ Ad Leakage</option>
+            </select>
+          </div>
+          <div class="tg"><span class="tb-lbl">Category</span>
+            <select class="filter-select" id="hcatSelect" onchange="setHCat(this.value)">
+              <option value="all">All Categories</option>
+            </select>
+          </div>
+          <div class="tg"><span class="tb-lbl">Status</span>
+            <select class="filter-select" id="hstatusSelect" onchange="setHStatus(this.value)" title="Filter by Shopify product status (active / draft)">
+              <option value="all">All</option>
+              <option value="ACTIVE">Active</option>
+              <option value="DRAFT">Draft</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:4px;margin-right:8px;">
+            <button class="pill on" id="hv-product" onclick="setHView('product')">Products</button>
+            <button class="pill" id="hv-collection" onclick="setHView('collection')">Collections</button>
+          </div>
+          <div class="vtog" style="margin-right:8px;">
+            <button class="vb on" id="hv-table" onclick="setHomeView('table')">Table</button>
+            <button class="vb" id="hv-cards" onclick="setHomeView('cards')">Cards</button>
+          </div>
+          <input class="srch" id="homeSrch" placeholder="Search product…" oninput="renderHome()"
+            style="margin-left:auto;">
+        </div>
+      </div>
+      <!-- Table: full width edge-to-edge -->
+      <!-- Cards view (shown when homeViewMode==='cards') -->
+      <div id="homeCardsView" class="cards-grid" style="display:none;"></div>
+      <!-- Table view -->
+      <div class="prod-tbl-wrap" id="homeTableView" style="border-radius:0;border-left:none;border-right:none;">
+        <div class="tbl-scr">
+          <table class="dtbl">
+            <thead id="homeThead">
+              <tr id="homeTheadRow">
+                <th>Product</th>
+                <th>Lifecycle</th>
+                <th>Stock</th>
+                <th style="cursor:pointer;user-select:none;" onclick="sortHome('sessions')" id="thSort_sessions"
+                  title="Sort by Sessions">Sessions ↕</th>
+                <th>ATC%</th>
+                <th style="cursor:pointer;user-select:none;" onclick="sortHome('units')" id="thSort_units"
+                  title="Sort by Units Sold">Units Sold ↕</th>
+                <th style="cursor:pointer;user-select:none;" onclick="sortHome('sales')" id="thSort_sales"
+                  title="Sort by Sales">Sales (₹) ↕</th>
+                <th>Last Click UTM</th>
+              </tr>
+            </thead>
+            <tbody id="homeTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== INVENTORY PAGE ===== -->
+  <div class="page" id="page-inv">
+    <!-- Inventory Data Source panel removed — fetch is fired automatically by
+         fetchAll() when the user picks a date range. Hidden stubs preserve the
+         IDs that fetch/init code still reads & writes (status messages, URL
+         restore from localStorage). Do not re-add the visible panel. -->
+    <div id="invCpanel" style="display:none;" aria-hidden="true">
+      <input id="invShopifyUrl" type="hidden" />
+      <span id="invShopifyStatus"></span>
+      <div id="invShopifyMsg"></div>
+      <input id="invSid" type="hidden" />
+      <input id="invKey" type="hidden" />
+      <div id="invCfgBody"></div>
+    </div>
+    <div class="toolbar" style="flex-direction:column;align-items:stretch;gap:0;padding:0;">
+      <!-- Row 1: Collapsible filter panel (hidden by default — toggled by the Filters button on Row 2) -->
+      <div id="invFiltersPanel"
+        style="display:none;align-items:center;gap:6px;padding:10px 20px;flex-wrap:wrap;border-bottom:1px solid var(--bd2);background:var(--bg-surface);">
+        <div class="tg"><span class="tb-lbl">Gender</span>
+          <select class="filter-select" id="igSelect" onchange="setIG(this.value);refreshInvFiltersBadge();">
+            <option value="all">All</option>
+            <option value="Women">Women</option>
+            <option value="Men">Men</option>
+            <option value="Unisex">Unisex</option>
+          </select>
+        </div>
+        <div class="tg"><span class="tb-lbl">Lifecycle</span>
+          <select class="filter-select" id="ilcSelect" onchange="setILC(this.value);refreshInvFiltersBadge();">
+            <option value="all">All</option>
+            <option value="npd">🌱 NPD</option>
+            <option value="active">Active</option>
+            <option value="draft">Draft</option>
+            <option value="discontinued">Disc.</option>
+          </select>
+        </div>
+        <div class="tg"><span class="tb-lbl">Stock</span>
+          <select class="filter-select" id="isfSelect" onchange="setISF(this.value);refreshInvFiltersBadge();">
+            <option value="all">All</option>
+            <option value="in_stock">In Stock</option>
+            <option value="broken_stock">Broken</option>
+            <option value="out_of_stock">OOS</option>
+          </select>
+        </div>
+        <div class="tg"><span class="tb-lbl">Category</span>
+          <select class="filter-select" id="invCatSelect" onchange="setIF(this.value);refreshInvFiltersBadge();">
+            <option value="all">All Categories</option>
+          </select>
+        </div>
+        <div class="tg"><span class="tb-lbl">Status</span>
+          <select class="filter-select" id="istatusSelect" onchange="setIStatus(this.value);refreshInvFiltersBadge();" title="Filter by Shopify product status (active / draft)">
+            <option value="all">All</option>
+            <option value="ACTIVE">Active</option>
+            <option value="DRAFT">Draft</option>
+          </select>
+        </div>
+        <div class="tg"><span class="tb-lbl">Color</span>
+          <select class="filter-select" id="invColorSelect" onchange="setIColor(this.value);refreshInvFiltersBadge();">
+            <option value="all">All Colors</option>
+          </select>
+        </div>
+        <div class="tg"><span class="tb-lbl">Tag</span>
+          <select class="filter-select" id="invTagSelect" onchange="setInvTag(this.value);refreshInvFiltersBadge();">
+            <option value="all">All Tags</option>
+          </select>
+        </div>
+        <div class="tg"><span class="tb-lbl">Type</span>
+          <select class="filter-select" id="invPTSelect" onchange="setIPT(this.value);refreshInvFiltersBadge();">
+            <option value="all">All Types</option>
+          </select>
+        </div>
+        <div style="flex:1;"></div>
+        <button class="ibtn" onclick="resetInvFilters()" title="Reset all filters to All"
+          style="font-size:.62rem;letter-spacing:.04em;color:var(--mu2);">↺ Reset</button>
+      </div>
+      <!-- Active tag chip row -->
+      <div id="invTagChipRow" style="display:none;align-items:center;gap:6px;padding:3px 20px 5px;flex-wrap:wrap;">
+        <span
+          style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--mu2);text-transform:uppercase;letter-spacing:.1em;">Tag
+          is</span>
+        <span id="invTagChip" class="inv-tag-chip"></span>
+        <button onclick="setInvTag('all')"
+          style="background:none;border:none;color:var(--mu2);cursor:pointer;font-size:.75rem;padding:0 2px;line-height:1;"
+          title="Clear tag filter">✕</button>
+      </div>
+      <!-- Row 2: Filter toggle, Search, Mode, View -->
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 20px;flex-wrap:wrap;">
+        <button class="ibtn" id="invFiltersBtn" onclick="toggleInvFilters()"
+          title="Show / hide filter dropdowns"
+          style="display:inline-flex;align-items:center;gap:6px;font-size:.7rem;letter-spacing:.02em;font-weight:500;">
+          <span style="font-size:.85rem;line-height:1;">⛃</span>
+          <span>Filters</span>
+          <span id="invFiltersBadge"
+            style="display:none;background:var(--cta);color:var(--txt);font-family:'JetBrains Mono',monospace;font-size:.55rem;font-weight:600;padding:1px 6px;border-radius:8px;line-height:1.3;letter-spacing:.02em;">0</span>
+          <span id="invFiltersCaret" style="font-size:.55rem;color:var(--mu2);margin-left:2px;">▾</span>
+        </button>
+        <input class="srch" id="invSrch" placeholder="Search products…" oninput="renderInv()"
+          style="flex:1;min-width:140px;max-width:220px;" />
+        <div class="tg"><span class="tb-lbl">Mode</span>
+          <div class="vtog">
+            <button class="vb on" id="im-name" onclick="setIM('name')">Name</button>
+            <button class="vb" id="im-sku" onclick="setIM('sku')">SKU</button>
+            <button class="vb" id="im-size" onclick="setIM('size')">Size</button>
+          </div>
+        </div>
+        <div style="flex:1;"></div>
+        <button class="ibtn" id="strToggleBtn" onclick="toggleSTRView()"
+          style="background:rgba(34,255,204,.08);border-color:var(--in);color:var(--in);">▦ Sell-Through Rate</button>
+        <div class="vtog">
+          <button class="vb on" id="iv-table" onclick="setIV('table')">Table</button>
+          <button class="vb" id="iv-cards" onclick="setIV('cards')">Cards</button>
+        </div>
+      </div>
+    </div>
+    <div class="scroll">
+      <!-- Sticky Product Info Bar -->
+      <div class="sticky-product-bar" id="stickyProductBar">
+        <div class="spb-name" id="spbName">—</div>
+        <div class="spb-sku" id="spbSku">—</div>
+        <button class="spb-close" onclick="closeStickyBar()">✕</button>
+      </div>
+      <div id="invSummary"></div>
+      <div class="krow k5" id="invKpis"></div>
+      <div class="crow c3">
+        <div class="ch">
+          <div class="cht">Stock Status</div>
+          <div class="chw h160"><canvas id="invDonut"></canvas></div>
+        </div>
+        <div class="ch">
+          <div class="cht">Size Coverage</div>
+          <div class="chw h160"><canvas id="invSzBar"></canvas></div>
+        </div>
+        <div class="ch">
+          <div class="cht">By Category</div>
+          <div class="cbars" id="invCatBars" style="padding-top:4px;"></div>
+        </div>
+      </div>
+      <div id="invView"></div>
+
+      <!-- ===== SELL-THROUGH RATE SECTION ===== -->
+      <div id="strSection" style="display:none;">
+        <!-- STR config panel removed — fetchSTRSnapshot() runs automatically as
+             part of fetchAll() and reads dates from the master picker. Hidden
+             stubs preserve IDs that fetch / init code reads & writes. -->
+        <div id="strCpanel" style="display:none;" aria-hidden="true">
+          <input id="strSbUrl" type="hidden" />
+          <input id="strSbKey" type="hidden" />
+          <input id="strSnapshotDate" type="hidden" />
+          <span id="strStatus"></span>
+          <div id="strMsg"></div>
+        </div>
+        <!-- STR KPIs + table -->
+        <div class="krow k4" id="strKpis" style="margin-top:10px;"></div>
+        <div id="strView" style="margin-top:8px;"></div>
+        <div id="strEmpty"
+          style="text-align:center;color:var(--mu2);padding:40px;font-family:'JetBrains Mono',monospace;font-size:.7rem;">
+          📅 Pick a date range — single day fetches that day's snapshot; a multi-day range averages per-product stock across the days that have data.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== TRAFFIC PAGE ===== -->
+  <div class="page" id="page-traf">
+    <div class="cpanel hidden" id="trafCpanel">
+      <!-- Row 1: header -->
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span
+          style="font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--traf);text-transform:uppercase;letter-spacing:.08em;">Traffic
+          Data Source</span>
+        <button class="ibtn" onclick="toggleEl('trafCpanel')" style="margin-left:auto;">✕</button>
+      </div>
+      <!-- Row 2: Shopify fetch -->
+      <div
+        style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;padding:8px 0 4px;border-top:1px solid var(--bd);">
+        <div
+          style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--traf);text-transform:uppercase;letter-spacing:.08em;flex-shrink:0;align-self:center;">
+          🔗 Fetch from Shopify</div>
+        <div class="cp-field" style="flex:2;min-width:220px;">
+          <div class="cp-lbl">Vercel API URL</div>
+          <input class="cp-inp" id="shopifyBackendUrl" placeholder="https://your-project.vercel.app" />
+        </div>
+        <div class="cp-field" style="flex:0 0 140px;">
+          <div class="cp-lbl">Date</div>
+          <input class="cp-inp" type="date" id="shopifyFetchDate" />
+        </div>
+        <button class="ibtn acc" onclick="fetchShopifyTraffic()" style="flex-shrink:0;">Fetch →</button>
+        <span class="shopify-status" id="shopifyFetchStatus">Not connected</span>
+      </div>
+      <div id="shopifyFetchMsg"
+        style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--mu2);min-height:14px;padding-bottom:2px;">
+      </div>
+      <!-- Row 3: File upload -->
+      <div style="border-top:1px solid var(--bd);padding-top:8px;">
+        <div
+          style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--mu2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;">
+          📂 Or Upload Traffic File</div>
+        <div class="dropzone" id="dropZone" onclick="document.getElementById('fileInp').click()"
+          ondragover="dOver(event)" ondragleave="dLeave(event)" ondrop="dDrop(event)">
+          <div class="dz-icon">📊</div>
+          <div class="dz-title">Drop CSV or Excel here</div>
+          <div class="dz-sub">Shopify Analytics export</div>
+          <div class="dz-hint">Required cols: Landing page type · Landing page path · Online store visitors · Sessions ·
+            Cart additions · Checkout · ATC rate</div>
+        </div>
+        <input type="file" id="fileInp" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleUpload(event)" />
+        <div id="upStatus"
+          style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--mu2);margin-top:5px;"></div>
+      </div>
+    </div>
+    <div class="toolbar" style="padding:0;">
+      <!-- Single row: filters + search + sort + view toggle -->
+      <div
+        style="display:flex;align-items:center;gap:8px;padding:8px 20px;flex-wrap:wrap;">
+        <div class="tg"><span class="tb-lbl">Filter</span>
+          <select class="filter-select" id="tfSelect" onchange="setTF(this.value)">
+            <option value="all">All</option>
+            <option value="leak">Leakage</option>
+            <option value="htraffic">High Traffic</option>
+            <option value="hatc">High ATC</option>
+          </select>
+        </div>
+        <div class="tg"><span class="tb-lbl">Page</span>
+          <select class="filter-select" id="tptSelect" onchange="setTPT(this.value)">
+            <option value="all">All</option>
+            <option value="pdp">PDP</option>
+            <option value="collection">Collection</option>
+            <option value="home">Home</option>
+          </select>
+        </div>
+        <div class="tg"><span class="tb-lbl">Lifecycle</span>
+          <select class="filter-select" id="tlcSelect" onchange="setTLC(this.value)">
+            <option value="all">All</option>
+            <option value="npd">🌱 NPD</option>
+            <option value="active">Active</option>
+            <option value="discontinued">Disc.</option>
+          </select>
+        </div>
+        <input class="srch" id="trafSrch" placeholder="Search products…" oninput="renderTraf()"
+          style="flex:1;min-width:140px;max-width:220px;" />
+        <div class="tg"><span class="tb-lbl">Sort</span>
+          <select class="sel" id="trafSort" onchange="renderTraf()">
+            <option value="visitors">Visitors ↓</option>
+            <option value="cartAdds">Cart Adds ↓</option>
+            <option value="atcPct">ATC Rate ↓</option>
+            <option value="pctVisitors">Traffic Δ ↓</option>
+          </select>
+        </div>
+        <div style="flex:1;"></div>
+        <div class="vtog">
+          <button class="vb on" id="tv-table" onclick="setTV('table')">Table</button>
+          <button class="vb" id="tv-cards" onclick="setTV('cards')">Cards</button>
+        </div>
+      </div>
+    </div>
+    <div class="scroll">
+      <div class="krow k6" id="trafKpis"></div>
+      <div id="pageTypeCards" style="display:none;"></div>
+
+      <!-- Analytics toggle -->
+      <div class="analytics-toggle" onclick="toggleAnalytics()">
+        <span class="at-icon" id="analyticsIcon">▶</span>
+        <span class="at-label" id="analyticsLabel">✱ Show Analytics</span>
+        <div style="flex:1;height:1px;background:var(--bd2);margin-left:4px;"></div>
+      </div>
+
+      <div id="analyticsSection" style="display:none;">
+        <div class="crow c3">
+          <div class="ch">
+            <div class="cht">Conversion Funnel</div>
+            <div class="fn" id="fnViz"></div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--out);margin-top:6px;"
+              id="fnNote"></div>
+          </div>
+          <div class="ch">
+            <div class="cht">Top 10 Traffic</div>
+            <div class="chw h180"><canvas id="trafTop"></canvas></div>
+          </div>
+          <div class="ch">
+            <div class="cht">Top 10 ATC Rate</div>
+            <div class="chw h180"><canvas id="atcTop"></canvas></div>
+          </div>
+        </div>
+        <div class="crow c2">
+          <div class="ch">
+            <div class="cht">Stock Exposure — Visitor Distribution</div>
+            <div id="stockExposureViz" style="padding:6px 0;"></div>
+          </div>
+        </div>
+        <div class="crow c2">
+          <div class="ch">
+            <div class="cht">PDP vs Collection vs Home — Sessions</div>
+            <div class="chw h180"><canvas id="pageTypeCompare"></canvas></div>
+          </div>
+          <div class="ch">
+            <div class="cht">PDP vs Collection vs Home — Visitors</div>
+            <div class="chw h180"><canvas id="pageTypeVisitors"></canvas></div>
+          </div>
+        </div>
+
+      </div><!-- /analyticsSection -->
+
+      <!-- ── Collection Pages Section ── -->
+      <div id="collectionSection" style="display:none;">
+        <div class="sec-hdr" style="margin-top:4px;">
+          <div class="sec-title">Collection Pages</div>
+          <span class="sec-meta" id="collCount">—</span>
+        </div>
+        <div class="crow c2">
+          <div class="ch">
+            <div class="cht">Top Collection Pages — Sessions</div>
+            <div class="chw h180"><canvas id="collTopChart"></canvas></div>
+          </div>
+          <div class="ch">
+            <div class="cht">Top Collection Pages — ATC Rate</div>
+            <div class="chw h180"><canvas id="collAtcChart"></canvas></div>
+          </div>
+        </div>
+        <div id="collView"></div>
+      </div>
+
+      <!-- ── Home Page Section ── -->
+      <div id="homeSection" style="display:none;">
+        <div class="sec-hdr" style="margin-top:4px;">
+          <div class="sec-title">Home Page</div>
+          <span class="sec-meta" id="homePageCount">—</span>
+        </div>
+        <div id="homePageView"></div>
+      </div>
+
+      <!-- ── PDP Product Table ── -->
+      <div id="pdpSection">
+        <div class="sec-hdr" style="margin-top:4px;">
+          <div class="sec-title">Product Pages (PDP)</div>
+          <span class="sec-meta" id="pdpCount">—</span>
+        </div>
+        <div id="trafView"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== AD INTELLIGENCE PAGE ===== -->
+  <div class="page" id="page-ads">
+    <!-- Supabase Connection Panel -->
+    <!-- Supabase Ads config panel removed — fetchSupabaseAds() is fired by
+         fetchAll() and reads dates directly from #masterSince / #masterUntil.
+         Hidden stubs preserve IDs that fetch / init code reads & writes. -->
+    <div id="metaAdsCpanel" style="display:none;" aria-hidden="true">
+      <input id="sbUrl" type="hidden" />
+      <input id="sbKey" type="hidden" />
+      <span id="metaAdsStatus"></span>
+      <div id="metaAdsMsg"></div>
+    </div>
+    <div class="toolbar" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <input class="srch" id="adSrch" placeholder="Search ad or product…" oninput="renderAds()"
+        style="min-width:160px;max-width:260px;" />
+      <div class="tg"><span class="tb-lbl">Sort</span>
+        <select class="filter-select" id="adSort" onchange="renderAds()">
+          <option value="spend">Spend ↓</option>
+          <option value="impressions">Impressions ↓</option>
+          <option value="roas">ROAS ↓</option>
+          <option value="hook">Hook Rate ↓</option>
+          <option value="ctr">CTR ↓</option>
+        </select>
+      </div>
+      <div style="flex:1;"></div>
+      <button class="ibtn" onclick="openAdDefinitionPopup()"
+        style="background:rgba(212,180,131,.10);border-color:var(--sand);color:var(--sand);">◈ Definitions</button>
+    </div>
+
+    <!-- Ad Intelligence Definition Popup -->
+    <div id="adDefOverlay"
+      style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);"
+      onclick="if(event.target===this)closeAdDefinitionPopup()">
+      <div
+        style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(580px,92vw);max-height:85vh;overflow-y:auto;background:var(--sf);border:1px solid var(--bd2);border-radius:10px;padding:28px 26px 22px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+          <div
+            style="font-family:'Space Grotesk',sans-serif;font-size:1.15rem;font-weight:600;color:var(--sand);letter-spacing:.5px;">
+            ◈ Ad Intelligence — Definitions</div>
+          <button onclick="closeAdDefinitionPopup()"
+            style="background:none;border:none;color:var(--mu2);font-size:1.1rem;cursor:pointer;">✕</button>
+        </div>
+
+        <!-- Thresholds Section -->
+        <div
+          style="background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:16px 18px;margin-bottom:16px;">
+          <div
+            style="font-family:'JetBrains Mono',monospace;font-size:.7rem;font-weight:600;color:var(--tx);margin-bottom:10px;">
+            FILTER THRESHOLDS</div>
+          <div style="display:flex;gap:16px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:140px;">
+              <label
+                style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--mu2);display:block;margin-bottom:4px;">TARGET
+                IMPRESSIONS</label>
+              <input type="number" id="adDefTargetImp" value="50000"
+                style="width:100%;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--tx);background:var(--bg);border:1px solid var(--bd2);border-radius:5px;padding:6px 10px;" />
+              <div style="font-family:'JetBrains Mono',monospace;font-size:.48rem;color:var(--mu2);margin-top:3px;">Min
+                impressions for an ad to be evaluated</div>
+            </div>
+            <div style="flex:1;min-width:140px;">
+              <label
+                style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--mu2);display:block;margin-bottom:4px;">TARGET
+                ROAS</label>
+              <input type="number" id="adDefTargetRoas" value="3.0" step="0.1"
+                style="width:100%;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--tx);background:var(--bg);border:1px solid var(--bd2);border-radius:5px;padding:6px 10px;" />
+              <div style="font-family:'JetBrains Mono',monospace;font-size:.48rem;color:var(--mu2);margin-top:3px;">ROAS
+                ≥ this value = Winner (green)</div>
+            </div>
+          </div>
+          <button onclick="applyAdDefThresholds()" class="ibtn acc" style="margin-top:12px;font-size:.6rem;">Apply &
+            Refresh →</button>
+        </div>
+
+        <!-- Ad Matching Algorithm -->
+        <div
+          style="background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:16px 18px;margin-bottom:16px;">
+          <div
+            style="font-family:'JetBrains Mono',monospace;font-size:.7rem;font-weight:600;color:var(--tx);margin-bottom:8px;">
+            AD ↔ ORDER MATCHING ALGORITHM</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--mu);line-height:1.7;">
+            <span style="color:var(--sand);font-weight:600;">Step 1 — Build UTM Map from Orders:</span><br>
+            For each Shopify order, extract <code style="color:#4ade80;">utm_content</code> from customAttributes. Group
+            orders by utm_content to build a lookup of {utm_content → orders, revenue, products}.<br><br>
+            <span style="color:var(--sand);font-weight:600;">Step 2 — Match Meta Ad Name → utm_content:</span><br>
+            For each Meta ad, try to match its <code style="color:#4ade80;">Ad Name</code> against the utm_content map
+            using: ① Exact match, ② URL-decoded match, ③ Partial/substring match.<br><br>
+            <span style="color:var(--sand);font-weight:600;">Step 3 — Compute ROAS:</span><br>
+            <code style="color:#4ade80;">ROAS = Matched Revenue ÷ Ad Spend</code><br>
+            Revenue comes from the sum of order totals (net of refunds/discounts) where utm_content matched the ad name.
+          </div>
+        </div>
+
+        <!-- ROAS Classification -->
+        <div
+          style="background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:16px 18px;margin-bottom:16px;">
+          <div
+            style="font-family:'JetBrains Mono',monospace;font-size:.7rem;font-weight:600;color:var(--tx);margin-bottom:8px;">
+            ROAS COLOR CLASSIFICATION</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--mu);line-height:1.9;">
+            <span
+              style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#4ade80;vertical-align:middle;margin-right:6px;"></span>
+            <span style="color:#4ade80;font-weight:600;">Winner</span> — ROAS ≥ <span id="adDefRoasLabel1">3.0</span>x
+            (profitable, scale up)<br>
+            <span
+              style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--low);vertical-align:middle;margin-right:6px;"></span>
+            <span style="color:var(--low);font-weight:600;">Breakeven</span> — ROAS ≥ 1.0x but below target (covers
+            cost, needs optimization)<br>
+            <span
+              style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--out);vertical-align:middle;margin-right:6px;"></span>
+            <span style="color:var(--out);font-weight:600;">Losing</span> — ROAS < 1.0x (spending more than earning,
+              pause or rework)<br>
+              <span
+                style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--mu2);vertical-align:middle;margin-right:6px;"></span>
+              <span style="color:var(--mu2);font-weight:600;">No Data</span> — No matched orders yet (new ad or UTM
+              mismatch)
+          </div>
+        </div>
+
+        <!-- Product Matching -->
+        <div style="background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:16px 18px;">
+          <div
+            style="font-family:'JetBrains Mono',monospace;font-size:.7rem;font-weight:600;color:var(--tx);margin-bottom:8px;">
+            PRODUCT DETECTION</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--mu);line-height:1.7;">
+            <span style="color:var(--sand);font-weight:600;">Primary:</span> From matched orders → most purchased
+            product in those orders.<br>
+            <span style="color:var(--sand);font-weight:600;">Fallback:</span> If no order match, scan the Ad Name for
+            known product names or slugs from the catalog (~250 products).
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="scroll" id="adsScroll">
+      <div class="krow k6" id="adKpis"></div>
+      <div id="adView"></div>
+      <div
+        style="text-align:center;color:var(--mu2);padding:40px;font-family:'JetBrains Mono',monospace;font-size:.7rem;"
+        id="adsEmpty">
+        Click ⚙ Supabase Config → enter your Supabase URL + key → Fetch Ads
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ===== SALES PAGE ===== -->
+  <div class="page" id="page-sales">
+    <div class="toolbar" style="flex-direction:column;align-items:stretch;gap:0;padding:0;">
+      <!-- Row 1: Collapsible filter panel (hidden until Filters button is clicked) -->
+      <div id="salesFiltersPanel"
+        style="display:none;align-items:center;gap:6px;padding:10px 20px;flex-wrap:wrap;border-bottom:1px solid var(--bd2);background:var(--bg-surface);">
+        <div class="tg"><span class="tb-lbl">Quick</span>
+          <select class="filter-select" id="sfSelect" onchange="setSF(this.value);refreshSalesFiltersBadge();">
+            <option value="all">All</option>
+            <option value="top">Top 20</option>
+            <option value="disc">High Discount</option>
+            <option value="ret">High Returns</option>
+          </select>
+        </div>
+        <div class="tg"><span class="tb-lbl">Day</span>
+          <select class="filter-select" id="salesDaySelect" onchange="setSalesDim('day', this.value);refreshSalesFiltersBadge();">
+            <option value="all">All Days</option>
+          </select>
+        </div>
+        <div class="tg"><span class="tb-lbl">Product Type</span>
+          <select class="filter-select" id="salesPTSelect" onchange="setSalesDim('product_type', this.value);refreshSalesFiltersBadge();">
+            <option value="all">All Types</option>
+          </select>
+        </div>
+        <div class="tg"><span class="tb-lbl">UTM Source</span>
+          <select class="filter-select" id="salesUtmSrcSelect" onchange="setSalesDim('utm_source', this.value);refreshSalesFiltersBadge();">
+            <option value="all">All Sources</option>
+          </select>
+        </div>
+        <div class="tg"><span class="tb-lbl">UTM Medium</span>
+          <select class="filter-select" id="salesUtmMedSelect" onchange="setSalesDim('utm_medium', this.value);refreshSalesFiltersBadge();">
+            <option value="all">All Mediums</option>
+          </select>
+        </div>
+        <div class="tg"><span class="tb-lbl">UTM Campaign</span>
+          <select class="filter-select" id="salesUtmCampSelect" onchange="setSalesDim('utm_campaign', this.value);refreshSalesFiltersBadge();">
+            <option value="all">All Campaigns</option>
+          </select>
+        </div>
+        <div class="tg"><span class="tb-lbl">Customer</span>
+          <select class="filter-select" id="salesCustSelect" onchange="setSalesDim('new_or_returning_customer', this.value);refreshSalesFiltersBadge();">
+            <option value="all">All</option>
+            <option value="new">New</option>
+            <option value="returning">Returning</option>
+          </select>
+        </div>
+        <div style="flex:1;"></div>
+        <button class="ibtn" onclick="resetSalesFilters();refreshSalesFiltersBadge();"
+          style="font-size:.62rem;letter-spacing:.04em;color:var(--mu2);" title="Clear all filters">↺ Reset</button>
+      </div>
+      <!-- Row 2: Filters toggle, Search, Group-by, View -->
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 20px;flex-wrap:wrap;">
+        <button class="ibtn" id="salesFiltersBtn" onclick="toggleSalesFilters()"
+          title="Show / hide filter dropdowns"
+          style="display:inline-flex;align-items:center;gap:6px;font-size:.7rem;letter-spacing:.02em;font-weight:500;">
+          <span style="font-size:.85rem;line-height:1;">⛃</span>
+          <span>Filters</span>
+          <span id="salesFiltersBadge"
+            style="display:none;background:var(--cta);color:var(--txt);font-family:'JetBrains Mono',monospace;font-size:.55rem;font-weight:600;padding:1px 6px;border-radius:8px;line-height:1.3;letter-spacing:.02em;">0</span>
+          <span id="salesFiltersCaret" style="font-size:.55rem;color:var(--mu2);margin-left:2px;">▾</span>
+        </button>
+        <input class="srch" id="salesSrch" placeholder="Search product…" oninput="renderSales()"
+          style="flex:1;min-width:140px;max-width:220px;" />
+        <div class="tg"><span class="tb-lbl">Group By</span>
+          <select class="filter-select" id="salesGroupSelect" onchange="setSalesGroup(this.value)" title="Aggregate rows by dimension">
+            <option value="product_title">Product</option>
+            <option value="product_type">Product Type</option>
+            <option value="day">Day</option>
+            <option value="utm_source">UTM Source</option>
+            <option value="utm_medium">UTM Medium</option>
+            <option value="utm_campaign">UTM Campaign</option>
+            <option value="new_or_returning_customer">Customer Type</option>
+            <option value="raw">— Raw rows (no grouping) —</option>
+          </select>
+        </div>
+        <div class="tg"><span class="tb-lbl">Sort</span>
+          <select class="sel" id="salesSort" onchange="renderSales()">
+            <option value="total_sales">Total Sales ↓</option>
+            <option value="gross_sales">Gross Sales ↓</option>
+            <option value="units">Units/Orders ↓</option>
+            <option value="discounts">Discounts ↓</option>
+            <option value="returns">Returns ↓</option>
+          </select>
+        </div>
+        <span class="sec-meta" id="salesRowMeta" style="font-size:.6rem;color:var(--mu2);"></span>
+        <div style="flex:1;"></div>
+        <div class="vtog">
+          <button class="vb on" id="sv-table" onclick="setSalesView('table')">Table</button>
+          <button class="vb" id="sv-cards" onclick="setSalesView('cards')">Cards</button>
+        </div>
+      </div>
+    </div>
+    <div class="scroll" id="salesScroll">
+      <div class="krow k5" id="salesKpis"></div>
+      <div class="crow c2" style="margin-bottom:14px;">
+        <div class="ch">
+          <div class="cht">Top 15 — Total Sales ₹</div>
+          <div class="chw h200"><canvas id="salesTotBar"></canvas></div>
+        </div>
+        <div class="ch">
+          <div class="cht">Discounts vs Returns (Top 15)</div>
+          <div class="chw h200"><canvas id="salesDiscRetBar"></canvas></div>
+        </div>
+      </div>
+      <div id="salesView"></div>
+      <div id="salesCardsView" class="cards-grid" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- ===== ORDERS PAGE ===== -->
+  <div class="page" id="page-orders">
+    <div class="toolbar" style="flex-direction:column;align-items:stretch;gap:0;padding:0;">
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 20px;flex-wrap:wrap;">
+        <div class="tg"><span class="tb-lbl">Status</span>
+          <select class="filter-select" id="ordStatusSelect" onchange="setOrdStatus(this.value)">
+            <option value="all">All</option>
+            <option value="PAID">Paid</option>
+            <option value="PENDING">Pending</option>
+            <option value="REFUNDED">Refunded</option>
+            <option value="PARTIALLY_REFUNDED">Partial Refund</option>
+            <option value="VOIDED">Voided</option>
+          </select>
+        </div>
+        <div class="tg"><span class="tb-lbl">Fulfillment</span>
+          <select class="filter-select" id="ordFulfillSelect" onchange="setOrdFulfill(this.value)">
+            <option value="all">All</option>
+            <option value="UNFULFILLED">Unfulfilled</option>
+            <option value="FULFILLED">Fulfilled</option>
+            <option value="PARTIALLY_FULFILLED">Partial</option>
+          </select>
+        </div>
+        <div class="tg"><span class="tb-lbl">Product Tag</span>
+          <select class="filter-select" id="ordProductTagSelect" onchange="setOrdProductTag(this.value)">
+            <option value="all">All Tags</option>
+          </select>
+        </div>
+        <div class="tg"><span class="tb-lbl">Mode</span>
+          <div class="vtog">
+            <button class="vb on" id="om-name" onclick="setOrdMode('name')">Name</button>
+            <button class="vb" id="om-sku" onclick="setOrdMode('sku')">SKU</button>
+          </div>
+        </div>
+        <input class="srch" id="ordersSrch" placeholder="Search order, customer, product…" oninput="renderOrders()"
+          style="flex:1;min-width:140px;max-width:260px;" />
+        <div class="tg" style="position:relative;">
+          <span class="tb-lbl">Exclude Tags</span>
+          <button type="button" class="filter-select" id="ordExcludeTagsBtn" onclick="toggleOrdExcludeTagsMenu(event)"
+            style="text-align:left;min-width:170px;cursor:pointer;display:inline-flex;align-items:center;justify-content:space-between;gap:6px;">
+            <span id="ordExcludeTagsLabel">3 excluded</span>
+            <span style="opacity:.6;">▾</span>
+          </button>
+          <div id="ordExcludeTagsMenu"
+            style="display:none;position:fixed;z-index:9999;background:var(--s1);border:1px solid var(--bd2);border-radius:6px;min-width:260px;max-height:340px;overflow-y:auto;box-shadow:0 6px 24px rgba(0,0,0,.55);padding:6px 0;font-family:'JetBrains Mono',monospace;font-size:.68rem;">
+          </div>
+        </div>
+        <div style="flex:1;"></div>
+        <span class="sec-meta" id="ordersAutoLabel" style="font-size:.6rem;color:var(--mu2);"></span>
+        <div class="vtog">
+          <button class="vb on" id="ov-table" onclick="setOrdersView('table')">Table</button>
+          <button class="vb" id="ov-cards" onclick="setOrdersView('cards')">Cards</button>
+        </div>
+      </div>
+    </div>
+    <div class="scroll" id="ordersScroll">
+      <div class="krow" id="ordersKpis"
+        style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;padding:10px 16px;"></div>
+      <div id="ordersView"></div>
+      <div id="ordersCardsView" class="cards-grid" style="display:none;"></div>
+      <div
+        style="text-align:center;color:var(--mu2);padding:40px;font-family:'JetBrains Mono',monospace;font-size:.7rem;"
+        id="ordersEmpty">
+        No orders loaded yet. Use the master date picker → Fetch in the navbar.
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== UTM ANALYSIS PAGE ===== -->
+  <div class="page" id="page-utm">
+    <div class="toolbar" style="flex-direction:column;align-items:stretch;gap:0;padding:0;">
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 20px;flex-wrap:wrap;">
+        <input class="srch" id="utmSrch" placeholder="Search landing page or ad…" oninput="renderUtmAnalysis()"
+          style="flex:1;min-width:160px;max-width:280px;" />
+        <div class="tg"><span class="tb-lbl">Sort</span>
+          <select class="filter-select" id="utmSortSelect" onchange="renderUtmAnalysis()">
+            <option value="lastTotal">Sales ↓</option>
+            <option value="firstSessions">Sessions ↓</option>
+            <option value="firstAtc">ATC% ↓</option>
+            <option value="lastUnits">Units Sold ↓</option>
+            <option value="pageOrders">Orders ↓</option>
+            <option value="pageRevenue">Revenue ↓</option>
+            <option value="alpha">Name (A→Z)</option>
+          </select>
+        </div>
+        <div class="tg" id="utmShowWrap" style="display:none;"><span class="tb-lbl">Show</span>
+          <select class="filter-select" id="utmShowSelect" onchange="renderUtmAnalysis()">
+            <option value="both">First & Last Click</option>
+            <option value="onlyMatched">Only products with both</option>
+            <option value="firstOnly">First-click only (no sales)</option>
+            <option value="lastOnly">Last-click only (no traffic)</option>
+          </select>
+        </div>
+        <div style="flex:1;"></div>
+        <span class="sec-meta" id="utmRowMeta" style="font-size:.6rem;color:var(--mu2);"></span>
+      </div>
+    </div>
+    <div class="scroll" id="utmScroll">
+      <div class="krow" id="utmKpis"
+        style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;padding:10px 16px;"></div>
+      <div class="crow c2" style="margin-bottom:14px;">
+        <div class="ch">
+          <div class="cht">First-Click Sources (sessions)</div>
+          <div class="chw h220"><canvas id="utmFirstSourceBar"></canvas></div>
+        </div>
+        <div class="ch">
+          <div class="cht">Last-Click Sources (total sales ₹)</div>
+          <div class="chw h220"><canvas id="utmLastSourceBar"></canvas></div>
+        </div>
+      </div>
+      <div id="utmView"></div>
+      <div
+        style="text-align:center;color:var(--mu2);padding:40px;font-family:'JetBrains Mono',monospace;font-size:.7rem;"
+        id="utmEmpty">
+        Fetch Traffic + Sales from the navbar to see first-click vs last-click attribution.
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SETTINGS PAGE ===== -->
+  <div class="page" id="page-settings">
+    <div class="toolbar" style="flex-direction:column;align-items:stretch;gap:0;padding:0;">
+      <!-- Row 1: filters (mirrors Inventory/Overview) -->
+      <div style="display:flex;align-items:center;gap:6px;padding:8px 20px;flex-wrap:wrap;border-bottom:1px solid var(--bd2);">
+        <div class="tg"><span class="tb-lbl">Stock</span>
+          <select class="filter-select" id="setStockSelect" onchange="setSettingsFilter('stock', this.value)">
+            <option value="all">All</option>
+            <option value="in_stock">In Stock</option>
+            <option value="broken_stock">Low / Broken</option>
+            <option value="out_of_stock">OOS</option>
+            <option value="unknown">Unknown</option>
+          </select>
+        </div>
+        <div class="tg"><span class="tb-lbl">Lifecycle</span>
+          <select class="filter-select" id="setLcSelect" onchange="setSettingsFilter('lifecycle', this.value)">
+            <option value="all">All</option>
+            <option value="npd">NPD (≤45d)</option>
+            <option value="active">Active</option>
+            <option value="discontinued">Discontinued</option>
+          </select>
+        </div>
+        <div class="tg"><span class="tb-lbl">Status</span>
+          <select class="filter-select" id="setStatusSelect" onchange="setSettingsFilter('status', this.value)">
+            <option value="all">All</option>
+            <option value="ACTIVE">Shopify Active</option>
+            <option value="DRAFT">Shopify Draft</option>
+          </select>
+        </div>
+        <div class="tg"><span class="tb-lbl">Category</span>
+          <select class="filter-select" id="setCatSelect" onchange="setSettingsFilter('category', this.value)">
+            <option value="all">All Categories</option>
+          </select>
+        </div>
+        <div class="tg"><span class="tb-lbl">Tag</span>
+          <select class="filter-select" id="setTagSelect" onchange="setSettingsFilter('tag', this.value)">
+            <option value="all">All Tags</option>
+          </select>
+        </div>
+        <div class="tg"><span class="tb-lbl">Type</span>
+          <select class="filter-select" id="setTypeSelect" onchange="setSettingsFilter('type', this.value)">
+            <option value="all">All Types</option>
+          </select>
+        </div>
+        <div class="tg"><span class="tb-lbl">Toggle</span>
+          <select class="filter-select" id="setToggleSelect" onchange="setSettingsFilter('toggle', this.value)">
+            <option value="all">All</option>
+            <option value="active">Active only</option>
+            <option value="inactive">Inactive only</option>
+          </select>
+        </div>
+        <button class="ibtn" onclick="resetSettingsFilters()" style="margin-left:auto;font-size:.6rem;" title="Clear filters">✕ Clear</button>
+      </div>
+      <!-- Row 2: search + bulk actions -->
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 20px;flex-wrap:wrap;">
+        <input class="srch" id="setSrch" placeholder="Search by name or SKU…" oninput="renderSettings()"
+          style="flex:1;min-width:200px;max-width:340px;" />
+        <span class="sec-meta" id="setMeta" style="font-size:.6rem;color:var(--mu2);"></span>
+        <div style="flex:1;"></div>
+        <button class="ibtn" onclick="bulkSetUserDisabled(false)" style="font-size:.6rem;">Enable all in view</button>
+        <button class="ibtn" onclick="bulkSetUserDisabled(true)" style="font-size:.6rem;color:var(--out);">Disable all in view</button>
+      </div>
+    </div>
+    <div class="scroll" id="setScroll">
+      <div class="krow" id="setKpis"
+        style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;padding:10px 16px;"></div>
+      <div id="setView"></div>
+      <div style="text-align:center;color:var(--mu2);padding:40px;font-family:'JetBrains Mono',monospace;font-size:.7rem;"
+        id="setEmpty">
+        No products loaded yet. Fetch inventory from the navbar.
+      </div>
+    </div>
+  </div>
+
+  <!-- DETAIL PANEL -->
+  <div class="detail" id="detailPanel">
+    <div class="dhdr">
+      <div>
+        <div class="dtitle" id="dtitle">—</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--mu2);margin-top:3px;" id="dsub">
+        </div>
+      </div>
+      <button class="dclose" onclick="closeDetail()">✕</button>
+    </div>
+    <div class="dbody" id="dbody"></div>
+  </div>
+  </div><!-- /.app-main -->
+
+
+  <!-- Product Detail Modal Overlay -->
+  <div id="productDetailOverlay"
+    style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:9999;justify-content:center;align-items:center;padding:20px;"
+    onclick="if(event.target===this)closeProductDetail()"></div>
+
+  <script src="js/app.js"></script>
+
+</body>
+
+</html> 
