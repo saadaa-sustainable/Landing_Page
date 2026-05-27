@@ -987,9 +987,12 @@
       else if (homLC === 'active') rows = rows.filter(r => r._lifecycle === 'active');
       else if (homLC === 'draft') rows = rows.filter(r => r._lifecycle === 'draft');
       else if (homLC === 'discontinued') rows = rows.filter(r => r._lifecycle === 'discontinued');
-      // Stock filter
+      // Stock filter — 'low' covers BOTH low_stock and broken_stock to match
+      // the "Low / Broken" KPI card's combined count (line 939). Without this
+      // the card shows e.g. 197 items, clicks through, and only the low_stock
+      // subset renders — broken_stock items silently disappear.
       if (homF === 'in') rows = rows.filter(r => r.stockStatus === 'in_stock');
-      else if (homF === 'low') rows = rows.filter(r => r.stockStatus === 'low_stock');
+      else if (homF === 'low') rows = rows.filter(r => ['low_stock', 'broken_stock'].includes(r.stockStatus));
       else if (homF === 'out') rows = rows.filter(r => r.stockStatus === 'out_of_stock');
       else if (homF === 'leak') rows = rows.filter(r => r.isAdLeak);
       // Category filter
@@ -1203,7 +1206,9 @@
         if (homLC === 'draft' && r._lifecycle !== 'draft') return false;
         if (homLC === 'discontinued' && r._lifecycle !== 'discontinued') return false;
         if (homF === 'in' && r.stockStatus !== 'in_stock') return false;
-        if (homF === 'low' && r.stockStatus !== 'low_stock') return false;
+        // 'low' covers BOTH low_stock and broken_stock — matches the
+        // combined count shown on the "Low / Broken" KPI card.
+        if (homF === 'low' && !['low_stock', 'broken_stock'].includes(r.stockStatus)) return false;
         if (homF === 'out' && r.stockStatus !== 'out_of_stock') return false;
         if (homF === 'leak' && !r.isAdLeak) return false;
         if (homCat !== 'all' && (r.category || '').trim() !== homCat) return false;
