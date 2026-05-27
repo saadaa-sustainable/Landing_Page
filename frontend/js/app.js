@@ -520,21 +520,32 @@
     // on data load (they call .innerHTML = …, which can reset the value).
     document.addEventListener('DOMContentLoaded', refreshInvFiltersBadge);
 
-    // ── Sidebar collapse toggle (hamburger top-left) ──
-    // Hides the brand text + nav-text leaving just the icon column. State
-    // persists to localStorage so a refresh doesn't undo the user's choice.
+    // ── Sidebar: hover-to-expand with optional pin-open ──
+    // Default state is the 76px icon column. Mouse-enter expands smoothly
+    // to 250px; mouse-leave collapses back. The hamburger button toggles
+    // a `.pinned` class on .nav which locks it open regardless of hover.
+    // localStorage remembers the pinned state across reloads.
     function toggleSidebar() {
       const nav = document.getElementById('navSidebar');
       if (!nav) return;
-      const next = !nav.classList.contains('collapsed');
-      nav.classList.toggle('collapsed', next);
-      try { localStorage.setItem('ops_nav_collapsed', next ? '1' : '0'); } catch (e) {}
+      const next = !nav.classList.contains('pinned');
+      nav.classList.toggle('pinned', next);
+      // Remove the legacy `.collapsed` class — pinning is the only
+      // override now, hover handles the rest.
+      nav.classList.remove('collapsed');
+      try { localStorage.setItem('ops_nav_pinned', next ? '1' : '0'); } catch (e) {}
     }
     (function _restoreNavState() {
       try {
-        if (localStorage.getItem('ops_nav_collapsed') === '1') {
-          const nav = document.getElementById('navSidebar');
-          if (nav) nav.classList.add('collapsed');
+        const nav = document.getElementById('navSidebar');
+        if (!nav) return;
+        // Migration: previous version stored `ops_nav_collapsed`. Drop it
+        // — the new model has only one bit of state (pinned or not).
+        if (localStorage.getItem('ops_nav_collapsed') !== null) {
+          localStorage.removeItem('ops_nav_collapsed');
+        }
+        if (localStorage.getItem('ops_nav_pinned') === '1') {
+          nav.classList.add('pinned');
         }
       } catch (e) {}
     })();

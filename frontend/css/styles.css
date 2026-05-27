@@ -173,15 +173,15 @@
     }
 
     /* ── SIDEBAR — coffee/taupe surface (#5C4033) per user spec.
-       A more neutral dark brown than the previous burnt-umber. Reads
-       like espresso / leather rather than terracotta. Light cream text
-       and pale-yellow active state carry over unchanged. ── */
+       Hover-to-expand: default is the 76px icon column, mouse-enter
+       smoothly expands to 250px, mouse-leave collapses back. The
+       .pinned class (toggled by the hamburger button) locks it open
+       regardless of hover. ── */
     .nav {
       flex-shrink: 0;
-      width: 250px;
+      width: 76px;
       display: flex;
       flex-direction: column;
-      /* layered: warm top-left bloom + vertical gradient between taupes */
       background:
         radial-gradient(circle at 18% 0%, rgba(232, 200, 160, .08) 0%, transparent 55%),
         linear-gradient(180deg, #6B4D40 0%, #5C4033 42%, #4A3329 100%);
@@ -189,6 +189,16 @@
       border-right: 1px solid rgba(0, 0, 0, .35);
       box-shadow: 3px 0 18px rgba(30, 20, 14, .22);
       height: 100%;
+      transition: width 0.22s cubic-bezier(.2, .7, .2, 1);
+      /* sit above the content so an expanded nav doesn't push the page
+         layout sideways on every hover — overlay style */
+      position: relative;
+      z-index: 50;
+    }
+
+    .nav:hover,
+    .nav.pinned {
+      width: 250px;
     }
 
     /* ── APP MAIN (everything to the right of the sidebar) ── */
@@ -307,14 +317,35 @@
     /* Collapsed state — hamburger flips the sidebar to a 76px icon column.
        Brand text, nav labels, and section headers hide; icon tiles stay,
        centered. */
-    .nav.collapsed { width: 76px; }
-    .nav.collapsed .brand-text,
-    .nav.collapsed .ntab-text,
-    .nav.collapsed .nav-section-label { display: none; }
-    .nav.collapsed .brand { justify-content: center; padding: 18px 0; gap: 0; flex-direction: column; }
-    .nav.collapsed .brand-badge { margin: 0 0 12px; }
-    .nav.collapsed .nav-hamburger { position: static; }
-    .nav.collapsed .ntab { justify-content: center; padding: 12px; margin: 0 6px; }
+    /* Collapsed state rules — applied whenever the nav is NOT hovered
+       AND NOT pinned open. The hover-to-expand pattern. */
+    .nav:not(:hover):not(.pinned) .brand-text,
+    .nav:not(:hover):not(.pinned) .ntab-text,
+    .nav:not(:hover):not(.pinned) .nav-section-label {
+      display: none;
+    }
+    .nav:not(:hover):not(.pinned) .brand {
+      justify-content: center;
+      padding: 18px 0;
+      gap: 0;
+      flex-direction: column;
+    }
+    .nav:not(:hover):not(.pinned) .brand-badge { margin: 0 0 10px; }
+    .nav:not(:hover):not(.pinned) .nav-hamburger { position: static; }
+    .nav:not(:hover):not(.pinned) .ntab {
+      justify-content: center;
+      padding: 12px;
+      margin: 0 6px;
+    }
+
+    /* Back-compat: pages/scripts that still toggle .collapsed (older
+       call sites) keep their existing behaviour without re-broadcasting
+       width via this class — width is owned by :hover / .pinned now. */
+    .nav.collapsed:not(:hover):not(.pinned) .brand-text,
+    .nav.collapsed:not(:hover):not(.pinned) .ntab-text,
+    .nav.collapsed:not(:hover):not(.pinned) .nav-section-label {
+      display: none;
+    }
 
     .nav-tabs {
       display: flex;
