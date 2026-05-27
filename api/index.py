@@ -999,18 +999,20 @@ def fetch_orders_from_supabase(since: str, until: str) -> list:
 
 def fetch_ads(since: str = "", until: str = "") -> list:
     """Flat per-ad-per-day rows from Supabase primary_table, filtered on `date`.
-    We pass an explicit ?limit=99999 alongside the Range header in
-    _supabase_get so PostgREST cannot fall back to its 1000-row default.
+
+    REQUIRES at least one date filter. Without it the table returns ~90k+
+    rows / ~107 MB on Vercel — the browser then OOMs or times out parsing
+    it. The Ad Intelligence tab is always scoped to a date range anyway;
+    callers that hit this without dates were misusing the endpoint.
     """
+    if not since and not until:
+        raise ValueError("Date range required. Pass ?since=YYYY-MM-DD&until=YYYY-MM-DD")
     params = [("select", "*"), ("order", "amount_spent_inr.desc"), ("limit", "99999")]
     if since:
         params.append(("date", f"gte.{since}"))
     if until:
         params.append(("date", f"lte.{until}"))
-    rows = _supabase_get("primary_table", params)
-    if (not rows) and (since or until):
-        rows = _supabase_get("primary_table", [("select", "*"), ("order", "amount_spent_inr.desc"), ("limit", "99999")])
-    return rows
+    return _supabase_get("primary_table", params)
 
 
 def fetch_inventory_snapshot(date: str = "") -> dict:

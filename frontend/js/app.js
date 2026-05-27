@@ -1391,6 +1391,17 @@
       const dateFrom = document.getElementById('masterSince').value;
       const dateTo = document.getElementById('masterUntil').value;
 
+      // Guard: /api/ads without dates returns the entire primary_table
+      // (~90k rows / ~107 MB). The browser OOMs trying to parse that and
+      // the Ad Intelligence tab silently breaks. Refuse to fetch and show
+      // a clear message instead of letting the request fly off into orbit.
+      if (!dateFrom && !dateTo) {
+        msgEl.textContent = '⚠ Pick a date range in the navbar before loading ads';
+        msgEl.style.color = 'var(--low)';
+        statusEl.textContent = 'No date range';
+        return;
+      }
+
       msgEl.textContent = '⏳ Fetching ads…';
       msgEl.style.color = 'var(--mu2)';
       statusEl.textContent = 'Loading…';
