@@ -520,6 +520,54 @@
     // on data load (they call .innerHTML = …, which can reset the value).
     document.addEventListener('DOMContentLoaded', refreshInvFiltersBadge);
 
+    // ── Analytics drilldown toggle ─────────────────────────────────────
+    // Each tab with chart rows (Overview / Inventory / Traffic / Sales /
+    // UTM) gets a "📊 Analytics" button in its toolbar. Charts are
+    // hidden by default (CSS: .page .crow { display: none }); clicking
+    // the button toggles .analytics-open on the tab's .page wrapper,
+    // which the cascade restores display:grid on .crow.
+    // Per-tab state persists to localStorage.
+    function toggleAnalytics(tabKey) {
+      const page = document.getElementById('page-' + tabKey);
+      if (!page) return;
+      const isOpen = page.classList.toggle('analytics-open');
+      // Sync every analytics-btn instance inside this tab (defensive —
+      // we only render one currently)
+      page.querySelectorAll('.analytics-btn').forEach(b => {
+        b.classList.toggle('on', isOpen);
+        b.textContent = isOpen ? '✕ Hide Analytics' : '✱ Show Analytics';
+      });
+      try { localStorage.setItem('ops_analytics_' + tabKey, isOpen ? '1' : '0'); } catch (e) {}
+      // Re-fire chart rendering when revealed — Chart.js needs the canvas
+      // to be visible to lay out correctly. Best-effort: each tab knows
+      // its own render entry point.
+      if (isOpen) {
+        const rerender = {
+          home: 'renderHome', inv: 'renderInv', traf: 'renderTraf',
+          sales: 'renderSales', utm: 'renderUtmAnalysis',
+        }[tabKey];
+        if (rerender && typeof window[rerender] === 'function') {
+          try { window[rerender](); } catch (e) {}
+        }
+      }
+    }
+    (function _restoreAnalyticsState() {
+      ['home', 'inv', 'traf', 'sales', 'utm'].forEach(tabKey => {
+        try {
+          if (localStorage.getItem('ops_analytics_' + tabKey) === '1') {
+            const page = document.getElementById('page-' + tabKey);
+            if (page) {
+              page.classList.add('analytics-open');
+              page.querySelectorAll('.analytics-btn').forEach(b => {
+                b.classList.add('on');
+                b.textContent = '✕ Hide Analytics';
+              });
+            }
+          }
+        } catch (e) {}
+      });
+    })();
+
     // ── Sidebar: hover-to-expand with optional pin-open ──
     // Default state is the 76px icon column. Mouse-enter expands smoothly
     // to 250px; mouse-leave collapses back. The hamburger button toggles

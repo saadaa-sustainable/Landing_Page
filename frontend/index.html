@@ -189,6 +189,7 @@
             <button class="vb on" id="hv-table" onclick="setHomeView('table')">Table</button>
             <button class="vb" id="hv-cards" onclick="setHomeView('cards')">Cards</button>
           </div>
+          <button class="ibtn analytics-btn" onclick="toggleAnalytics('home')" title="Show / hide the charts & analytics view">✱ Show Analytics</button>
           <button class="ibtn export-btn" onclick="exportSection('home')" title="Export current view + filters as Excel">↓ Export</button>
           <input class="srch" id="homeSrch" placeholder="Search product…" oninput="renderHome()"
             style="margin-left:auto;">
@@ -330,6 +331,7 @@
         <div style="flex:1;"></div>
         <button class="ibtn" id="strToggleBtn" onclick="toggleSTRView()"
           style="background:rgba(34,255,204,.08);border-color:var(--in);color:var(--in);">▦ Sell-Through Rate</button>
+        <button class="ibtn analytics-btn" onclick="toggleAnalytics('inv')" title="Show / hide the charts & analytics view">✱ Show Analytics</button>
         <button class="ibtn export-btn" onclick="exportSection('inv')" title="Export current view + filters as Excel">↓ Export</button>
         <div class="vtog">
           <button class="vb on" id="iv-table" onclick="setIV('table')">Table</button>
@@ -472,6 +474,7 @@
           </select>
         </div>
         <div style="flex:1;"></div>
+        <button class="ibtn analytics-btn" onclick="toggleAnalytics('traf')" title="Show / hide the charts & analytics view">✱ Show Analytics</button>
         <button class="ibtn export-btn" onclick="exportSection('traf')" title="Export current view + filters as Excel">↓ Export</button>
         <div class="vtog">
           <button class="vb on" id="tv-table" onclick="setTV('table')">Table</button>
@@ -798,6 +801,7 @@
         </div>
         <span class="sec-meta" id="salesRowMeta" style="font-size:.6rem;color:var(--mu2);"></span>
         <div style="flex:1;"></div>
+        <button class="ibtn analytics-btn" onclick="toggleAnalytics('sales')" title="Show / hide the charts & analytics view">✱ Show Analytics</button>
         <button class="ibtn export-btn" onclick="exportSection('sales')" title="Export current view + filters as Excel">↓ Export</button>
         <div class="vtog">
           <button class="vb on" id="sv-table" onclick="setSalesView('table')">Table</button>
@@ -935,6 +939,7 @@
         </div>
         <div style="flex:1;"></div>
         <span class="sec-meta" id="utmRowMeta" style="font-size:.6rem;color:var(--mu2);"></span>
+        <button class="ibtn analytics-btn" onclick="toggleAnalytics('utm')" title="Show / hide the charts & analytics view">✱ Show Analytics</button>
         <button class="ibtn export-btn" onclick="exportSection('utm')" title="Export current view + filters as Excel">↓ Export</button>
       </div>
     </div>
