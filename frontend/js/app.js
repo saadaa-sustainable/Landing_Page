@@ -521,38 +521,51 @@
     document.addEventListener('DOMContentLoaded', refreshInvFiltersBadge);
 
     // ── Analytics drilldown toggle ─────────────────────────────────────
-    // Each tab with chart rows (Overview / Inventory / Traffic / Sales /
-    // UTM) gets a "📊 Analytics" button in its toolbar. Charts are
-    // hidden by default (CSS: .page .crow { display: none }); clicking
-    // the button toggles .analytics-open on the tab's .page wrapper,
-    // which the cascade restores display:grid on .crow.
-    // Per-tab state persists to localStorage.
+    // Each tab with chart rows (Inventory / Traffic / Sales / UTM) gets
+    // a "✱ Show Analytics" button in its toolbar. Charts are hidden by
+    // default; clicking toggles .analytics-open on the .page wrapper
+    // which restores display:grid on .crow. Per-tab state persists to
+    // localStorage.
+    //
+    // Chart.js timing: when a chart is created on a display:none canvas
+    // the layout computes to 0x0 and never recovers. Revealing the
+    // container later doesn't auto-resize. So when the user opens the
+    // analytics view we defer the re-render to the next animation frame
+    // (after the browser has actually painted the now-visible .crow),
+    // then force every Chart.js instance to re-measure via resize().
     function toggleAnalytics(tabKey) {
       const page = document.getElementById('page-' + tabKey);
       if (!page) return;
       const isOpen = page.classList.toggle('analytics-open');
-      // Sync every analytics-btn instance inside this tab (defensive —
-      // we only render one currently)
       page.querySelectorAll('.analytics-btn').forEach(b => {
         b.classList.toggle('on', isOpen);
         b.textContent = isOpen ? '✕ Hide Analytics' : '✱ Show Analytics';
       });
       try { localStorage.setItem('ops_analytics_' + tabKey, isOpen ? '1' : '0'); } catch (e) {}
-      // Re-fire chart rendering when revealed — Chart.js needs the canvas
-      // to be visible to lay out correctly. Best-effort: each tab knows
-      // its own render entry point.
       if (isOpen) {
-        const rerender = {
-          home: 'renderHome', inv: 'renderInv', traf: 'renderTraf',
-          sales: 'renderSales', utm: 'renderUtmAnalysis',
-        }[tabKey];
-        if (rerender && typeof window[rerender] === 'function') {
-          try { window[rerender](); } catch (e) {}
-        }
+        // Wait for layout to apply the new display:grid, then re-render.
+        // Double rAF is the standard idiom for "after first paint completes".
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          const rerender = {
+            home: 'renderHome', inv: 'renderInv', traf: 'renderTraf',
+            sales: 'renderSales', utm: 'renderUtmAnalysis',
+          }[tabKey];
+          if (rerender && typeof window[rerender] === 'function') {
+            try { window[rerender](); } catch (e) { console.warn('[Analytics]', e); }
+          }
+          // Belt-and-suspenders: poke every Chart.js instance so charts
+          // created earlier (when the canvas was display:none) re-measure.
+          // C is the module-level chart registry (let C = {} ~line 250).
+          try {
+            if (typeof C === 'object' && C) {
+              Object.values(C).forEach(c => { if (c && c.resize) c.resize(); });
+            }
+          } catch (e) {}
+        }));
       }
     }
     (function _restoreAnalyticsState() {
-      ['home', 'inv', 'traf', 'sales', 'utm'].forEach(tabKey => {
+      ['inv', 'traf', 'sales', 'utm'].forEach(tabKey => {
         try {
           if (localStorage.getItem('ops_analytics_' + tabKey) === '1') {
             const page = document.getElementById('page-' + tabKey);
