@@ -903,6 +903,24 @@
       <div style="display:flex;align-items:center;gap:8px;padding:6px 20px;flex-wrap:wrap;">
         <input class="srch" id="utmSrch" placeholder="Search landing page or ad…" oninput="renderUtmAnalysis()"
           style="flex:1;min-width:160px;max-width:280px;" />
+
+        <div class="tg"><span class="tb-lbl">Kind</span>
+          <div class="vtog">
+            <button class="vb on" id="uk-all"        onclick="setUtmKind('all')">All</button>
+            <button class="vb"    id="uk-product"    onclick="setUtmKind('product')">PDP</button>
+            <button class="vb"    id="uk-collection" onclick="setUtmKind('collection')">Collection</button>
+            <button class="vb"    id="uk-home"       onclick="setUtmKind('home')">Home</button>
+          </div>
+        </div>
+
+        <div class="tg"><span class="tb-lbl">Gender</span>
+          <div class="vtog">
+            <button class="vb on" id="ug-all"   onclick="setUtmGender('all')">All</button>
+            <button class="vb"    id="ug-men"   onclick="setUtmGender('men')">Men</button>
+            <button class="vb"    id="ug-women" onclick="setUtmGender('women')">Women</button>
+          </div>
+        </div>
+
         <div class="tg"><span class="tb-lbl">Sort</span>
           <select class="filter-select" id="utmSortSelect" onchange="renderUtmAnalysis()">
             <option value="lastTotal">Sales ↓</option>

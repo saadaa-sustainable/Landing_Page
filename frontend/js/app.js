@@ -5441,6 +5441,51 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
     let utmViewMode = 'ads';
     function setUtmView(_v) { renderUtmAnalysis(); }
 
+    // ── UTM page-kind + gender filters ────────────────────────────────
+    // Two pill-toggle filter sets in the UTM toolbar:
+    //   Kind   : all / product (PDP) / collection / home
+    //   Gender : all / men / women  — matched on URL path or page name
+    //            using \bmen\b / \bwomen\b (word-boundary regex). Word
+    //            boundaries are critical because plain "men" would
+    //            match inside "women" — boundaries prevent that.
+    let utmKindFilter = 'all';
+    let utmGenderFilter = 'all';
+
+    function setUtmKind(k) {
+      utmKindFilter = k;
+      ['all', 'product', 'collection', 'home'].forEach(v => {
+        const btn = document.getElementById('uk-' + v);
+        if (btn) btn.classList.toggle('on', v === k);
+      });
+      renderUtmAnalysis();
+    }
+    function setUtmGender(g) {
+      utmGenderFilter = g;
+      ['all', 'men', 'women'].forEach(v => {
+        const btn = document.getElementById('ug-' + v);
+        if (btn) btn.classList.toggle('on', v === g);
+      });
+      renderUtmAnalysis();
+    }
+
+    // \b matches a boundary between \w and non-\w. "men" inside "women"
+    // has no boundary before 'm' (preceded by 'o'), so \bmen\b refuses
+    // to match "women" — exactly what we want.
+    const _RX_MEN   = /\bmen\b/i;
+    const _RX_WOMEN = /\bwomen\b/i;
+
+    function _utmPassesGender(row) {
+      if (utmGenderFilter === 'all') return true;
+      const hay = ((row.path || '') + ' ' + (row.pageName || '')).toLowerCase();
+      if (utmGenderFilter === 'men')   return _RX_MEN.test(hay)   && !_RX_WOMEN.test(hay);
+      if (utmGenderFilter === 'women') return _RX_WOMEN.test(hay);
+      return true;
+    }
+    function _utmPassesKind(row) {
+      if (utmKindFilter === 'all') return true;
+      return row.pageKind === utmKindFilter;
+    }
+
     function renderUtmAnalysis() {
       return renderUtmAds();
     }
@@ -5899,6 +5944,11 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
         // Skip purely-empty rows (no ads + no sessions + no orders) to keep
         // the table readable when DATA contains hundreds of PDPs.
         if (r.adCount === 0 && r.sessions === 0 && (r.pageOrders || 0) === 0) return false;
+        // Page-kind pill filter (All / PDP / Collection / Home)
+        if (!_utmPassesKind(r)) return false;
+        // Gender pill filter (All / Men / Women) — uses \bmen\b / \bwomen\b
+        // on path+pageName so "women" never matches the men filter.
+        if (!_utmPassesGender(r)) return false;
         if (!q) return true;
         if ((r.path || '').toLowerCase().includes(q)) return true;
         if ((r.pageName || '').toLowerCase().includes(q)) return true;
