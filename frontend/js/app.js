@@ -617,6 +617,20 @@
       return el;
     }
 
+    // Render a friendly empty-state inside an analytics panel when data
+    // isn't loaded yet (or the current filter set produced 0 rows).
+    function _apEmpty(panelId, title, message) {
+      const el = document.getElementById(panelId);
+      if (!el) return;
+      el.innerHTML =
+        '<div class="ap-header">'
+        + '<div class="ap-title">' + (title || 'Analytics') + '</div>'
+        + '</div>'
+        + '<div style="background:var(--bg-white);border:1px dashed var(--border-mid);border-radius:10px;padding:32px 24px;text-align:center;font-family:\'JetBrains Mono\',monospace;font-size:.7rem;color:var(--text-secondary);line-height:1.6;">'
+        + (message || 'No data yet — pick a date range in the navbar and the analytics will populate.')
+        + '</div>';
+    }
+
     function _apMakeChart(id, type, data, opts) {
       if (typeof C === 'object' && C[id]) { try { C[id].destroy(); } catch(e){} delete C[id]; }
       const canvas = document.getElementById(id);
@@ -631,6 +645,11 @@
     function _apInv() {
       const src = (INVLIVE && INVLIVE.length) ? INVLIVE : (DATA || []).filter(r => r.hasInvData);
       const items = src.filter(r => !r._excluded && r.stockStatus !== 'unknown' && !isCombo(r) && !isUserDisabled(r));
+      if (!items.length) {
+        _apEmpty('invAnalyticsPanel', 'Inventory Analytics',
+          'No inventory data yet. Pick a date range from the navbar and the dashboard will fetch products + stock.');
+        return;
+      }
       // KPI counts
       const inS    = items.filter(r => r.stockStatus === 'in_stock').length;
       const lowS   = items.filter(r => ['low_stock', 'broken_stock'].includes(r.stockStatus)).length;
@@ -686,9 +705,13 @@
 
     // ── TRAFFIC analytics ──────────────────────────────────────────────
     function _apTraf() {
-      // Sessions byPath = window._trafByPath OR derive from byPath in HOME_DATA + DATA + COLLECTION_DATA
       const byPath = (window._trafBy && window._trafBy.byPath) || [];
       const totals = (window._trafBy && window._trafBy.totals) || {};
+      if (!byPath.length && !Object.keys(totals).length) {
+        _apEmpty('trafAnalyticsPanel', 'Traffic Analytics',
+          'No traffic data yet. Pick a date range from the navbar — sessions will fetch and the trend lines will populate.');
+        return;
+      }
       // Daily sessions trend — group byPath rows on `day`
       const byDay = {};
       byPath.forEach(r => {
@@ -761,6 +784,11 @@
     function _apSales() {
       const byProduct = (SALES_BY_PRODUCT && SALES_BY_PRODUCT.length) ? SALES_BY_PRODUCT : [];
       const raw       = (SALES_RAW && SALES_RAW.length) ? SALES_RAW : [];
+      if (!byProduct.length && !raw.length) {
+        _apEmpty('salesAnalyticsPanel', 'Sales Analytics',
+          'No sales data yet. Pick a date range from the navbar — Shopify ShopifyQL will fetch and the breakdowns will populate.');
+        return;
+      }
       // Top 15 products by total_sales
       const topProd = [...byProduct].sort((a,b)=>(+b.total_sales||0)-(+a.total_sales||0)).slice(0, 15);
       // Top UTM sources by revenue
@@ -827,7 +855,12 @@
 
     // ── UTM ANALYSIS analytics ─────────────────────────────────────────
     function _apUtm() {
-      const rows = (window._utmAdsJoined && window._utmAdsJoined.length) ? window._utmAdsJoined : (_utmAdsJoined || []);
+      const rows = (typeof _utmAdsJoined !== 'undefined' && _utmAdsJoined && _utmAdsJoined.length) ? _utmAdsJoined : [];
+      if (!rows.length) {
+        _apEmpty('utmAnalyticsPanel', 'UTM Analytics',
+          'No UTM rows yet. Pick a date range from the navbar and the dashboard will fetch ads, sessions, and orders.');
+        return;
+      }
       // Top 15 landing pages by spend
       const topSpend = [...rows].sort((a,b)=>(b.spend||0)-(a.spend||0)).slice(0, 15);
       // Top 15 by sales
@@ -940,15 +973,33 @@
       if (p === 'orders') renderOrders();
       if (p === 'utm') renderUtmAnalysis();
       if (p === 'settings') renderSettings();
+      // If this tab has analytics open (e.g. restored from localStorage),
+      // populate the panel now that the page is visible.
+      const pageEl = document.getElementById('page-' + p);
+      if (pageEl && pageEl.classList.contains('analytics-open') && typeof renderAnalyticsPanel === 'function') {
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          try { renderAnalyticsPanel(p); } catch (e) { console.warn('[Analytics]', e); }
+        }));
+      }
     }
     function toggleEl(id) { const el = document.getElementById(id); el.style.display = el.style.display === 'none' || el.style.display === '' ? 'block' : 'none'; }
-    function toggleAnalytics() {
+    // Legacy in-page analytics toggle for the Traffic tab's old
+    // #analyticsSection (Conversion Funnel etc.). Renamed from
+    // toggleAnalytics() because JS function-declaration hoisting was
+    // letting this overwrite the new tab-key-aware toggleAnalytics(tabKey)
+    // defined ~line 536 — every Show-Analytics click was hitting THIS
+    // function (which expects no args + a different DOM) instead of
+    // the new one. The legacy toggle is no longer wired to any button
+    // (its onclick was set to display:none earlier) so it's effectively
+    // dead code, but kept here in case anything else still calls it.
+    function toggleTrafficLegacyAnalytics() {
       const sec = document.getElementById('analyticsSection');
+      if (!sec) return;
       const icon = document.getElementById('analyticsIcon');
       const label = document.getElementById('analyticsLabel');
       const isHidden = sec.style.display === 'none';
       sec.style.display = isHidden ? 'block' : 'none';
-      icon.classList.toggle('open', isHidden);
+      if (icon) icon.classList.toggle('open', isHidden);
       if (label) label.textContent = isHidden ? '✱ Hide Analytics' : '✱ Show Analytics';
     }
 
