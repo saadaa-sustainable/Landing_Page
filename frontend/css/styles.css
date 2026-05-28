@@ -173,12 +173,11 @@
     }
 
     /* ── SIDEBAR — coffee/taupe surface (#5C4033) per user spec.
-       Hover-to-expand: default is the 76px icon column, mouse-enter
-       smoothly expands to 250px, mouse-leave collapses back. The
-       .pinned class (toggled by the hamburger button) locks it open
-       regardless of hover. ── */
+       Hover-to-OVERLAY: positioned absolute so width changes float over
+       the page content instead of pushing it sideways. The content area
+       reserves a fixed 76px on the left via .app-main { margin-left }
+       so the page never reflows on hover. ── */
     .nav {
-      flex-shrink: 0;
       width: 76px;
       display: flex;
       flex-direction: column;
@@ -188,17 +187,24 @@
       color: var(--bg-base);
       border-right: 1px solid rgba(0, 0, 0, .35);
       box-shadow: 3px 0 18px rgba(30, 20, 14, .22);
-      height: 100%;
-      transition: width 0.22s cubic-bezier(.2, .7, .2, 1);
-      /* sit above the content so an expanded nav doesn't push the page
-         layout sideways on every hover — overlay style */
-      position: relative;
+      /* Absolute positioning takes the nav OUT of the body's flex flow.
+         The expanded nav (250px on hover) thus overlays content rather
+         than pushing it. The content area's margin-left:76px reserves
+         space for the collapsed state, so nothing shifts. */
+      position: absolute;
+      top: 0;
+      left: 0;
+      bottom: 0;
       z-index: 50;
+      transition: width 0.22s cubic-bezier(.2, .7, .2, 1),
+                  box-shadow 0.22s ease;
     }
 
     .nav:hover,
     .nav.pinned {
       width: 250px;
+      /* Heavier shadow when expanded — emphasises the overlay layering */
+      box-shadow: 6px 0 32px rgba(30, 20, 14, .35);
     }
 
     /* ── APP MAIN (everything to the right of the sidebar) ── */
@@ -207,6 +213,9 @@
       min-width: 0;
       display: flex;
       flex-direction: column;
+      /* Reserve the collapsed-nav width on the left. The expanded nav
+         floats over the content from the same anchor — no reflow. */
+      margin-left: 76px;
       overflow: hidden;
     }
 
