@@ -347,6 +347,9 @@
       </div>
       <div id="invSummary"></div>
       <div class="krow k5" id="invKpis"></div>
+      <!-- Analytics drilldown — populated by renderInvAnalytics() on Show Analytics -->
+      <div class="analytics-panel" id="invAnalyticsPanel"></div>
+      <!-- Legacy crow charts (kept; some are referenced elsewhere) -->
       <div class="crow c3">
         <div class="ch">
           <div class="cht">Stock Status</div>
@@ -485,8 +488,11 @@
       <div class="krow k6" id="trafKpis"></div>
       <div id="pageTypeCards" style="display:none;"></div>
 
-      <!-- Analytics toggle -->
-      <div class="analytics-toggle" onclick="toggleAnalytics()">
+      <!-- Analytics drilldown — populated by renderTrafAnalytics() on Show Analytics -->
+      <div class="analytics-panel" id="trafAnalyticsPanel"></div>
+
+      <!-- Legacy in-page analytics toggle (kept for back-compat — wraps original .crow blocks below) -->
+      <div class="analytics-toggle" onclick="toggleAnalytics()" style="display:none;">
         <span class="at-icon" id="analyticsIcon">▶</span>
         <span class="at-label" id="analyticsLabel">✱ Show Analytics</span>
         <div style="flex:1;height:1px;background:var(--bd2);margin-left:4px;"></div>
@@ -810,6 +816,8 @@
     </div>
     <div class="scroll" id="salesScroll">
       <div class="krow k5" id="salesKpis"></div>
+      <!-- Analytics drilldown — populated by renderSalesAnalytics() on Show Analytics -->
+      <div class="analytics-panel" id="salesAnalyticsPanel"></div>
       <div class="crow c2" style="margin-bottom:14px;">
         <div class="ch">
           <div class="cht">Top 15 — Total Sales ₹</div>
@@ -945,6 +953,8 @@
     <div class="scroll" id="utmScroll">
       <div class="krow" id="utmKpis"
         style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;padding:10px 16px;"></div>
+      <!-- Analytics drilldown — populated by renderUtmAnalytics() on Show Analytics -->
+      <div class="analytics-panel" id="utmAnalyticsPanel"></div>
       <div class="crow c2" style="margin-bottom:14px;">
         <div class="ch">
           <div class="cht">First-Click Sources (sessions)</div>

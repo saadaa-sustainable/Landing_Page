@@ -543,19 +543,10 @@
       });
       try { localStorage.setItem('ops_analytics_' + tabKey, isOpen ? '1' : '0'); } catch (e) {}
       if (isOpen) {
-        // Wait for layout to apply the new display:grid, then re-render.
-        // Double rAF is the standard idiom for "after first paint completes".
+        // Wait for layout to apply, then build the rich analytics panel.
         requestAnimationFrame(() => requestAnimationFrame(() => {
-          const rerender = {
-            home: 'renderHome', inv: 'renderInv', traf: 'renderTraf',
-            sales: 'renderSales', utm: 'renderUtmAnalysis',
-          }[tabKey];
-          if (rerender && typeof window[rerender] === 'function') {
-            try { window[rerender](); } catch (e) { console.warn('[Analytics]', e); }
-          }
-          // Belt-and-suspenders: poke every Chart.js instance so charts
-          // created earlier (when the canvas was display:none) re-measure.
-          // C is the module-level chart registry (let C = {} ~line 250).
+          try { renderAnalyticsPanel(tabKey); } catch (e) { console.warn('[Analytics]', e); }
+          // Belt-and-suspenders: resize any pre-existing legacy chart.
           try {
             if (typeof C === 'object' && C) {
               Object.values(C).forEach(c => { if (c && c.resize) c.resize(); });
@@ -580,6 +571,326 @@
         } catch (e) {}
       });
     })();
+
+    // ════════════════════════════════════════════════════════════════════
+    // ANALYTICS PANEL RENDERERS
+    // ────────────────────────────────────────────────────────────────────
+    // One function per tab. Each builds a fresh ap-panel HTML with 3-4
+    // charts and instantiates them via Chart.js. Called every time the
+    // user opens the analytics view (so charts always reflect current
+    // data + filter state).
+    // ════════════════════════════════════════════════════════════════════
+
+    function renderAnalyticsPanel(tabKey) {
+      const map = {
+        inv:   _apInv,
+        traf:  _apTraf,
+        sales: _apSales,
+        utm:   _apUtm,
+      };
+      if (map[tabKey]) map[tabKey]();
+    }
+
+    // Common chart palette
+    const _AP_PALETTE = [
+      'rgba(201,168,130,.85)', 'rgba(94,203,143,.85)', 'rgba(224,117,85,.85)',
+      'rgba(59,111,212,.85)',  'rgba(232,200,122,.85)', 'rgba(123,79,191,.85)',
+      'rgba(181,79,122,.85)',  'rgba(232,168,124,.85)', 'rgba(110,105,94,.85)',
+    ];
+
+    function _apShell(panelId, title, subtitle, cards) {
+      const el = document.getElementById(panelId);
+      if (!el) return null;
+      el.innerHTML =
+        '<div class="ap-header">'
+        + '<div class="ap-title">' + (title || '') + '</div>'
+        + (subtitle ? '<div class="ap-sub">' + subtitle + '</div>' : '')
+        + '</div>'
+        + '<div class="ap-grid">'
+        + cards.map(c => (
+            '<div class="ap-card">'
+            + '<div class="ap-card-title">' + (c.title || '') + '</div>'
+            + (c.body || ('<div class="ap-canvas' + (c.tall ? ' ap-tall' : '') + '"><canvas id="' + c.id + '"></canvas></div>'))
+            + '</div>'
+          )).join('')
+        + '</div>';
+      return el;
+    }
+
+    function _apMakeChart(id, type, data, opts) {
+      if (typeof C === 'object' && C[id]) { try { C[id].destroy(); } catch(e){} delete C[id]; }
+      const canvas = document.getElementById(id);
+      if (!canvas || typeof Chart === 'undefined') return;
+      C[id] = new Chart(canvas, {
+        type, data,
+        options: { responsive: true, maintainAspectRatio: false, ...opts },
+      });
+    }
+
+    // ── INVENTORY analytics ────────────────────────────────────────────
+    function _apInv() {
+      const src = (INVLIVE && INVLIVE.length) ? INVLIVE : (DATA || []).filter(r => r.hasInvData);
+      const items = src.filter(r => !r._excluded && r.stockStatus !== 'unknown' && !isCombo(r) && !isUserDisabled(r));
+      // KPI counts
+      const inS    = items.filter(r => r.stockStatus === 'in_stock').length;
+      const lowS   = items.filter(r => ['low_stock', 'broken_stock'].includes(r.stockStatus)).length;
+      const outS   = items.filter(r => r.stockStatus === 'out_of_stock').length;
+      // Top categories by count
+      const byCat = {};
+      items.forEach(r => { const k = (r.category || 'Uncategorised').trim() || 'Uncategorised'; byCat[k] = (byCat[k]||0)+1; });
+      const cats = Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0, 10);
+      // Top 15 products by stock
+      const topStock = [...items].sort((a,b)=>(b.totalStock||0)-(a.totalStock||0)).slice(0, 15);
+      // Lifecycle counts
+      items.forEach(r => { r._lifecycle = r._lifecycle || (typeof getLifecycleEx === 'function' ? getLifecycleEx(r) : 'active'); });
+      const lcCounts = {npd:0, active:0, discontinued:0, draft:0};
+      items.forEach(r => { lcCounts[r._lifecycle] = (lcCounts[r._lifecycle]||0)+1; });
+
+      _apShell('invAnalyticsPanel', 'Inventory Analytics',
+        items.length.toLocaleString('en-IN') + ' products in scope', [
+        { id: 'apInvStockDonut',  title: 'Stock distribution' },
+        { id: 'apInvCatBar',      title: 'Top 10 categories by product count' },
+        { id: 'apInvTopStock',    title: 'Top 15 products by units in stock', tall: true },
+        { id: 'apInvLifecycle',   title: 'Lifecycle distribution' },
+      ]);
+
+      const labelColor = '#494640';
+      _apMakeChart('apInvStockDonut', 'doughnut', {
+        labels: ['In Stock', 'Low / Broken', 'Out of Stock'],
+        datasets: [{ data: [inS, lowS, outS],
+          backgroundColor: ['rgba(61,158,107,.85)','rgba(217,146,42,.85)','rgba(201,67,67,.85)'],
+          borderWidth: 0 }],
+      }, { plugins: { legend: { position: 'bottom', labels: { color: labelColor, font: { family: 'JetBrains Mono', size: 10 }, boxWidth: 10 } } } });
+
+      _apMakeChart('apInvCatBar', 'bar', {
+        labels: cats.map(c => c[0]),
+        datasets: [{ data: cats.map(c => c[1]), backgroundColor: _AP_PALETTE[0], borderRadius: 3 }],
+      }, { indexAxis: 'y', plugins: { legend: { display: false } },
+            scales: { x: { ticks: { color: labelColor, font: { family: 'JetBrains Mono', size: 9 } } },
+                      y: { ticks: { color: labelColor, font: { family: 'JetBrains Mono', size: 9 } } } } });
+
+      _apMakeChart('apInvTopStock', 'bar', {
+        labels: topStock.map(r => r.name || r.slug || '—'),
+        datasets: [{ data: topStock.map(r => r.totalStock||0), backgroundColor: _AP_PALETTE[1], borderRadius: 3 }],
+      }, { indexAxis: 'y', plugins: { legend: { display: false } },
+            scales: { x: { ticks: { color: labelColor, font: { family: 'JetBrains Mono', size: 9 } } },
+                      y: { ticks: { color: labelColor, font: { family: 'JetBrains Mono', size: 9 } } } } });
+
+      _apMakeChart('apInvLifecycle', 'doughnut', {
+        labels: ['🌱 NPD','Active','Discontinued','Draft'],
+        datasets: [{ data: [lcCounts.npd, lcCounts.active, lcCounts.discontinued, lcCounts.draft],
+          backgroundColor: ['rgba(94,203,143,.85)', _AP_PALETTE[0], 'rgba(201,67,67,.6)', 'rgba(110,105,94,.7)'],
+          borderWidth: 0 }],
+      }, { plugins: { legend: { position: 'bottom', labels: { color: labelColor, font: { family: 'JetBrains Mono', size: 10 }, boxWidth: 10 } } } });
+    }
+
+    // ── TRAFFIC analytics ──────────────────────────────────────────────
+    function _apTraf() {
+      // Sessions byPath = window._trafByPath OR derive from byPath in HOME_DATA + DATA + COLLECTION_DATA
+      const byPath = (window._trafBy && window._trafBy.byPath) || [];
+      const totals = (window._trafBy && window._trafBy.totals) || {};
+      // Daily sessions trend — group byPath rows on `day`
+      const byDay = {};
+      byPath.forEach(r => {
+        const d = String(r.day || '').slice(0,10);
+        if (!d) return;
+        if (!byDay[d]) byDay[d] = {sessions:0, visitors:0, cart:0, checkout:0};
+        byDay[d].sessions += +r.sessions||0;
+        byDay[d].visitors += +r.online_store_visitors||0;
+        byDay[d].cart     += +r.sessions_with_cart_additions||0;
+        byDay[d].checkout += +r.sessions_that_reached_checkout||0;
+      });
+      const days = Object.keys(byDay).sort();
+      // Top landing paths by sessions
+      const byPathAgg = {};
+      byPath.forEach(r => {
+        const p = r.landing_page_path || '—';
+        byPathAgg[p] = (byPathAgg[p]||0) + (+r.sessions||0);
+      });
+      const topPaths = Object.entries(byPathAgg).sort((a,b)=>b[1]-a[1]).slice(0, 12);
+      // Page-type breakdown
+      const byType = {};
+      byPath.forEach(r => {
+        const t = r.landing_page_type || 'other';
+        byType[t] = (byType[t]||0) + (+r.sessions||0);
+      });
+
+      _apShell('trafAnalyticsPanel', 'Traffic Analytics',
+        days.length + ' day' + (days.length===1?'':'s') + ' · ' + (totals.sessions||0).toLocaleString('en-IN') + ' sessions', [
+        { id: 'apTrafDayLine',    title: 'Sessions per day', tall: true },
+        { id: 'apTrafFunnel',     title: 'Conversion funnel (range total)' },
+        { id: 'apTrafTopPaths',   title: 'Top 12 landing paths by sessions', tall: true },
+        { id: 'apTrafTypeDonut',  title: 'Sessions by page type' },
+      ]);
+
+      const labelColor = '#494640';
+      _apMakeChart('apTrafDayLine', 'line', {
+        labels: days,
+        datasets: [
+          { label: 'Sessions', data: days.map(d=>byDay[d].sessions), borderColor: _AP_PALETTE[3], backgroundColor: 'rgba(59,111,212,.10)', fill: true, tension: .35, pointRadius: 3 },
+          { label: 'Cart adds', data: days.map(d=>byDay[d].cart),    borderColor: _AP_PALETTE[1], backgroundColor: 'transparent', tension: .35, pointRadius: 3 },
+          { label: 'Checkouts', data: days.map(d=>byDay[d].checkout),borderColor: _AP_PALETTE[2], backgroundColor: 'transparent', tension: .35, pointRadius: 3 },
+        ],
+      }, { plugins: { legend: { position: 'bottom', labels: { color: labelColor, font: { family: 'JetBrains Mono', size: 10 }, boxWidth: 10 } } },
+            scales: { x: { ticks: { color: labelColor, font: { family: 'JetBrains Mono', size: 9 } } },
+                      y: { ticks: { color: labelColor, font: { family: 'JetBrains Mono', size: 9 } }, beginAtZero: true } } });
+
+      _apMakeChart('apTrafFunnel', 'bar', {
+        labels: ['Visitors','Sessions','Cart adds','Checkouts'],
+        datasets: [{ data: [totals.online_store_visitors||0, totals.sessions||0, totals.sessions_with_cart_additions||0, totals.sessions_that_reached_checkout||0],
+          backgroundColor: [_AP_PALETTE[3], _AP_PALETTE[0], _AP_PALETTE[1], _AP_PALETTE[2]],
+          borderRadius: 3 }],
+      }, { plugins: { legend: { display: false } },
+            scales: { x: { ticks: { color: labelColor, font: { family: 'JetBrains Mono', size: 9 } } },
+                      y: { ticks: { color: labelColor, font: { family: 'JetBrains Mono', size: 9 } }, beginAtZero: true } } });
+
+      _apMakeChart('apTrafTopPaths', 'bar', {
+        labels: topPaths.map(p => p[0]),
+        datasets: [{ data: topPaths.map(p => p[1]), backgroundColor: _AP_PALETTE[3], borderRadius: 3 }],
+      }, { indexAxis: 'y', plugins: { legend: { display: false } },
+            scales: { x: { ticks: { color: labelColor, font: { family: 'JetBrains Mono', size: 9 } } },
+                      y: { ticks: { color: labelColor, font: { family: 'JetBrains Mono', size: 9 } } } } });
+
+      _apMakeChart('apTrafTypeDonut', 'doughnut', {
+        labels: Object.keys(byType),
+        datasets: [{ data: Object.values(byType), backgroundColor: _AP_PALETTE.slice(0, Object.keys(byType).length), borderWidth: 0 }],
+      }, { plugins: { legend: { position: 'bottom', labels: { color: labelColor, font: { family: 'JetBrains Mono', size: 10 }, boxWidth: 10 } } } });
+    }
+
+    // ── SALES analytics ────────────────────────────────────────────────
+    function _apSales() {
+      const byProduct = (SALES_BY_PRODUCT && SALES_BY_PRODUCT.length) ? SALES_BY_PRODUCT : [];
+      const raw       = (SALES_RAW && SALES_RAW.length) ? SALES_RAW : [];
+      // Top 15 products by total_sales
+      const topProd = [...byProduct].sort((a,b)=>(+b.total_sales||0)-(+a.total_sales||0)).slice(0, 15);
+      // Top UTM sources by revenue
+      const byUtm = {};
+      raw.forEach(r => {
+        const k = (r.utm_source || r.order_utm_source || '(direct)').trim() || '(direct)';
+        byUtm[k] = (byUtm[k]||0) + (+r.total_sales||0);
+      });
+      const topUtm = Object.entries(byUtm).sort((a,b)=>b[1]-a[1]).slice(0, 10);
+      // Daily sales trend
+      const byDay = {};
+      raw.forEach(r => {
+        const d = String(r.day || '').slice(0,10);
+        if (!d) return;
+        if (!byDay[d]) byDay[d] = { sales: 0, units: 0 };
+        byDay[d].sales += +r.total_sales || 0;
+        byDay[d].units += +r.net_items_sold || 0;
+      });
+      const days = Object.keys(byDay).sort();
+      // Product type breakdown
+      const byPT = {};
+      byProduct.forEach(r => {
+        const k = (r.product_type || 'Other').trim() || 'Other';
+        byPT[k] = (byPT[k]||0) + (+r.total_sales||0);
+      });
+      const topPT = Object.entries(byPT).sort((a,b)=>b[1]-a[1]).slice(0, 8);
+
+      _apShell('salesAnalyticsPanel', 'Sales Analytics',
+        byProduct.length + ' products · ' + raw.length + ' detail rows', [
+        { id: 'apSalesTopProd',   title: 'Top 15 products by total sales (₹)', tall: true },
+        { id: 'apSalesDay',       title: 'Daily sales trend (₹)', tall: true },
+        { id: 'apSalesUtm',       title: 'Top UTM sources by revenue (₹)' },
+        { id: 'apSalesPT',        title: 'Sales by product type (₹)' },
+      ]);
+
+      const labelColor = '#494640';
+      _apMakeChart('apSalesTopProd', 'bar', {
+        labels: topProd.map(p => p.product_title || '—'),
+        datasets: [{ data: topProd.map(p => +p.total_sales||0), backgroundColor: _AP_PALETTE[1], borderRadius: 3 }],
+      }, { indexAxis: 'y', plugins: { legend: { display: false } },
+            scales: { x: { ticks: { color: labelColor, font: { family: 'JetBrains Mono', size: 9 } } },
+                      y: { ticks: { color: labelColor, font: { family: 'JetBrains Mono', size: 9 } } } } });
+
+      _apMakeChart('apSalesDay', 'line', {
+        labels: days,
+        datasets: [{ label: 'Sales ₹', data: days.map(d=>byDay[d].sales),
+          borderColor: _AP_PALETTE[1], backgroundColor: 'rgba(94,203,143,.15)', fill: true, tension: .35, pointRadius: 3 }],
+      }, { plugins: { legend: { display: false } },
+            scales: { x: { ticks: { color: labelColor, font: { family: 'JetBrains Mono', size: 9 } } },
+                      y: { ticks: { color: labelColor, font: { family: 'JetBrains Mono', size: 9 } }, beginAtZero: true } } });
+
+      _apMakeChart('apSalesUtm', 'bar', {
+        labels: topUtm.map(u => u[0]),
+        datasets: [{ data: topUtm.map(u => u[1]), backgroundColor: _AP_PALETTE[3], borderRadius: 3 }],
+      }, { indexAxis: 'y', plugins: { legend: { display: false } },
+            scales: { x: { ticks: { color: labelColor, font: { family: 'JetBrains Mono', size: 9 } } },
+                      y: { ticks: { color: labelColor, font: { family: 'JetBrains Mono', size: 9 } } } } });
+
+      _apMakeChart('apSalesPT', 'doughnut', {
+        labels: topPT.map(p => p[0]),
+        datasets: [{ data: topPT.map(p => p[1]), backgroundColor: _AP_PALETTE.slice(0, topPT.length), borderWidth: 0 }],
+      }, { plugins: { legend: { position: 'bottom', labels: { color: labelColor, font: { family: 'JetBrains Mono', size: 10 }, boxWidth: 10 } } } });
+    }
+
+    // ── UTM ANALYSIS analytics ─────────────────────────────────────────
+    function _apUtm() {
+      const rows = (window._utmAdsJoined && window._utmAdsJoined.length) ? window._utmAdsJoined : (_utmAdsJoined || []);
+      // Top 15 landing pages by spend
+      const topSpend = [...rows].sort((a,b)=>(b.spend||0)-(a.spend||0)).slice(0, 15);
+      // Top 15 by sales
+      const topSales = [...rows].sort((a,b)=>(b.pageRevenue||0)-(a.pageRevenue||0)).slice(0, 15);
+      // ROAS distribution buckets
+      const roasBuckets = { '0x':0, '<1x':0, '1-2x':0, '2-3x':0, '3-5x':0, '5x+':0 };
+      rows.forEach(r => {
+        const v = +r.pageRoas || 0;
+        if (v === 0)        roasBuckets['0x']++;
+        else if (v < 1)     roasBuckets['<1x']++;
+        else if (v < 2)     roasBuckets['1-2x']++;
+        else if (v < 3)     roasBuckets['2-3x']++;
+        else if (v < 5)     roasBuckets['3-5x']++;
+        else                roasBuckets['5x+']++;
+      });
+      // Spend vs Sales scatter
+      const scatter = rows.filter(r => (r.spend||0)>0 || (r.pageRevenue||0)>0)
+                          .map(r => ({ x: r.spend||0, y: r.pageRevenue||0, l: r.path||'' }));
+
+      _apShell('utmAnalyticsPanel', 'UTM Analytics',
+        rows.length + ' landing pages in view', [
+        { id: 'apUtmTopSpend',  title: 'Top 15 landing pages by Ad Spend (₹)', tall: true },
+        { id: 'apUtmTopSales',  title: 'Top 15 landing pages by Sales (₹)',    tall: true },
+        { id: 'apUtmScatter',   title: 'Spend vs Sales scatter (₹) — diagonal = breakeven' },
+        { id: 'apUtmRoas',      title: 'ROAS distribution' },
+      ]);
+
+      const labelColor = '#494640';
+      _apMakeChart('apUtmTopSpend', 'bar', {
+        labels: topSpend.map(r => r.path),
+        datasets: [{ data: topSpend.map(r => r.spend||0), backgroundColor: 'rgba(224,117,85,.75)', borderRadius: 3 }],
+      }, { indexAxis: 'y', plugins: { legend: { display: false } },
+            scales: { x: { ticks: { color: labelColor, font: { family: 'JetBrains Mono', size: 9 } } },
+                      y: { ticks: { color: labelColor, font: { family: 'JetBrains Mono', size: 9 } } } } });
+
+      _apMakeChart('apUtmTopSales', 'bar', {
+        labels: topSales.map(r => r.path),
+        datasets: [{ data: topSales.map(r => r.pageRevenue||0), backgroundColor: 'rgba(94,203,143,.75)', borderRadius: 3 }],
+      }, { indexAxis: 'y', plugins: { legend: { display: false } },
+            scales: { x: { ticks: { color: labelColor, font: { family: 'JetBrains Mono', size: 9 } } },
+                      y: { ticks: { color: labelColor, font: { family: 'JetBrains Mono', size: 9 } } } } });
+
+      _apMakeChart('apUtmScatter', 'scatter', {
+        datasets: [{ label: 'Landing pages', data: scatter,
+          backgroundColor: 'rgba(123,79,191,.55)', pointRadius: 5, pointHoverRadius: 7 }],
+      }, { plugins: {
+              legend: { display: false },
+              tooltip: { callbacks: { label: (ctx) => ctx.raw.l + '  spend ₹' + (ctx.raw.x|0) + '  sales ₹' + (ctx.raw.y|0) } }
+            },
+            scales: { x: { title: { display: true, text: 'Spend (₹)', color: labelColor, font: { family: 'JetBrains Mono', size: 9 } },
+                            ticks: { color: labelColor, font: { family: 'JetBrains Mono', size: 9 } } },
+                      y: { title: { display: true, text: 'Sales (₹)', color: labelColor, font: { family: 'JetBrains Mono', size: 9 } },
+                            ticks: { color: labelColor, font: { family: 'JetBrains Mono', size: 9 } } } } });
+
+      _apMakeChart('apUtmRoas', 'bar', {
+        labels: Object.keys(roasBuckets),
+        datasets: [{ data: Object.values(roasBuckets),
+          backgroundColor: ['rgba(110,105,94,.5)','rgba(201,67,67,.7)','rgba(217,146,42,.75)','rgba(232,200,122,.85)','rgba(94,203,143,.8)','rgba(61,158,107,.85)'],
+          borderRadius: 3 }],
+      }, { plugins: { legend: { display: false } },
+            scales: { x: { ticks: { color: labelColor, font: { family: 'JetBrains Mono', size: 9 } } },
+                      y: { ticks: { color: labelColor, font: { family: 'JetBrains Mono', size: 9 } }, beginAtZero: true } } });
+    }
 
     // ── Sidebar: hover-to-expand with optional pin-open ──
     // Default state is the 76px icon column. Mouse-enter expands smoothly
@@ -3900,6 +4211,10 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
         } else {
           SHOPIFY_TOTALS = null;
         }
+
+        // Expose raw byPath + totals to the Traffic analytics renderer.
+        // (renderTrafAnalytics in app.js reads this for day-level trends.)
+        window._trafBy = { byPath: byPathRows, rows: detailRows, totals: truthTotals || {} };
 
         // ── Column name resolver (Shopify returns varying formats) ──
         function rv(r, ...names) {

@@ -1655,13 +1655,67 @@
       margin-bottom: 26px;                   /* +12 — matches .krow rhythm */
     }
 
-    /* Charts are HIDDEN by default — revealed when the user clicks the
-       "📊 Analytics" button on the tab's toolbar (toggles .analytics-open
-       on the .page wrapper). Lets data-heavy tabs (Sales / UTM / Inventory)
-       render their KPI + table view first; analytics is opt-in.
-       The higher specificity (.page .crow) wins over .crow's display:grid. */
-    .page .crow { display: none; }
+    /* Charts and analytics panels are HIDDEN by default — revealed when
+       the user clicks "✱ Show Analytics" on the tab's toolbar (toggles
+       .analytics-open on the .page wrapper). */
+    .page .crow,
+    .page .analytics-panel { display: none; }
     .page.analytics-open .crow { display: grid; }
+    .page.analytics-open .analytics-panel { display: block; }
+
+    /* Analytics panel — dedicated container populated by the per-tab
+       render functions (renderInvAnalytics, etc.) on reveal. */
+    .analytics-panel {
+      padding: 16px 20px 8px;
+      margin-bottom: 12px;
+    }
+    .analytics-panel .ap-header {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .analytics-panel .ap-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -.01em;
+    }
+    .analytics-panel .ap-sub {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .58rem;
+      color: var(--text-secondary);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .analytics-panel .ap-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 16px;
+    }
+    .analytics-panel .ap-card {
+      background: var(--bg-white);
+      border: 1px solid var(--border-soft);
+      border-radius: 10px;
+      padding: 16px 18px 14px;
+      box-shadow: 0 1px 0 rgba(44, 36, 32, .03), 0 4px 14px -8px rgba(44, 36, 32, .06);
+    }
+    .analytics-panel .ap-card-title {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .62rem;
+      color: var(--text-mid);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      font-weight: 500;
+      margin-bottom: 10px;
+    }
+    .analytics-panel .ap-canvas {
+      position: relative;
+      height: 220px;
+    }
+    /* Larger canvas variant for tall charts */
+    .analytics-panel .ap-canvas.ap-tall { height: 300px; }
 
     /* Analytics toggle button — info-blue tint, sits next to Export */
     .ibtn.analytics-btn {
