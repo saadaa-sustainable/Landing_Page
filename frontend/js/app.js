@@ -3150,7 +3150,51 @@ CREATE INDEX ON inventory_snapshots (product_title);`;
       d.style.display = 'flex';
     }
 
+    // ── Traffic filters: collapsible panel + active-count badge ──
+    // Same pattern as Inventory/Sales — 4 controls (Filter, Page,
+    // Lifecycle, Sort) hidden behind one ⛃ Filters ▾ button.
+    const _TRAF_FILTER_IDS = ['tfSelect', 'tptSelect', 'tlcSelect', 'trafSort'];
+    function toggleTrafFilters() {
+      const panel = document.getElementById('trafFiltersPanel');
+      const caret = document.getElementById('trafFiltersCaret');
+      if (!panel) return;
+      const open = panel.style.display === 'flex';
+      panel.style.display = open ? 'none' : 'flex';
+      if (caret) caret.textContent = open ? '▾' : '▴';
+    }
+    function refreshTrafFiltersBadge() {
+      const badge = document.getElementById('trafFiltersBadge');
+      if (!badge) return;
+      let active = 0;
+      // Filter / Page / Lifecycle — non-"all" counts. Sort is excluded
+      // because changing sort order doesn't filter the data.
+      ['tfSelect', 'tptSelect', 'tlcSelect'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && el.value && el.value !== 'all') active++;
+      });
+      if (active > 0) { badge.textContent = String(active); badge.style.display = 'inline-block'; }
+      else { badge.style.display = 'none'; }
+    }
+    function resetTrafFilters() {
+      const setters = {
+        tfSelect:  setTF,
+        tptSelect: setTPT,
+        tlcSelect: setTLC,
+      };
+      Object.entries(setters).forEach(([id, fn]) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.value = 'all';
+        try { fn('all'); } catch (e) {}
+      });
+      const sortEl = document.getElementById('trafSort');
+      if (sortEl) { sortEl.value = 'visitors'; }
+      try { renderTraf(); } catch (e) {}
+      refreshTrafFiltersBadge();
+    }
+
     function renderTraf() {
+      if (typeof refreshTrafFiltersBadge === 'function') refreshTrafFiltersBadge();
       const all = DATA;
       const tm = TRAFFIC_META;
       const st = SHOPIFY_TOTALS; // WITH TOTALS row from Shopify (most accurate)
