@@ -1090,6 +1090,16 @@ def fetch_orders_from_supabase(since: str, until: str) -> list:
             if v and not attrs.get(k):
                 attrs[k] = v
 
+        # Subtotal — recompute from line items rather than reading the DB
+        # column. Shopify's `subtotal` for Indian (tax-inclusive) stores is
+        # captured as the POST-discount value, so it ends up equal to
+        # `total_price` when there's no shipping. The dashboard's order
+        # modal shows Subtotal / Discounts / Total side-by-side and expects
+        # Subtotal − Discounts = Total — which means Subtotal must be the
+        # GROSS line-item sum (Σ price × qty) for the math to make visual
+        # sense to the user.
+        line_items_total = sum(li["price"] * li["quantity"] for li in items)
+
         result.append({
             "id":                o.get("id") or "",
             "name":              o.get("name") or "",
@@ -1097,7 +1107,8 @@ def fetch_orders_from_supabase(since: str, until: str) -> list:
             "financialStatus":   (o.get("financial_status") or "").upper(),
             "fulfillmentStatus": (o.get("fulfillment_status") or "").upper(),
             "total":      _f(o.get("total_price")),
-            "subtotal":   _f(o.get("subtotal")),
+            "subtotal":   line_items_total,              # was: _f(o.get("subtotal"))
+            "subtotalDb": _f(o.get("subtotal")),         # raw DB field, kept for parity checks
             "discounts":  _f(o.get("total_discounts")),
             "shipping":   _f(o.get("total_shipping")),
             "tax":        _f(o.get("total_tax")),
