@@ -713,13 +713,24 @@ def _fetch_orders_from_shopify(since: str, until: str) -> list:
                     attrs[a.get("key", "")] = a.get("value", "")
                 except Exception:
                     pass
+            # Subtotal — sum the line items (gross, pre-discount) so the
+            # dashboard's Subtotal − Discounts = Total math reads correctly.
+            # Shopify's subtotalPriceSet on Indian (tax-inclusive) stores is
+            # post-discount and ends up == totalPrice when shipping=0, which
+            # makes the discount panel look broken. Mirror of the same fix
+            # in fetch_orders_from_supabase().
+            line_items_total = sum(
+                (li.get("price", 0) or 0) * (li.get("quantity", 0) or 0)
+                for li in items
+            )
             all_orders.append({
                 "id": o.get("id", ""), "name": o.get("name", ""),
                 "createdAt": o.get("createdAt", ""),
                 "financialStatus": o.get("displayFinancialStatus", ""),
                 "fulfillmentStatus": o.get("displayFulfillmentStatus", ""),
                 "total": _money(o, "totalPriceSet"),
-                "subtotal": _money(o, "subtotalPriceSet"),
+                "subtotal": line_items_total,                     # was _money(o, "subtotalPriceSet")
+                "subtotalDb": _money(o, "subtotalPriceSet"),      # original Shopify value for parity
                 "discounts": _money(o, "totalDiscountsSet"),
                 "shipping": _money(o, "totalShippingPriceSet"),
                 "tax": _money(o, "totalTaxSet"),
